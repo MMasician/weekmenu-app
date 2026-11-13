@@ -128,6 +128,14 @@ function saveState(state) {
   } catch (e) {}
 }
 
+function loadRecipes(stored) {
+  const edits = (stored && stored.edits) || {};
+  if (stored && Array.isArray(stored.recipes) && stored.recipes.length > 0) {
+    return stored.recipes.map((r) => ({ ...r, ...(edits[r.id] || {}) }));
+  }
+  return BASE_RECIPES.map((r) => ({ ...r, ...(edits[r.id] || {}) }));
+}
+
 function shuffle(arr) {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -141,7 +149,8 @@ export default function App() {
   const stored = useMemo(loadState, []);
   const [tab, setTab] = useState("menu");
   const [menu, setMenu] = useState((stored && stored.menu) || Array(7).fill(null)); // per day: {id, locked}
-  const [edits, setEdits] = useState((stored && stored.edits) || {}); // recipeId -> {time, cook}
+  const [recipes, setRecipes] = useState(() => loadRecipes(stored)); // bewerkbare receptenpool (ADR-006)
+  const [newRecipe, setNewRecipe] = useState({ name: "", cat: "vega", ingredients: "", bereiding: "" });
   const [checked, setChecked] = useState((stored && stored.checked) || {});
   const [extraItems, setExtraItems] = useState((stored && stored.extraItems) || []);
   const [newItem, setNewItem] = useState("");
@@ -156,17 +165,13 @@ export default function App() {
   const [openRecipe, setOpenRecipe] = useState(null);
 
   useEffect(() => {
-    saveState({ menu, edits, checked, extraItems, mix, stock });
-  }, [menu, edits, checked, extraItems, mix, stock]);
+    saveState({ menu, recipes, checked, extraItems, mix, stock });
+  }, [menu, recipes, checked, extraItems, mix, stock]);
 
-  const recipes = useMemo(
-    () => BASE_RECIPES.map((r) => ({ ...r, ...(edits[r.id] || {}) })),
-    [edits]
-  );
   const byId = useMemo(() => Object.fromEntries(recipes.map((r) => [r.id, r])), [recipes]);
 
   function generateMenu() {
-    const pool = (cat) => shuffle(recipes.filter((r) => r.cat === cat && r.ingredients.length > 0).map((r) => r.id));
+    const pool = (cat) => shuffle(recipes.filter((r) => r.cat === cat && (r.ingredients || []).filter(Boolean).length > 0).map((r) => r.id));
     const next = Array(7).fill(null);
 
     // Zaterdag en woensdag: vis
@@ -190,7 +195,7 @@ export default function App() {
     }
     const rest = shuffle(
       recipes
-        .filter((r) => (r.cat === "vega" || r.cat === "vlees") && r.ingredients.length > 0)
+        .filter((r) => (r.cat === "vega" || r.cat === "vlees") && (r.ingredients || []).filter(Boolean).length > 0)
         .map((r) => r.id)
     );
     for (const id of rest) {
@@ -209,8 +214,60 @@ export default function App() {
     setMenu((m) => m.map((d, i) => (i === day ? entry : d)));
   }
 
-  function updateEdit(id, field, value) {
-    setEdits((e) => ({ ...e, [id]: { ...(e[id] || {}), [field]: value } }));
+  function updateRecipe(id, patch) {
+    setRecipes((rs) => rs.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+  }
+
+  function addRecipe() {
+    const name = newRecipe.name.trim();
+    if (!name) return;
+    const id = "r" + Date.now().toString(36) + Math.floor(Math.random() * 1e4);
+    setRecipes((rs) => [
+      ...rs,
+      {
+        id,
+        name,
+        cat: newRecipe.cat,
+        ingredients: newRecipe.ingredients.split("\n").map((s) => s.trim()).filter(Boolean),
+        bereiding: newRecipe.bereiding.trim(),
+      },
+    ]);
+    setNewRecipe({ name: "", cat: "vega", ingredients: "", bereiding: "" });
+  }
+
+  function deleteRecipe(id) {
+    setRecipes((rs) => rs.filter((r) => r.id !== id));
+    setMenu((m) => m.map((d) => (d && d.id === id ? null : d)));
+    setOpenRecipe(null);
+  }
+
+  function exportRecipes() {
+    const blob = new Blob([JSON.stringify(recipes, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "recepten.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function importRecipes(file) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const arr = JSON.parse(reader.result);
+        if (Array.isArray(arr) && arr.length > 0 && arr.every((r) => r && r.id && r.name)) {
+          setRecipes(arr.map((r) => ({ ingredients: [], bereiding: "", ...r })));
+        }
+      } catch (e) {}
+    };
+    reader.readAsText(file);
+  }
+
+  function resetRecipes() {
+    if (window.confirm("Alle receptwijzigingen terugzetten naar de oorspronkelijke lijst?")) {
+      setRecipes(BASE_RECIPES.map((r) => ({ ...r })));
+    }
   }
 
   const shoppingRows = useMemo(() => {
@@ -219,7 +276,7 @@ export default function App() {
       if (!d) return;
       const r = byId[d.id];
       if (!r) return;
-      r.ingredients.forEach((ing) => {
+      (r.ingredients || []).filter(Boolean).forEach((ing) => {
         rows.push({ key: `${day}-${r.id}-${ing}`, day, label: ing, recipe: r.name });
       });
     });
@@ -352,7 +409,57 @@ export default function App() {
         {tab === "recipes" && (
           <div>
             <div className="mb-2 text-xs text-stone-500">
-              Alle recepten uit jullie Word-lijst. Tik op een recept voor ingredienten en bereiding; bereidingstijd en kok kun je zelf invullen (wordt opgeslagen op je toestel).
+              Tik op een recept om het te bekijken en te bewerken: naam, categorie, ingredienten, bereiding, tijd en kok kun je zelf aanpassen. Alles wordt opgeslagen op je toestel; met exporteren/importeren deel je de lijst als JSON.
+            </div>
+            <div className="bg-white rounded-xl shadow-sm p-3 mb-4">
+              <div className="text-sm font-medium mb-2">Nieuw recept toevoegen</div>
+              <div className="grid grid-cols-3 gap-2 mb-2">
+                <input
+                  value={newRecipe.name}
+                  onChange={(e) => setNewRecipe({ ...newRecipe, name: e.target.value })}
+                  placeholder="Naam…"
+                  className="col-span-2 border rounded-lg px-2 py-1.5 text-sm"
+                  onKeyDown={(e) => { if (e.key === "Enter") addRecipe(); }}
+                />
+                <select
+                  value={newRecipe.cat}
+                  onChange={(e) => setNewRecipe({ ...newRecipe, cat: e.target.value })}
+                  className="border rounded-lg px-2 py-1.5 text-sm text-stone-600"
+                >
+                  {["vega", "vis", "vlees", "extra"].map((c) => (
+                    <option key={c} value={c}>{CAT_LABEL[c]}</option>
+                  ))}
+                </select>
+              </div>
+              <textarea
+                rows={2}
+                value={newRecipe.ingredients}
+                onChange={(e) => setNewRecipe({ ...newRecipe, ingredients: e.target.value })}
+                placeholder="Ingredienten, één per regel…"
+                className="w-full border rounded-lg px-2 py-1.5 text-sm mb-2"
+              />
+              <input
+                value={newRecipe.bereiding}
+                onChange={(e) => setNewRecipe({ ...newRecipe, bereiding: e.target.value })}
+                placeholder="Bereiding (optioneel)…"
+                className="w-full border rounded-lg px-2 py-1.5 text-sm mb-2"
+              />
+              <div className="flex gap-2">
+                <button onClick={addRecipe} className="flex-1 bg-stone-800 text-white rounded-lg text-sm font-medium py-2">
+                  Toevoegen
+                </button>
+                <button onClick={exportRecipes} className="px-3 border rounded-lg text-sm text-stone-500">Exporteren</button>
+                <label className="px-3 border rounded-lg text-sm text-stone-500 flex items-center cursor-pointer">
+                  Importeren
+                  <input
+                    type="file"
+                    accept="application/json,.json"
+                    className="hidden"
+                    onChange={(e) => { if (e.target.files[0]) importRecipes(e.target.files[0]); e.target.value = ""; }}
+                  />
+                </label>
+                <button onClick={resetRecipes} className="px-3 border rounded-lg text-sm text-stone-500">Standaardlijst terug</button>
+              </div>
             </div>
             {["vega", "vis", "vlees", "extra"].map((c) => (
               <div key={c} className="mb-4">
@@ -375,7 +482,7 @@ export default function App() {
                             <span className="font-medium text-sm">
                               {r.name}
                               {inMenu && <span className="ml-2 text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full">deze week</span>}
-                              {r.ingredients.length === 0 && (
+                              {(r.ingredients || []).filter(Boolean).length === 0 && (
                                 <span className="ml-1.5 text-[10px] bg-stone-100 text-stone-500 px-1.5 py-0.5 rounded-full">geen ingredienten bekend</span>
                               )}
                             </span>
@@ -385,12 +492,32 @@ export default function App() {
                             <div className="px-3 pb-3 border-t border-stone-100">
                               <div className="grid grid-cols-2 gap-2 mt-3">
                                 <label className="text-xs">
+                                  <span className="text-stone-500">Naam</span>
+                                  <input
+                                    value={r.name}
+                                    onChange={(e) => updateRecipe(r.id, { name: e.target.value })}
+                                    className="w-full border rounded-lg px-2 py-1.5 mt-0.5"
+                                  />
+                                </label>
+                                <label className="text-xs">
+                                  <span className="text-stone-500">Categorie</span>
+                                  <select
+                                    value={r.cat}
+                                    onChange={(e) => updateRecipe(r.id, { cat: e.target.value })}
+                                    className="w-full border rounded-lg px-2 py-1.5 mt-0.5"
+                                  >
+                                    {["vega", "vis", "vlees", "extra"].map((c) => (
+                                      <option key={c} value={c}>{CAT_LABEL[c]}</option>
+                                    ))}
+                                  </select>
+                                </label>
+                                <label className="text-xs">
                                   <span className="text-stone-500">Bereidingstijd (min)</span>
                                   <input
                                     type="number"
                                     min="0"
                                     value={r.time ?? ""}
-                                    onChange={(e) => updateEdit(r.id, "time", e.target.value)}
+                                    onChange={(e) => updateRecipe(r.id, { time: e.target.value })}
                                     placeholder="bijv. 30"
                                     className="w-full border rounded-lg px-2 py-1.5 mt-0.5"
                                   />
@@ -399,30 +526,36 @@ export default function App() {
                                   <span className="text-stone-500">Wie kan dit koken?</span>
                                   <input
                                     value={r.cook ?? ""}
-                                    onChange={(e) => updateEdit(r.id, "cook", e.target.value)}
+                                    onChange={(e) => updateRecipe(r.id, { cook: e.target.value })}
                                     placeholder="bijv. Marco"
                                     className="w-full border rounded-lg px-2 py-1.5 mt-0.5"
                                   />
                                 </label>
                               </div>
-                              <div className="mt-3 text-sm">
-                                <div className="font-semibold mb-1">Ingredienten</div>
-                                {r.ingredients.length ? (
-                                  <ul className="list-disc pl-5 text-stone-600 space-y-0.5">
-                                    {r.ingredients.map((ing) => (
-                                      <li key={ing}>{ing}</li>
-                                    ))}
-                                  </ul>
-                                ) : (
-                                  <div className="text-stone-400 italic">Nog niet ingevuld</div>
-                                )}
+                              <div className="mt-3 text-xs">
+                                <span className="text-stone-500">Ingredienten (één per regel)</span>
+                                <textarea
+                                  rows={Math.max((r.ingredients || []).filter(Boolean).length, 1) + 1}
+                                  value={(r.ingredients || []).join("\n")}
+                                  onChange={(e) => updateRecipe(r.id, { ingredients: e.target.value.split("\n") })}
+                                  className="w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm"
+                                />
                               </div>
-                              {r.bereiding && (
-                                <div className="mt-3 text-sm">
-                                  <div className="font-semibold mb-1">Bereiding</div>
-                                  <p className="text-stone-600 whitespace-pre-line">{r.bereiding}</p>
-                                </div>
-                              )}
+                              <div className="mt-3 text-xs">
+                                <span className="text-stone-500">Bereiding</span>
+                                <textarea
+                                  rows={4}
+                                  value={r.bereiding ?? ""}
+                                  onChange={(e) => updateRecipe(r.id, { bereiding: e.target.value })}
+                                  className="w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm"
+                                />
+                              </div>
+                              <button
+                                onClick={() => deleteRecipe(r.id)}
+                                className="mt-2 text-xs text-red-500 hover:underline"
+                              >
+                                Recept verwijderen
+                              </button>
                             </div>
                           )}
                         </div>
