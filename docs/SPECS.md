@@ -17,13 +17,24 @@
   recepten behalve categorie "extra".
 - Regeneratie respecteert vergrendelde dagen en overrides.
 - Per recept getoond: naam, categorie, bewerkbare tijd in minuten en bewerkbare
-  vrije tekst "koken". Edits worden bewaard in aparte edits-state (niet in de
-  receptenpool).
+  vrije tekst "koken". Tijd en kooktekst worden, net als alle overige
+  receptvelden, in de receptenpool zelf opgeslagen (zie ADR-006).
 
 ## Recepten
-- `BASE_RECIPES`: 52 recepten, ids `r1`-`r52`, uit "Recepten 2 per blad.docx".
-  - vega: 20, vis: 11, vlees: 20, extra: 1 (Speelklei, categorie "extra").
-- Elk recept: id, naam, categorie, tijd (min), kooktekst, ingredienten[].
+- Startpool `BASE_RECIPES` in App.jsx: 52 recepten, ids `r1`-`r52`, uit
+  "Recepten 2 per blad.docx" (vega: 20, vis: 11, vlees: 20, extra: 1).
+- De actuele receptenpool is app-state en wordt bewaard in localStorage onder
+  de bestaande sleutel `weekmenu-app-v1` (nieuw veld `recipes`);
+  `BASE_RECIPES` is alleen de seed- en reset-waarde (ADR-006).
+- Elk recept: id, naam, categorie, ingredienten[], bereiding, tijd (min),
+  kooktekst.
+- In de tab "Recepten" bewerkbaar: recept toevoegen (naam, categorie,
+  ingredienten per regel, bereiding) en per recept naam, categorie, ingredienten,
+  bereiding, tijd en kooktekst wijzigen, verwijderen, exporteren/importeren als
+  JSON en terugzetten naar de startpool.
+- Oudere opslag zonder `recipes` wordt geseed uit `BASE_RECIPES`; eerder
+  bewaarde `edits` (tijd, kooktekst) worden daarbij in de recepten gemerged.
+- Verwijderde recepten verdwijnen ook uit een lopend weekmenu (dag wordt leeg).
 
 ## Boodschappen
 - `SHOP_RUNS` splitst de week in run **"zaterdag"** (dagen 0-3) en run
