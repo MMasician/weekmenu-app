@@ -20,6 +20,11 @@ met n klik een boodschappenlijst genereren voor twee vaste boodschappenmomenten.
 7. Alles lokaal (geen account, geen server): status bewaart in localStorage.
 8. Per recept bewerkbare bereidingstijd (minuten) en vrije tekst voor het
    koken (bijv. "stomen", "oven 200C").
+9. Prijzen per artikel bijhouden voor de vaste supermarkten (Albert Heijn,
+   Jumbo, Lidl) en daarmee per boodschappenrun een richtprijs per winkel
+   tonen, plus een tip voor de goedkoopste winkel. Prijzen worden handmatig
+   ingevoerd (uit de supermarkt-apps/folders) en lokaal bewaard; er is geen
+   live koppeling met de supermarkten (zie ADR-008).
 
 ## Niet-functionele wensen
 - Klein en overzichtelijk: n React-component, geen dependencies.

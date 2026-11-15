@@ -7,6 +7,11 @@ const SHOP_RUNS = [
   { label: "Boodschappenlijst zaterdag", hint: "zaterdag t/m dinsdag", days: [0, 1, 2, 3] },
   { label: "Boodschappenlijst woensdag", hint: "woensdag t/m vrijdag", days: [4, 5, 6] },
 ];
+const MARKETS = [
+  { key: "ah", label: "Albert Heijn" },
+  { key: "jumbo", label: "Jumbo" },
+  { key: "lidl", label: "Lidl" },
+];
 const STOCK_CATS = [
   { key: "kast", label: "Voorraadkast" },
   { key: "koel", label: "Koelkast" },
@@ -114,6 +119,34 @@ const BASE_RECIPES = [
 
 const LS_KEY = "weekmenu-app-v1";
 
+const fmtEuro = (v) => "€ " + v.toFixed(2).replace(".", ",");
+const priceKey = (s) => s.trim().toLowerCase();
+const marketPrice = (item, key, prices) => {
+  const p = prices[priceKey(item)];
+  return p && p[key] != null && Number(p[key]) > 0 ? Number(p[key]) : null;
+};
+function bestPrice(item, prices) {
+  let best = null;
+  MARKETS.forEach((m) => {
+    const v = marketPrice(item, m.key, prices);
+    if (v != null && (!best || v < best.price)) best = { market: m, price: v };
+  });
+  return best;
+}
+function marketTotals(items, prices) {
+  const totals = MARKETS.map((m) => ({ market: m, total: 0, count: 0 }));
+  items.forEach((item) => {
+    MARKETS.forEach((m, i) => {
+      const v = marketPrice(item, m.key, prices);
+      if (v != null) {
+        totals[i].total += v;
+        totals[i].count += 1;
+      }
+    });
+  });
+  return totals;
+}
+
 function loadState() {
   try {
     const raw = localStorage.getItem(LS_KEY);
@@ -162,11 +195,29 @@ export default function App() {
   const [newStock, setNewStock] = useState("");
   const [newStockCat, setNewStockCat] = useState("koel");
   const [mix, setMix] = useState((stored && stored.mix) || { vega: 2, vis: 2, vlees: 3 });
+  const [prices, setPrices] = useState((stored && stored.prices) || {}); // prijzendatabase per artikel (ADR-008)
+  const [newPriceItem, setNewPriceItem] = useState("");
   const [openRecipe, setOpenRecipe] = useState(null);
 
   useEffect(() => {
-    saveState({ menu, recipes, checked, extraItems, mix, stock });
-  }, [menu, recipes, checked, extraItems, mix, stock]);
+    saveState({ menu, recipes, checked, extraItems, mix, stock, prices });
+  }, [menu, recipes, checked, extraItems, mix, stock, prices]);
+
+  function setPrice(item, marketKey, value) {
+    const key = priceKey(item);
+    const v = value === "" ? null : Math.max(0, Number(value));
+    setPrices((ps) => {
+      const cur = ps[key] || {};
+      const next = { ...cur, [marketKey]: v };
+      // hele entry weghalen als alle prijzen leeg zijn
+      if (MARKETS.every((m) => next[m.key] == null)) {
+        const copy = { ...ps };
+        delete copy[key];
+        return copy;
+      }
+      return { ...ps, [key]: next };
+    });
+  }
 
   const byId = useMemo(() => Object.fromEntries(recipes.map((r) => [r.id, r])), [recipes]);
 
@@ -291,11 +342,29 @@ export default function App() {
     extraItems.filter((i) => checked["extra-" + i]).length +
     stockShort.filter((s) => checked["stock-" + s.name]).length;
 
+  // Artikelen voor de Prijzen-tab: alles op de huidige lijst plus alle bekende prijzen
+  const priceItems = useMemo(() => {
+    const seen = new Map(); // priceKey -> originele weergavenaam
+    const onList = new Set();
+    const add = (label, isOnList) => {
+      const k = priceKey(label);
+      if (!k) return;
+      if (!seen.has(k)) seen.set(k, label);
+      if (isOnList) onList.add(k);
+    };
+    shoppingRows.forEach((r) => add(r.label, true));
+    stockShort.forEach((s) => add(s.name, true));
+    extraItems.forEach((i) => add(i, true));
+    Object.keys(prices).forEach((k) => add(k, false));
+    return [...seen.entries()].map(([k, label]) => ({ key: k, label, onList: onList.has(k) }));
+  }, [shoppingRows, stockShort, extraItems, prices]);
+
   const tabs = [
     { key: "menu", label: "Weekmenu" },
     { key: "recipes", label: "Recepten" },
     { key: "stock", label: "Voorraad" },
     { key: "shopping", label: `Boodschappen${totalItems ? ` (${doneItems}/${totalItems})` : ""}` },
+    { key: "prices", label: "Prijzen" },
   ];
 
   return (
@@ -734,11 +803,28 @@ export default function App() {
             {SHOP_RUNS.map((run) => {
               const runRows = shoppingRows.filter((r) => run.days.includes(r.day));
               if (!runRows.length) return null;
+              const totals = marketTotals(runRows.map((r) => r.label), prices);
+              const full = totals.filter((t) => t.count === runRows.length && runRows.length > 0);
+              const cheapest = full.length ? full.reduce((a, b) => (a.total <= b.total ? a : b)) : null;
+              const anyPrice = totals.some((t) => t.count > 0);
               return (
                 <div key={run.label} className="mb-6">
                   <div className="bg-stone-800 text-white rounded-xl px-3 py-2.5 mb-2">
                     <div className="font-semibold text-sm">{run.label}</div>
                     <div className="text-xs text-stone-300">{run.hint}</div>
+                    {anyPrice && (
+                      <div className="text-xs mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5">
+                        {totals.map((t) => (
+                          <span key={t.market.key} className="bg-white/10 rounded px-1.5 py-0.5">
+                            {t.market.label.split(" ")[0]} {t.count > 0 ? fmtEuro(t.total) : "—"}
+                            <span className="opacity-60"> ({t.count}/{runRows.length})</span>
+                          </span>
+                        ))}
+                        {cheapest && (
+                          <span className="bg-emerald-400/90 text-stone-900 font-semibold rounded px-1.5 py-0.5">goedkoopste: {cheapest.market.label.split(" ")[0]}</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                   {run.days.map((i) => {
                     const rows = shoppingRows.filter((r) => r.day === i);
@@ -759,6 +845,14 @@ export default function App() {
                                 className="w-4 h-4 accent-emerald-600"
                               />
                               <span className={`text-sm ${checked[r.key] ? "line-through text-stone-300" : ""}`}>{r.label}</span>
+                              {(() => {
+                                const best = bestPrice(r.label, prices);
+                                return best ? (
+                                  <span className="ml-auto text-xs text-stone-400 whitespace-nowrap">
+                                    {best.market.label.split(" ")[0]} {fmtEuro(best.price)}
+                                  </span>
+                                ) : null;
+                              })()}
                             </label>
                           ))}
                         </div>
@@ -826,7 +920,91 @@ export default function App() {
             )}
           </div>
         )}
+
+        {tab === "prices" && (
+          <div>
+            <div className="mb-2 text-xs text-stone-500">
+              Vul per artikel de prijs in zoals je die in de winkel (app/folders) ziet. De app rekent daarmee zelf de richtprijs van elke boodschappenlijst uit en tipt de goedkoopste winkel. Prijzen worden op je eigen toestel bewaard; vergelijken is niet hoofdlettergevoelig ("Melk" = "melk").
+            </div>
+            <div className="bg-white rounded-xl shadow-sm p-3 mb-4 flex gap-2">
+              <input
+                value={newPriceItem}
+                onChange={(e) => setNewPriceItem(e.target.value)}
+                placeholder="Artikel toevoegen (bijv. Melk)…"
+                className="flex-1 border rounded-lg px-3 py-2 text-sm"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && newPriceItem.trim()) {
+                    setPrice(newPriceItem, "ah", "");
+                    setNewPriceItem("");
+                  }
+                }}
+              />
+              <button
+                onClick={() => {
+                  if (newPriceItem.trim()) {
+                    setPrice(newPriceItem, "ah", "");
+                    setNewPriceItem("");
+                  }
+                }}
+                className="bg-stone-800 text-white px-4 rounded-lg text-sm font-medium"
+              >
+                Toevoegen
+              </button>
+            </div>
+
+            {[
+              { title: "Op de lijst deze week", items: priceItems.filter((i) => i.onList) },
+              { title: "Overige artikelen", items: priceItems.filter((i) => !i.onList).sort((a, b) => a.label.localeCompare(b.label, "nl")) },
+            ].map((sec) => (
+              <div key={sec.title} className="mb-4">
+                {sec.items.length > 0 && <div className="text-xs font-semibold text-stone-500 mb-1">{sec.title}</div>}
+                <div className="bg-white rounded-xl shadow-sm divide-y divide-stone-100">
+                  {sec.items.map((it) => {
+                    const p = prices[it.key] || {};
+                    return (
+                      <div key={it.key} className="flex items-center gap-2 px-3 py-2">
+                        <span className="flex-1 text-sm truncate">{it.label}</span>
+                        {MARKETS.map((m) => (
+                          <label key={m.key} className="text-[10px] text-stone-400 shrink-0">
+                            {m.label.split(" ")[0]}
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              inputMode="decimal"
+                              value={p[m.key] ?? ""}
+                              placeholder="—"
+                              onChange={(e) => setPrice(it.label, m.key, e.target.value)}
+                              className="w-16 border rounded-lg px-1 py-1 text-sm text-center text-stone-800"
+                            />
+                          </label>
+                        ))}
+                        <button
+                          onClick={() => {
+                            const copy = { ...prices };
+                            delete copy[it.key];
+                            setPrices(copy);
+                          }}
+                          className="text-stone-300 hover:text-red-500 text-sm"
+                          title="Prijzen verwijderen"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    );
+                  })}
+                  {sec.items.length === 0 && sec.title === "Op de lijst deze week" && (
+                    <div className="px-3 py-3 text-sm text-stone-400 text-center">
+                      Nog geen prijzen bekend. Voeg hierboven artikelen toe of vul prijzen in.
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
 }
+

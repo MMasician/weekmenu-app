@@ -48,3 +48,24 @@
     geseed uit BASE_RECIPES en oude tijd/kooktekst-edits blijven behouden.
 22. "Standaardlijst terug" in Recepten (na bevestigen): pool terug op de 52
     basisrecepten; menu- en voorraad-state blijven onaangetast.
+
+## Prijzen (ADR-008)
+23. Prijzentab toont ingredienten van het huidige weekmenu, voorraadtekorten
+    en extra-artikelen onder "Op de lijst deze week"; eerder geprijsde
+    artikelen die niet op de lijst staan onder "Overige artikelen".
+24. Prijs invullen per winkel (bijv. zalm ah 8,50): artikelregel in de tab
+    Boodschappen toont rechts "Albert € 8,50" zodra het artikel op de lijst
+    staat; de run-kop toont totalen per winkel met dekking "(x/n)".
+25. Alle artikelen van een run bij alle drie de winkels prijzen: kop toont
+    badge "goedkoopste: <winkel>" met de laagste run-totaal.
+26. Deels gevulde run (niet elk artikel geprijsd): totalen blijven zichtbaar,
+    maar de "goedkoopste"-badge verschijnt niet.
+27. Hoofdletterongevoelig matchen: prijs voor "melk" (ingetypt) geldt ook
+    voor ingredient "Melk" en vice versa; spaties rondom worden genegeerd.
+28. Alle drie de prijsvelden leegmaken of artikel verwijderen (✕): rij en
+    prijzen verdwijnen (ook na herladen).
+29. Prijzen bewaard na herladen: localStorage-veld "prices" onder de bestaande
+    sleutel "weekmenu-app-v1"; oude opslag zonder "prices" werkt gewoon door.
+30. Automatische regressietest: `node tools/test-prijzen.cjs` (alle 12 checks)
+    en `node tools/jsx-transform.cjs src/App.jsx src/app.js` gevolgd door een
+    rendervergelijking tegen de vorige app.js (tools/render-harness.cjs).

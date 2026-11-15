@@ -2,8 +2,10 @@
 
 ## Tabs
 1. Weekmenu
-2. Boodschappen
+2. Recepten
 3. Voorraad
+4. Boodschappen
+5. Prijzen
 
 ## Weekmenu
 - Week start **zaterdag**. `DAYS` index 0-6 = za, zo, ma, di, wo, do, vr.
@@ -43,6 +45,32 @@
 - Extra vrije artikelen toevoegbaar per run.
 - Sectie "Standaardvoorraad aanvullen": automatisch gegenereerd uit voorraadtekorten.
 - Knop om alle vinkjes te wissen; teller van openstaande artikelen in de tab.
+- **Prijsinformatie (ADR-008)**: per artikelregel staat rechts de beste bekende
+  prijs (winkel + bedrag) indien het artikel prijzen heeft.
+- Per run toont de kop een rijtje met per winkel het totaal en dekking
+  "(x/n met prijs)", en, als alle artikelen van de run een prijs hebben bij
+  minstens n winkel, een badge "goedkoopste: <winkel>".
+
+## Prijzen (ADR-008)
+- `MARKETS = [ah (Albert Heijn), jumbo, lidl]`; prijzen per artikel, handmatig
+  ingevoerd (supermarkt-apps/folders), bedrag in euro's (decimaal punt of komma,
+  `type=number step=0.01`).
+- Opslag: localStorage-sleutel `weekmenu-app-v1`, veld `prices`:
+  `{ "<sleutel>": { ah: 2.5, jumbo: 2.2, lidl: null } }`.
+- Sleutel: `priceKey(label)` = getrimd en lowercase ("Melk" = "melk"), zodat
+  ingredienten uit recepten automatisch matchen, ongeaccentueerde invoer
+  daarentegen niet (exacte match na normalisatie).
+- Prijstab toont twee secties: "Op de lijst deze week" (ingredienten van het
+  huidige menu + voorraadtekorten + extra-artikelen) en "Overige artikelen"
+  (alles waar ooit prijzen voor zijn ingevuld, alfabetisch).
+- Artikel toevoegen (vrij veld) levert direct een rij met drie prijsvelden;
+  zijn alle drie prijzen leeg, dan vervalt de hele rij weer.
+- Verwijderen (✕) haalt alle prijzen van dat artikel weg.
+- `marketTotals(items)` somt per winkel de bekende prijzen (onbekende prijzen
+  worden overgeslagen, dekking wordt apart bijgehouden);
+  `bestPrice(item)` geeft de laagste bekende prijs + bijbehorende winkel.
+- Bedragen worden genoteerd-geformatteerd met Nederlandse notatie:
+  `€ 12,30` (`fmtEuro`).
 
 ## Voorraad
 - `STOCK_CATS = [kast, koel, fruit, kruiden]`.
@@ -57,3 +85,5 @@
 ## Bekende beperking
 - Foto-herkenning van voorraad is in de app niet mogelijk. Workaround: foto in
   de chat sturen; Vibe leest de foto en zet voorraadstatussen in de app-code.
+- Prijzen worden niet automatisch uit de supermarkten opgehaald (geen officiële
+  API's, offline PWA); het is een handmatige prijzendatabase (ADR-008).
