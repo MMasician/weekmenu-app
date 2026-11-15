@@ -1,6 +1,6 @@
 /* Service worker: cache-first app shell zodat de geinstalleerde app volledig offline werkt.
    Bij een nieuwe release CACHE_VERSION ophogen. */
-const CACHE_VERSION = "weekmenu-app-v2";
+const CACHE_VERSION = "weekmenu-app-v3";
 const APP_SHELL = [
   "./",
   "index.html",
