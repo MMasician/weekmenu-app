@@ -1,4 +1,4 @@
-// React wordt geladen als globale (vendor/react.min.js)
+const { useState, useMemo, useEffect } = React; // React global (vendor/react.min.js)
 const DAYS = ["Zaterdag", "Zondag", "Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag"];
 const FISH_DAYS = [0, 4]; // zaterdag en woensdag = vis
 const OTHER_DAYS = [1, 2, 3, 5, 6]; // de overige dagen: vega of vlees
