@@ -1,71 +1,35 @@
-# Handmatige testscenario's
+# Tests
 
-## Weekmenu
-1. Week regenereren: zaterdag en woensdag tonen visgerechten; overige dagen
-   alleen vega/vlees volgens de ingestelde mix (som <= 5).
-2. Mix aanpassen naar bijv. 4 vega / 1 vlees: na regeneren 4 vega-dagen.
-3. Dag vergrendelen en regenereren: gerecht blijft ongewijzigd.
-4. Override via dropdown: kiest een specifiek gerecht (Speelklei/"extra"
-   komt niet in de lijst voor); blijft na regenereren staan.
-5. Tijd (min) en kooktekst van een recept bewerken: waarde blijft bewaard na
-   regenereren en na herladen.
+## Werkwijze (ADR-011)
+- Elke in SPECS.md beschreven functionaliteit moet een automatische test hebben in een bestand `tools/test-*.cjs`.
+- Draai alles met `npm test` (runner `tools/run-tests.cjs`); elke test draait in een eigen proces tegen de gecompileerde `src/app.js` via `tools/render-harness.cjs`.
+- Build van bron naar app: `npm run build`. Alles in één keer: `npm run verify`.
+- CI: zie de workflow in ADR-011 (te plaatsen als `.github/workflows/test.yml`; vereist een token met `workflow`-scope). De CI draait: build + controle dat `src/app.js` synchroon is met `src/App.jsx` + `npm test`.
+- Agents mogen NOOIT ad-hoc scripts aanmaken om te builden of te testen. Breid een bestaand `tools/test-*.cjs` uit of voeg een bestand toe, met relatieve paden (`path.join(__dirname, "..")`). Legacy absolute paden (`/home/user/weekmenu-app/...`) worden door `tools/legacy-path-shim.cjs` automatisch naar de repo-root gemapt.
 
-## Boodschappen
-6. Ingredienten verschijnen onder de juiste run: dagen 0-3 bij "zaterdag",
-   dagen 4-6 bij "woensdag".
-7. Extra artikel toevoegen en afvinken: teller in de tab daalt met 1.
-8. "Vinkjes wissen": alle checkboxen worden gereset, artikelen blijven.
+## Te testen functionaliteit (per SPECS-sectie)
 
-## Voorraad
-9. Item have < want zetten: verschijnt onder "Standaardvoorraad aanvullen"
-   met "(n van want)".
-10. Kruidenla toggle: tekort(true) verschijnt als binair item.
-11. "Alles aangevuld": alle tekorten verdwijnen (have = want).
-12. "Standaardlijst terug": voorraad = STOCK_DEFAULT.
-13. Herladen pagina: alle state (menu, vinkjes, voorraad) bewaard via
-    localStorage-sleutel "weekmenu-app-v1".
+### Weekmenu
+- Week regenereren: vis-dagen tonen visgerechten; overige dagen alleen vega/vlees volgens de ingestelde mix (som = aantal overige dagen).
+- Instellingen wijzigen (weekstart, vis-dagen, vega-aantal, shop-runs, aantal eters) → weekmenu en boodschappenlijst volgen de nieuwe instellingen (ADR-009).
+- Vergrendelde dag blijft staan bij regenereren; override per dag kiesbaar uit alle recepten behalve "extra"; een recept komt niet dubbel in één week waar mogelijk.
 
-## Data
-14. Receptenpool telt 52 recepten: 20 vega, 11 vis, 20 vlees, 1 extra
-    (na eerste start / na "Standaardlijst terug").
+### Boodschappen
+- Ingrediënten vallen onder de juiste run (volgens `shopRuns`), gegroepeerd per dag en per gerecht.
+- Extra artikel toevoegen/afvinken → teller in de tab daalt; "Vinkjes wissen" reset alle checkboxen, artikelen blijven.
+- Voorraadtekorten verschijnen onder "Standaardvoorraad aanvullen" met "(n van want)".
 
-## Recepten bewerken (ADR-006)
-15. Nieuw recept toevoegen (naam, categorie, ingredienten per regel,
-    bereiding): verschijnt direct in de juiste categorie in de tab Recepten en
-    is kiesbaar in het weekmenu-dropdown; na herladen nog aanwezig (localStorage
-    veld "recipes").
-16. Bestaand recept bewerken (naam, categorie, tijd, kok, ingredienten,
-    bereiding): wijzigingen direct zichtbaar in weekmenu en op de
-    boodschappenlijst, en bewaard na herladen.
-17. Recept verwijderen dat in het weekmenu staat: die dag wordt leeg
-    ("Nog niets gekozen"), het recept is weg uit dropdown en tab Recepten.
-18. Recept met alleen lege ingredientregels: wordt niet automatisch ingepland
-    en telt als "geen ingredienten bekend".
-19. Exporteren: downloadt recepten.json met de volledige (bewerkte) pool.
-20. Importeren van een eerder geëxporteerde recepten.json: pool wordt
-    vervangen; weekmenu-verwijzingen naar bestaande ids blijven werken.
-21. Oude opslag (zonder "recipes", met "edits" voor tijd/kooktekst): pool wordt
-    geseed uit BASE_RECIPES en oude tijd/kooktekst-edits blijven behouden.
-22. "Standaardlijst terug" in Recepten (na bevestigen): pool terug op de 52
-    basisrecepten; menu- en voorraad-state blijven onaangetast.
+### Voorraad
+- have < want → tekort; kruidenla-toggle → binair item; "Alles aangevuld" zet have = want; "Standaardlijst terug" = STOCK_DEFAULT.
+- Herladen: alle state (menu, vinkjes, voorraad, settings) bewaard via localStorage-sleutel `weekmenu-app-v1`.
 
-## Prijzen (ADR-008)
-23. Prijzentab toont ingredienten van het huidige weekmenu, voorraadtekorten
-    en extra-artikelen onder "Op de lijst deze week"; eerder geprijsde
-    artikelen die niet op de lijst staan onder "Overige artikelen".
-24. Prijs invullen per winkel (bijv. zalm ah 8,50): artikelregel in de tab
-    Boodschappen toont rechts "Albert € 8,50" zodra het artikel op de lijst
-    staat; de run-kop toont totalen per winkel met dekking "(x/n)".
-25. Alle artikelen van een run bij alle drie de winkels prijzen: kop toont
-    badge "goedkoopste: <winkel>" met de laagste run-totaal.
-26. Deels gevulde run (niet elk artikel geprijsd): totalen blijven zichtbaar,
-    maar de "goedkoopste"-badge verschijnt niet.
-27. Hoofdletterongevoelig matchen: prijs voor "melk" (ingetypt) geldt ook
-    voor ingredient "Melk" en vice versa; spaties rondom worden genegeerd.
-28. Alle drie de prijsvelden leegmaken of artikel verwijderen (✕): rij en
-    prijzen verdwijnen (ook na herladen).
-29. Prijzen bewaard na herladen: localStorage-veld "prices" onder de bestaande
-    sleutel "weekmenu-app-v1"; oude opslag zonder "prices" werkt gewoon door.
-30. Automatische regressietest: `node tools/test-prijzen.cjs` (alle 12 checks)
-    en `node tools/jsx-transform.cjs src/App.jsx src/app.js` gevolgd door een
-    rendervergelijking tegen de vorige app.js (tools/render-harness.cjs).
+### Recepten / data
+- Pool start met `BASE_RECIPES`; recept bewerken en verwijderen (verdwijnt ook uit een lopend menu); import/export als JSON; reset naar startpool.
+- Oudere state zonder `recipes` / `settings` / `prices` wordt genormaliseerd/geseed bij laden.
+
+### Prijzen
+- Zonder prijzen: geen totalen en geen "goedkoopste"-badge, wel de lijst.
+- Prijs invullen per winkel → artikelregel toont de beste prijs; run-kop toont per winkel totaal + dekking "(x/n)".
+- Volledige dekking van een run → badge "goedkoopste: <winkel>"; deels gevuld → geen badge.
+- Hoofdletterongevoelig matchen ("melk" = "Melk"); spaties rond een label worden genegeerd.
+- Prijs verwijderen (✕) → rij en totalen verdwijnen.
