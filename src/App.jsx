@@ -112,3 +112,345 @@ const BASE_RECIPES = [
   { id: "r48", name: "Spaghetti à la Yara", cat: "vlees", ingredients: ["Volkoren spaghetti", "Spinazie à la crème", "Kip", "Champignonschijfjes", "Rivolitomaatjes", "Boursin", "Pecannoten"], bereiding: "" },
   { id: "r49", name: "Spinazietaart", cat: "vlees", ingredients: ["1 pak pizzadeeg", "200 g volkoren meel", "Spinazie à la crème", "5 tomaten", "Zonnebloempitten", "Gewone rozijnen", "Gehakt", "Boursin"], bereiding: "" },
   { id: "r50", name: "Witlofschotel (Honig recept)", cat: "vlees", ingredients: [], bereiding: "" },
+  { id: "r51", name: "Zuurkool met stoofpeertjes", cat: "vlees", ingredients: ["800 g aardappelen", "2 uien", "200 g kipfilet", "1 el kerriepoeder", "500 g zuurkool", "350 g halve stoofpeertjes", "150 g geraspte kaas"], bereiding: "Oven voor op 190°C. Aardappelen in plakken 10 min. koken. Ui bakken, kip met kerriepoeder 4 min. meebakken. Kip en ui in ovenschaal, zuurkool erover, peer in plakjes erover, aardappelen dakpansgewijs erop, kaas erover. 30 min. in de oven." },
+  // ---------- EXTRA ----------
+  { id: "r52", name: "Speelklei", cat: "extra", ingredients: ["5 dl bloem", "2 dl zout", "2 el aluin in poedervorm", "5 dl water", "2 el olie", "1-2 tabletten eierverf"], bereiding: "Meng bloem, zout en aluin. Water, olie en eierverf aan de kook brengen en bij het bloemmengsel gieten. Roeren, af laten koelen en goed kneden. Bewaren in een goed afgesloten bak." },
+];
+
+const LS_KEY = "weekmenu-app-v1";
+
+const fmtEuro = (v) => "€ " + v.toFixed(2).replace(".", ",");
+const priceKey = (s) => s.trim().toLowerCase();
+const marketPrice = (item, key, prices) => {
+  const p = prices[priceKey(item)];
+  return p && p[key] != null && Number(p[key]) > 0 ? Number(p[key]) : null;
+};
+function bestPrice(item, prices) {
+  let best = null;
+  MARKETS.forEach((m) => {
+    const v = marketPrice(item, m.key, prices);
+    if (v != null && (!best || v < best.price)) best = { market: m, price: v };
+  });
+  return best;
+}
+function marketTotals(items, prices) {
+  const totals = MARKETS.map((m) => ({ market: m, total: 0, count: 0 }));
+  items.forEach((item) => {
+    MARKETS.forEach((m, i) => {
+      const v = marketPrice(item, m.key, prices);
+      if (v != null) {
+        totals[i].total += v;
+        totals[i].count += 1;
+      }
+    });
+  });
+  return totals;
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return null;
+}
+
+function saveState(state) {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(state));
+  } catch (e) {}
+}
+
+function loadRecipes(stored) {
+  const edits = (stored && stored.edits) || {};
+  if (stored && Array.isArray(stored.recipes) && stored.recipes.length > 0) {
+    return stored.recipes.map((r) => ({ ...r, ...(edits[r.id] || {}) }));
+  }
+  return BASE_RECIPES.map((r) => ({ ...r, ...(edits[r.id] || {}) }));
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+export default function App() {
+  const stored = useMemo(loadState, []);
+  const [tab, setTab] = useState("menu");
+  const [menu, setMenu] = useState((stored && stored.menu) || Array(7).fill(null)); // per day: {id, locked}
+  const [recipes, setRecipes] = useState(() => loadRecipes(stored)); // bewerkbare receptenpool (ADR-006)
+  const [newRecipe, setNewRecipe] = useState({ name: "", cat: "vega", ingredients: "", bereiding: "" });
+  const [checked, setChecked] = useState((stored && stored.checked) || {});
+  const [extraItems, setExtraItems] = useState((stored && stored.extraItems) || []);
+  const [newItem, setNewItem] = useState("");
+  const [stock, setStock] = useState(
+    stored && Array.isArray(stored.stock) && stored.stock.length > 0 && stored.stock[0].cat
+      ? normalizeStock(stored.stock)
+      : defaultStock()
+  );
+  const [newStock, setNewStock] = useState("");
+  const [newStockCat, setNewStockCat] = useState("koel");
+  const [mix, setMix] = useState((stored && stored.mix) || { vega: 2, vis: 2, vlees: 3 });
+  const [prices, setPrices] = useState((stored && stored.prices) || {}); // prijzendatabase per artikel (ADR-008)
+  const [newPriceItem, setNewPriceItem] = useState("");
+  const [openRecipe, setOpenRecipe] = useState(null);
+
+  useEffect(() => {
+    saveState({ menu, recipes, checked, extraItems, mix, stock, prices });
+  }, [menu, recipes, checked, extraItems, mix, stock, prices]);
+
+  function setPrice(item, marketKey, value) {
+    const key = priceKey(item);
+    const v = value === "" ? null : Math.max(0, Number(value));
+    setPrices((ps) => {
+      const cur = ps[key] || {};
+      const next = { ...cur, [marketKey]: v };
+      // hele entry weghalen als alle prijzen leeg zijn
+      if (MARKETS.every((m) => next[m.key] == null)) {
+        const copy = { ...ps };
+        delete copy[key];
+        return copy;
+      }
+      return { ...ps, [key]: next };
+    });
+  }
+
+  const byId = useMemo(() => Object.fromEntries(recipes.map((r) => [r.id, r])), [recipes]);
+
+  function generateMenu() {
+    const pool = (cat) => shuffle(recipes.filter((r) => r.cat === cat && (r.ingredients || []).filter(Boolean).length > 0).map((r) => r.id));
+    const next = Array(7).fill(null);
+
+    // Zaterdag en woensdag: vis
+    const fish = pool("vis");
+    FISH_DAYS.forEach((d, i) => {
+      if (fish[i]) next[d] = { id: fish[i], locked: false };
+    });
+
+    // Overige dagen: vega/vlees volgens de gekozen verdeling
+    const want = { ...mix };
+    const over = want.vega + want.vlees - OTHER_DAYS.length;
+    if (over > 0) {
+      for (const c of ["vlees", "vega"]) {
+        const t = Math.min(over, want[c]);
+        want[c] -= t;
+      }
+    }
+    const chosen = [];
+    for (const c of ["vega", "vlees"]) {
+      chosen.push(...pool(c).slice(0, want[c]).map((id) => ({ id, cat: c })));
+    }
+    const rest = shuffle(
+      recipes
+        .filter((r) => (r.cat === "vega" || r.cat === "vlees") && (r.ingredients || []).filter(Boolean).length > 0)
+        .map((r) => r.id)
+    );
+    for (const id of rest) {
+      if (chosen.length >= OTHER_DAYS.length) break;
+      if (!chosen.some((c) => c.id === id)) chosen.push({ id });
+    }
+    OTHER_DAYS.forEach((d, i) => {
+      if (chosen[i]) next[d] = { id: chosen[i].id, locked: false };
+    });
+
+    setMenu(next.map((d, i) => (menu[i] && menu[i].locked ? menu[i] : d)));
+    setChecked({});
+  }
+
+  function setDay(day, entry) {
+    setMenu((m) => m.map((d, i) => (i === day ? entry : d)));
+  }
+
+  function updateRecipe(id, patch) {
+    setRecipes((rs) => rs.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+  }
+
+  function addRecipe() {
+    const name = newRecipe.name.trim();
+    if (!name) return;
+    const id = "r" + Date.now().toString(36) + Math.floor(Math.random() * 1e4);
+    setRecipes((rs) => [
+      ...rs,
+      {
+        id,
+        name,
+        cat: newRecipe.cat,
+        ingredients: newRecipe.ingredients.split("\n").map((s) => s.trim()).filter(Boolean),
+        bereiding: newRecipe.bereiding.trim(),
+      },
+    ]);
+    setNewRecipe({ name: "", cat: "vega", ingredients: "", bereiding: "" });
+  }
+
+  function deleteRecipe(id) {
+    setRecipes((rs) => rs.filter((r) => r.id !== id));
+    setMenu((m) => m.map((d) => (d && d.id === id ? null : d)));
+    setOpenRecipe(null);
+  }
+
+  function exportRecipes() {
+    const blob = new Blob([JSON.stringify(recipes, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "recepten.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function importRecipes(file) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const arr = JSON.parse(reader.result);
+        if (Array.isArray(arr) && arr.length > 0 && arr.every((r) => r && r.id && r.name)) {
+          setRecipes(arr.map((r) => ({ ingredients: [], bereiding: "", ...r })));
+        }
+      } catch (e) {}
+    };
+    reader.readAsText(file);
+  }
+
+  function resetRecipes() {
+    if (window.confirm("Alle receptwijzigingen terugzetten naar de oorspronkelijke lijst?")) {
+      setRecipes(BASE_RECIPES.map((r) => ({ ...r })));
+    }
+  }
+
+  const shoppingRows = useMemo(() => {
+    const rows = [];
+    menu.forEach((d, day) => {
+      if (!d) return;
+      const r = byId[d.id];
+      if (!r) return;
+      (r.ingredients || []).filter(Boolean).forEach((ing) => {
+        rows.push({ key: `${day}-${r.id}-${ing}`, day, label: ing, recipe: r.name });
+      });
+    });
+    return rows;
+  }, [menu, byId]);
+
+  const activeMenuIds = menu.filter(Boolean).map((d) => d.id);
+  const stockShort = stock.filter((s) => s.have < s.want);
+  const totalItems = shoppingRows.length + extraItems.length + stockShort.length;
+  const doneItems =
+    shoppingRows.filter((r) => checked[r.key]).length +
+    extraItems.filter((i) => checked["extra-" + i]).length +
+    stockShort.filter((s) => checked["stock-" + s.name]).length;
+
+  // Artikelen voor de Prijzen-tab: alles op de huidige lijst plus alle bekende prijzen
+  const priceItems = useMemo(() => {
+    const seen = new Map(); // priceKey -> originele weergavenaam
+    const onList = new Set();
+    const add = (label, isOnList) => {
+      const k = priceKey(label);
+      if (!k) return;
+      if (!seen.has(k)) seen.set(k, label);
+      if (isOnList) onList.add(k);
+    };
+    shoppingRows.forEach((r) => add(r.label, true));
+    stockShort.forEach((s) => add(s.name, true));
+    extraItems.forEach((i) => add(i, true));
+    Object.keys(prices).forEach((k) => add(k, false));
+    return [...seen.entries()].map(([k, label]) => ({ key: k, label, onList: onList.has(k) }));
+  }, [shoppingRows, stockShort, extraItems, prices]);
+
+  const tabs = [
+    { key: "menu", label: "Weekmenu" },
+    { key: "recipes", label: "Recepten" },
+    { key: "stock", label: "Voorraad" },
+    { key: "shopping", label: `Boodschappen${totalItems ? ` (${doneItems}/${totalItems})` : ""}` },
+    { key: "prices", label: "Prijzen" },
+  ];
+
+  return (
+    <div className="min-h-screen bg-stone-50 text-stone-800">
+      <div className="mx-auto max-w-2xl px-4 pb-16">
+        <header className="pt-6 pb-3 flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Weekmenu &amp; Boodschappen</h1>
+          <span className="text-xs text-stone-400">gezinsrecepten</span>
+        </header>
+
+        <nav className="flex gap-1 bg-white rounded-xl p-1 shadow-sm mb-4 sticky top-2 z-10">
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition ${
+                tab === t.key ? "bg-stone-800 text-white" : "text-stone-500 hover:bg-stone-100"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </nav>
+
+        {tab === "menu" && (
+          <div>
+            <div className="bg-white rounded-xl shadow-sm p-4 mb-4">
+              <div className="text-sm font-medium mb-2">Verdeling voor de week</div>
+              <div className="text-xs text-stone-500 mb-2">
+                Zaterdag en woensdag eten jullie vis (automatisch). De overige 5 dagen zijn vega of vlees:
+              </div>
+              <div className="flex gap-2 mb-3">
+                {["vega", "vlees"].map((c) => (
+                  <label key={c} className="flex-1 text-xs">
+                    <span className={`inline-block px-2 py-0.5 rounded-full mb-1 ${CAT_STYLE[c]}`}>{CAT_LABEL[c]}</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="5"
+                      value={mix[c]}
+                      onChange={(e) =>
+                        setMix({ ...mix, [c]: Math.max(0, Math.min(5, Number(e.target.value) || 0)) })
+                      }
+                      className="w-full border rounded-lg px-2 py-1.5"
+                    />
+                  </label>
+                ))}
+                <div className="flex-1 text-xs">
+                  <span className={`inline-block px-2 py-0.5 rounded-full mb-1 ${CAT_STYLE.vis}`}>Vis</span>
+                  <div className="border rounded-lg px-2 py-1.5 text-stone-400 text-center">2 (zat. + wo.)</div>
+                </div>
+              </div>
+              <button
+                onClick={generateMenu}
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl"
+              >
+                Genereer weekmenu
+              </button>
+              <p className="text-xs text-stone-400 mt-2">
+                Vergrendelde dagen blijven staan. Zaterdag en woensdag krijgen automatisch een visgerecht, de andere dagen vega of vlees. Recepten zonder ingredientenlijst worden nog niet automatisch ingepland, maar kun je wel handmatig kiezen.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              {DAYS.map((day, i) => {
+                const entry = menu[i];
+                const r = entry ? byId[entry.id] : null;
+                return (
+                  <div key={day} className="bg-white rounded-xl shadow-sm p-3 flex items-center gap-3">
+                    <div className="w-20 shrink-0 text-sm font-semibold">{day}</div>
+                    {r ? (
+                      <div className="flex-1 min-w-0">
+                        <button className="font-medium text-left truncate hover:underline" onClick={() => { setOpenRecipe(r.id); setTab("recipes"); }}>
+                          {r.name}
+                        </button>
+                        <div className="text-xs text-stone-400">
+                          <span className={`inline-block px-1.5 rounded ${CAT_STYLE[r.cat]}`}>{CAT_LABEL[r.cat]}</span>
+                          {r.time ? ` · ${r.time} min` : " · tijd onbekend"}
+                          {r.cook ? ` · ${r.cook}` : ""}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex-1 text-sm text-stone-400">Nog niets gekozen</div>
+                    )}
+                    <select
+                      value={entry ? entry.id : ""}
+                      onChange={(e) => setDay(i, e.target.value ? { id: e.target.value, locked: false } : null)}
+                      className="shrink-0 border rounded-lg text-xs px-1 py-1 max-w-[90px]"
+                    >
