@@ -1,4 +1,6 @@
-# Functionele specificatie
+# Specificaties
+
+Zie INTENT.md voor doel en principes; ADR-009 t/m ADR-011 voor configuratie, privacy en build/test.
 
 ## Tabs
 1. Weekmenu
@@ -6,84 +8,56 @@
 3. Voorraad
 4. Boodschappen
 5. Prijzen
+6. Instellingen (per huishouden, ADR-009)
+
+## Instellingen per huishouden (ADR-009)
+- Opgeslagen in localStorage-sleutel `weekmenu-app-v1`, veld `settings`. Bij ontbreken of onvolledigheid worden `DEFAULT_SETTINGS` aangevuld bij het laden (normaliseren, zoals `normalizeStock`).
+- Schema:
+  - `householdSize`: getal > 0 — aantal eters waarop recepten/hoeveelheden zijn afgestemd (standaard 4)
+  - `weekStartDay`: 0-6, index in `DAYS` (standaard 0 = zaterdag)
+  - `shopRuns`: [{ label, days: [0-6] }] (standaard: twee runs die de week in tweeën delen)
+  - `fishDays`: array van dag-indices (standaard [0, 4])
+  - `vegaTarget`: getal >= 0 — aantal vegetarische dagen op de niet-vis-dagen (standaard 2); vlees = overige niet-vis-dagen minus vegaTarget (afgetopt op >= 0)
+  - `markets`: [{ key, label }] (standaard ah / jumbo / lidl)
+- Dag-indices zijn relatief t.o.v. `weekStartDay` (index 0 = weekstart).
+- Instellingen zijn lokaal: ze worden nooit naar een server of GitHub geschreven en zijn voor andere households niet zichtbaar (ADR-010).
 
 ## Weekmenu
-- Week start **zaterdag**. `DAYS` index 0-6 = za, zo, ma, di, wo, do, vr.
-- Categorieregels per dag:
-  - `FISH_DAYS = [0, 4]` -> vis op zaterdag en woensdag (automatisch).
-  - `OTHER_DAYS = [1, 2, 3, 5, 6]` -> vega/vlees volgens instelbare mix.
-- Mix-instelling: aantal vega-dagen (standaard 2) en vlees-dagen (standaard 3),
-  som afgekapt op 5 niet-vis-dagen. Verdeeld over `OTHER_DAYS`.
-- Elke dag: recept uit de bijbehorende categorie (niet herhaald binnen de week
-  waar mogelijk), knop **vergrendelen**, en dropdown **override** met alle
-  recepten behalve categorie "extra".
-- Regeneratie respecteert vergrendelde dagen en overrides.
-- Per recept getoond: naam, categorie, bewerkbare tijd in minuten en bewerkbare
-  vrije tekst "koken". Tijd en kooktekst worden, net als alle overige
-  receptvelden, in de receptenpool zelf opgeslagen (zie ADR-006).
+- `DAYS` = 7 dagen vanaf `weekStartDay`.
+- Per dag een categorie: `fishDays` → vis; overige dagen vega/vlees volgens `vegaTarget`, verdeeld over de overige dagen.
+- Per dag een recept uit de categorie (niet herhaald binnen de week waar mogelijk), knop **vergrendelen**, dropdown **override** met alle recepten behalve categorie "extra".
+- "Verdeling voor de week" toont de ingestelde mix en vis-dagen.
+- Week regenereren: vergrendelde dagen blijven staan.
 
 ## Recepten
-- Startpool `BASE_RECIPES` in App.jsx: 52 recepten, ids `r1`-`r52`, uit
-  "Recepten 2 per blad.docx" (vega: 20, vis: 11, vlees: 20, extra: 1).
-- De actuele receptenpool is app-state en wordt bewaard in localStorage onder
-  de bestaande sleutel `weekmenu-app-v1` (nieuw veld `recipes`);
-  `BASE_RECIPES` is alleen de seed- en reset-waarde (ADR-006).
-- Elk recept: id, naam, categorie, ingredienten[], bereiding, tijd (min),
-  kooktekst.
-- In de tab "Recepten" bewerkbaar: recept toevoegen (naam, categorie,
-  ingredienten per regel, bereiding) en per recept naam, categorie, ingredienten,
-  bereiding, tijd en kooktekst wijzigen, verwijderen, exporteren/importeren als
-  JSON en terugzetten naar de startpool.
-- Oudere opslag zonder `recipes` wordt geseed uit `BASE_RECIPES`; eerder
-  bewaarde `edits` (tijd, kooktekst) worden daarbij in de recepten gemerged.
-- Verwijderde recepten verdwijnen ook uit een lopend weekmenu (dag wordt leeg).
-
-## Boodschappen
-- `SHOP_RUNS` splitst de week in run **"zaterdag"** (dagen 0-3) en run
-  **"woensdag"** (dagen 4-6).
-- Per run: ingredienten gegroepeerd per dag en per gerecht, met afvinkboxen.
-- Extra vrije artikelen toevoegbaar per run.
-- Sectie "Standaardvoorraad aanvullen": automatisch gegenereerd uit voorraadtekorten.
-- Knop om alle vinkjes te wissen; teller van openstaande artikelen in de tab.
-- **Prijsinformatie (ADR-008)**: per artikelregel staat rechts de beste bekende
-  prijs (winkel + bedrag) indien het artikel prijzen heeft.
-- Per run toont de kop een rijtje met per winkel het totaal en dekking
-  "(x/n met prijs)", en, als alle artikelen van de run een prijs hebben bij
-  minstens n winkel, een badge "goedkoopste: <winkel>".
-
-## Prijzen (ADR-008)
-- `MARKETS = [ah (Albert Heijn), jumbo, lidl]`; prijzen per artikel, handmatig
-  ingevoerd (supermarkt-apps/folders), bedrag in euro's (decimaal punt of komma,
-  `type=number step=0.01`).
-- Opslag: localStorage-sleutel `weekmenu-app-v1`, veld `prices`:
-  `{ "<sleutel>": { ah: 2.5, jumbo: 2.2, lidl: null } }`.
-- Sleutel: `priceKey(label)` = getrimd en lowercase ("Melk" = "melk"), zodat
-  ingredienten uit recepten automatisch matchen, ongeaccentueerde invoer
-  daarentegen niet (exacte match na normalisatie).
-- Prijstab toont twee secties: "Op de lijst deze week" (ingredienten van het
-  huidige menu + voorraadtekorten + extra-artikelen) en "Overige artikelen"
-  (alles waar ooit prijzen voor zijn ingevuld, alfabetisch).
-- Artikel toevoegen (vrij veld) levert direct een rij met drie prijsvelden;
-  zijn alle drie prijzen leeg, dan vervalt de hele rij weer.
-- Verwijderen (✕) haalt alle prijzen van dat artikel weg.
-- `marketTotals(items)` somt per winkel de bekende prijzen (onbekende prijzen
-  worden overgeslagen, dekking wordt apart bijgehouden);
-  `bestPrice(item)` geeft de laagste bekende prijs + bijbehorende winkel.
-- Bedragen worden genoteerd-geformatteerd met Nederlandse notatie:
-  `€ 12,30` (`fmtEuro`).
+- Startpool `BASE_RECIPES` in `src/App.jsx` (ids `r1`..`rN`); de actuele pool is app-state in localStorage `weekmenu-app-v1`, veld `recipes` (ADR-006); `BASE_RECIPES` is seed- en reset-waarde.
+- Recept: id, naam, categorie (`vega`/`vis`/`vlees`/`extra`), ingredienten[], bereiding, tijd (min), kok.
+- Bewerken per recept (incl. verwijderen; een verwijderd recept verdwijnt ook uit een lopend weekmenu), nieuw recept toevoegen, exporteren/importeren als JSON, "Standaardlijst terug".
+- Oudere opslag zonder `recipes` wordt geseed uit `BASE_RECIPES`.
 
 ## Voorraad
-- `STOCK_CATS = [kast, koel, fruit, kruiden]`.
-- Item: `{ name, cat, have, want }`. Tekort als `have < want` -> automatisch op
-  de boodschappenlijst met vermelding "(n van want)".
-- Kruidenla: binaire toggle (present ja/nee) i.p.v. have/want-nummers.
-- Knoppen: "Alles aangevuld" (have = want), "Standaardlijst terug"
-  (reset naar `STOCK_DEFAULT`).
-- Opslag: localStorage-sleutel **`weekmenu-app-v1`**, met `normalizeStock`-migratie
-  voor oudere opslagformaten.
+- `STOCK_CATS` = kast, koel, fruit, kruiden. Per item have/want (getallen); kruidenla binair (toggle aanwezig ja/nee).
+- Tekort = have < want → automatisch op de boodschappenlijst met "(n van want)"; kruidenla "aan" = tekort.
+- Knoppen: "Alles aangevuld" (have = want) en "Standaardlijst terug" (reset naar `STOCK_DEFAULT`).
+- `normalizeStock` bij laden.
 
-## Bekende beperking
-- Foto-herkenning van voorraad is in de app niet mogelijk. Workaround: foto in
-  de chat sturen; Vibe leest de foto en zet voorraadstatussen in de app-code.
-- Prijzen worden niet automatisch uit de supermarkten opgehaald (geen officiële
-  API's, offline PWA); het is een handmatige prijzendatabase (ADR-008).
+## Boodschappen
+- `shopRuns` splitst de week: ingrediënten van een gerecht vallen in de run van de dag waarop het gerecht staat.
+- Per run: ingrediënten gegroepeerd per dag en per gerecht met afvinkboxen; extra vrije artikelen per run; sectie "Standaardvoorraad aanvullen" uit tekorten.
+- "Vinkjes wissen" reset alle checkboxen; de tab toont een teller (afgevinkt/totaal).
+- Prijsinformatie (ADR-008): per artikelregel rechts de beste bekende prijs (winkel + bedrag); per run-kop per winkel het totaal + dekking "(x/n met prijs)" en, bij volledige dekking, een badge "goedkoopste: <winkel>".
+
+## Prijzen (ADR-008, ADR-010)
+- Winkels uit `markets` (instellingen). Prijzen per artikel: handmatig ingevoerd óf optioneel online opgehaald (niet-privé data, ADR-010); lokaal gecached.
+- Opslag: localStorage `weekmenu-app-v1`, veld `prices`: `{ "<priceKey>": { ah: 2.5, jumbo: 2.2, lidl: null } }`.
+- `priceKey(label)` = getrimd + lowercase ("Melk" = "melk").
+- `marketTotals(items)` somt per winkel (onbekende prijzen overgeslagen, dekking apart bijgehouden); `bestPrice(item)` = laagste bekende prijs + bijbehorende winkel.
+
+## State & opslag (ADR-005, ADR-009, ADR-010)
+- Alles in localStorage-sleutel `weekmenu-app-v1`: menu, vergrendelingen, overrides, vinkjes, extra artikelen, voorraad, recepten, prijzen en **settings**.
+- Nooit iets naar een server of GitHub; online alleen voor niet-privé data (prijzen).
+
+## Build & tests (ADR-011)
+- Bron: `src/App.jsx`; build: `npm run build` (→ `src/app.js`, meegecommit; CI controleert synchroniteit).
+- Tests: `npm test` draait alle `tools/test-*.cjs` via `tools/run-tests.cjs` tegen de gecompileerde `src/app.js` met `tools/render-harness.cjs`.
+- Elke functionaliteit in dit document moet gedekt zijn door een automatische test (zie docs/TESTS.md).
