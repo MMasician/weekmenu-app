@@ -1,43 +1,22 @@
 # Weekmenu & Boodschappen
 
-Installeerbare web-app (PWA) voor het plannen van een weekmenu en het automatisch
-genereren van een boodschappenlijst, inclusief voorraadbeheer en een lokale
-prijzendatabase voor supermarktvergelijking (Albert Heijn, Jumbo, Lidl). Werkt
-volledig lokaal en offline; alle gegevens blijven op je eigen apparaat.
+Installeerbare web-app (PWA) voor het plannen van een weekmenu en het automatisch genereren van een boodschappenlijst, inclusief voorraadbeheer en een prijsoverzicht per supermarkt (standaard Albert Heijn, Jumbo, Lidl — instelbaar).
+
+De app is per huishouden instelbaar (weekstart, boodschappenmomenten, vis/vega/vlees-dagen, aantal eters, winkels) en werkt volledig lokaal en offline: alle gegevens (instellingen, recepten, voorraad, menu, afvinkjes, prijzen) blijven op je eigen apparaat in localStorage. Er is geen account en geen server; het ene huishouden ziet niets van het andere. Zie `docs/INTENT.md` en `docs/adr/ADR-009` / `ADR-010`.
 
 ## Gebruiken op je telefoon
-De app wordt gehost via GitHub Pages (zie hieronder inschakelen). Open de site op
-je telefoon en kies "Toevoegen aan beginscherm" / "Installeer" om hem als app te
-installeren. Na eerste gebruik werkt hij ook zonder internet.
+- Zet de repo-bestanden op een webserver (of draai ze lokaal) en open de URL op je telefoon.
+- Kies "Toevoegen aan beginscherm" / "Installeer" om de app te installeren. Na eerste gebruik werkt hij ook zonder internet.
 
-## Inschakelen GitHub Pages (eenmalig)
-GitHub → repo → **Settings → Pages**: *Source = Deploy from a branch*,
-*Branch = main*, *Folder = / (root)* → Save. De app staat daarna op:
-`https://mmasician.github.io/weekmenu-app/`
+## Ontwikkelen
+- Bronbestand: `src/App.jsx` (enige app-bron, ADR-001). Gecompileerde versie: `src/app.js`.
+- Build: `npm run build` — compileert `src/App.jsx` naar `src/app.js` via `tools/jsx-transform.cjs`. `src/app.js` wordt meegecommit; CI controleert dat beide synchroon zijn (ADR-011).
+- Tests: `npm test` — draait alle automatische tests in `tools/test-*.cjs` via `tools/run-tests.cjs`. Elke functionaliteit in `docs/SPECS.md` moet gedekt zijn (zie `docs/TESTS.md`). Alles in één keer: `npm run verify`.
+- Maak geen losse build/test-scripts (ADR-011); breid `tools/test-*.cjs` uit met relatieve paden.
+- CI: plaats de workflow uit ADR-011 als `.github/workflows/test.yml` (vereist een token met `workflow`-scope).
 
-## Structuur
-- `index.html`, `styles.css`, `manifest.webmanifest`, `sw.js` - PWA-shell
-- `src/App.jsx` - broncode van de app (JSX, bron van waarheid)
-- `src/app.js` - gecompileerde versie die de browser laadt (gegenereerd)
-- `vendor/` - React en ReactDOM (UMD, productie)
-- `icons/` - app-iconen
-- `tools/` - ontwikkelhulpmiddelen:
-  - `jsx-transform.cjs` - compileert `src/App.jsx` naar `src/app.js`
-  - `render-harness.cjs` - React-stub om de app zonder browser te renderen
-  - `test-prijzen.cjs` - automatische tests voor de prijzenmodule
-- `docs/` - intent, specs, tests en ADR's:
-  - `docs/INTENT.md` - doel en gebruikerswensen achter de app
-  - `docs/SPECS.md` - functionele specificatie (gedrag, regels, datastructuren)
-  - `docs/TESTS.md` - handmatige testscenario's
-  - `docs/adr/` - Architecture Decision Records (genomen ontwerpbeslissingen)
-
-## App-wijzigingen (workflow)
-1. Pas `src/App.jsx` aan (bron van waarheid, blijft JSX).
-2. Compileer: `node tools/jsx-transform.cjs src/App.jsx src/app.js` en verhoog
-   `CACHE_VERSION` in `sw.js`.
-3. Optioneel: `node tools/test-prijzen.cjs` voor de automatische checks.
-4. Commit alles; GitHub Pages serveert de nieuwe versie na publicatie.
-
-De app is ontwikkeld in en gegenereerd uit een Vibe Canvas (Mistral AI).
-Toekomstige wijzigingen worden aangevraagd in Vibe, dat de specs en code uit
-deze repo leest, aanpast en hier weer naartoe pusht.
+## Documentatie
+- `docs/INTENT.md` — doel en principes
+- `docs/SPECS.md` — functionaliteit per tab + schema van de per-huishouden instellingen
+- `docs/TESTS.md` — testbeleid en checklist
+- `docs/adr/` — ADR-001 t/m ADR-011
