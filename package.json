@@ -1,0 +1,11 @@
+{
+  "name": "weekmenu-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "PWA voor weekmenu en boodschappenlijst per huishouden; werkt lokaal en offline (zie docs/INTENT.md)",
+  "scripts": {
+    "build": "node tools/jsx-transform.cjs src/App.jsx src/app.js",
+    "test": "node tools/run-tests.cjs",
+    "verify": "npm run build && npm test"
+  }
+}
