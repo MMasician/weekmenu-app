@@ -24,10 +24,14 @@ Zie INTENT.md voor doel en principes; ADR-009 t/m ADR-011 voor configuratie, pri
 
 ## Weekmenu
 - `DAYS` = 7 dagen vanaf `weekStartDay`.
+- De getoonde week is de week rond de huidige datum plus een in-memory `weekOffset` (in weken). Bij het openen van de app is `weekOffset` altijd 0: de app start automatisch in de huidige week en highlight **vandaag** (in de daglijst én in de kalender).
+- Kalender bovenaan het weekmenu: maandrooster van de maand rond het midden van de getoonde week, kolommen starten op `weekStartDay`. Klik op een dag → spring naar de week van die dag. Dagen met een vergrendeld gerecht tonen een 🔒 (receptnaam als title). Knoppen **◀ Vorige week** / **Volgende week ▶** (1 of meer weken terug/vooruit kijken) en, bij offset ≠ 0, **Naar deze week**.
+- Menu-state is per datum: `menuByDate` = `{ "<YYYY-MM-DD>": { id, locked } }` in localStorage-sleutel `weekmenu-app-v1`. Vergrendelde gerechten worden zo per datum bewaard en zijn later — als je terugkijkt naar de week van die datum — op die datum weer zichtbaar (nog steeds vergrendeld).
 - Per dag een categorie: `fishDays` → vis; overige dagen vega/vlees volgens `vegaTarget`, verdeeld over de overige dagen.
 - Per dag een recept uit de categorie (niet herhaald binnen de week waar mogelijk), knop **vergrendelen**, dropdown **override** met alle recepten behalve categorie "extra".
 - "Verdeling voor de week" toont de ingestelde mix en vis-dagen.
-- Week regenereren: vergrendelde dagen blijven staan.
+- Week regenereren (geldt voor de getoonde week): vergrendelde dagen blijven staan; de afvinkjes van de getoonde week worden gewist. De boodschappenlijst volgt altijd de getoonde week.
+- Migratie (ADR-005): een oude `menu`-array van 7 dagen (index t.o.v. de weekstart, zonder datum) wordt bij het laden afgebeeld op de datums van de huidige week; vinkjes-sleutels "<dagindex>-…" worden mee omgezet naar "<datum>-…".
 
 ## Recepten
 - Startpool `BASE_RECIPES` in `src/App.jsx` (ids `r1`..`rN`); de actuele pool is app-state in localStorage `weekmenu-app-v1`, veld `recipes` (ADR-006); `BASE_RECIPES` is seed- en reset-waarde.
@@ -54,7 +58,7 @@ Zie INTENT.md voor doel en principes; ADR-009 t/m ADR-011 voor configuratie, pri
 - `marketTotals(items)` somt per winkel (onbekende prijzen overgeslagen, dekking apart bijgehouden); `bestPrice(item)` = laagste bekende prijs + bijbehorende winkel.
 
 ## State & opslag (ADR-005, ADR-009, ADR-010)
-- Alles in localStorage-sleutel `weekmenu-app-v1`: menu, vergrendelingen, overrides, vinkjes, extra artikelen, voorraad, recepten, prijzen en **settings**.
+- Alles in localStorage-sleutel `weekmenu-app-v1`: menu per datum (`menuByDate`, incl. vergrendelingen en overrides), vinkjes, extra artikelen, voorraad, recepten, prijzen en **settings**.
 - Nooit iets naar een server of GitHub; online alleen voor niet-privé data (prijzen).
 
 ## Build & tests (ADR-011)

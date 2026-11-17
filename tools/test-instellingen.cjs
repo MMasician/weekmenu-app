@@ -4,6 +4,25 @@ const { loadApp, serialize } = require(path.join(__dirname, "render-harness.cjs"
 
 const APP = path.join(__dirname, "..", "src", "app.js");
 
+// Datumhelpers (zelfde algoritme als in src/App.jsx) om de getoonde week te berekenen.
+const pad2 = (n) => String(n).padStart(2, "0");
+const dateKey = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+const jsDayOf = (w) => (w + 6) % 7;
+function startOfWeek(date, w) {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  d.setDate(d.getDate() - ((d.getDay() - jsDayOf(w) + 7) % 7));
+  return d;
+}
+function addDays(d, n) {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  x.setDate(x.getDate() + n);
+  return x;
+}
+function weekKeysFor(w, offset) {
+  const s = addDays(startOfWeek(new Date(), w), offset * 7);
+  return Array.from({ length: 7 }, (_, i) => dateKey(addDays(s, i)));
+}
+
 let fails = 0;
 const check = (name, ok) => { console.log((ok ? "PASS" : "FAIL") + " - " + name); if (!ok) fails++; };
 
@@ -25,8 +44,16 @@ function make(seed) {
     walk(render(), (n) => { if (n && n.type === "button" && JSON.stringify(n.children).indexOf(text) !== -1) found = n; });
     return found;
   };
-  const menuState = () =>
-    m.hooks.state.find((x) => Array.isArray(x) && x.length === 7 && x.every((d) => d === null || (d && typeof d === "object" && "id" in d)));
+  const menuByDateState = () =>
+    m.hooks.state.find((x) => x && !Array.isArray(x) && typeof x === "object" && Object.values(x).some((v) => v && typeof v === "object" && "id" in v));
+  const offsetState = () => m.hooks.state.find((x) => typeof x === "number");
+  const menuState = () => {
+    // weekmenu per datum: de 7 entries van de getoonde week
+    const w = (settingsState() || {}).weekStartDay || 0;
+    const keys = weekKeysFor(w, offsetState() || 0);
+    const mbd = menuByDateState() || {};
+    return keys.map((k) => mbd[k] || null);
+  };
   const recipesState = () => m.hooks.state.find((x) => Array.isArray(x) && x.length > 0 && x[0] && x[0].cat);
   const settingsState = () =>
     m.hooks.state.find((x) => x && !Array.isArray(x) && typeof x === "object" && "householdSize" in x && "shopRuns" in x);
@@ -34,7 +61,10 @@ function make(seed) {
   const dayLabels = () => {
     const out = [];
     walk(render(), (n) => {
-      if (n && n.type === "div" && n.props && String(n.props.className || "").indexOf("w-20 shrink-0") !== -1) out.push(n.children[0]);
+      if (n && n.type === "div" && n.props && String(n.props.className || "").indexOf("w-20 shrink-0") !== -1) {
+        const inner = n.children[0];
+        out.push(inner && inner.children ? inner.children[0] : n.children[0]);
+      }
     });
     return out;
   };

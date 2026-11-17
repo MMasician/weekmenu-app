@@ -22,3 +22,4 @@ De app is niet aan één huishouden gebonden: elk huishouden kan zelf instellen 
 6. Boodschappenlijst per run, gegroepeerd per dag en per gerecht, plus vrije extra artikelen en een automatische sectie "Standaardvoorraad aanvullen" uit de voorraadtekorten, met afvinkboxen en een teller in de tab.
 7. Voorraadbeheer per categorie (kast, koel, fruit, kruiden) met have/want; kruidenla binair (aanwezig ja/nee); knoppen "Alles aangevuld" en "Standaardlijst terug".
 8. Prijzen per artikel per winkel: richtprijs per run per winkel met dekking "(x/n)" en een "goedkoopste"-tip; lokaal bewaard, optioneel online opgehaald (niet-privé data).
+9. Kalender bij het weekmenu: bij het openen start de app automatisch in de huidige week, met vandaag gehighlight; je kunt 1 of meer weken terug- of vooruitkijken. Vergrendelde gerechten worden per datum bewaard en zijn op die datum later terug te vinden.
