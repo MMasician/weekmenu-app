@@ -158,6 +158,54 @@ const BASE_RECIPES = [
 
 const LS_KEY = "weekmenu-app-v1";
 
+// Datumhelpers voor de kalender: datum-sleutel YYYY-MM-DD (lokaal, zonder tijd).
+const MONTH_NAMES = ["januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december"];
+const MONTH_SHORT = ["jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
+const pad2 = (n) => String(n).padStart(2, "0");
+const dateKey = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+const fmtDay = (k) => `${k.slice(8)}-${k.slice(5, 7)}`; // "YYYY-MM-DD" -> "DD-MM"
+const fmtShort = (d) => `${d.getDate()} ${MONTH_SHORT[d.getMonth()]}`;
+const jsDayOf = (weekStartDay) => (weekStartDay + 6) % 7; // DAY_NAMES-index (0 = zaterdag) -> Date.getDay()
+function startOfWeek(date, weekStartDay) {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  d.setDate(d.getDate() - ((d.getDay() - jsDayOf(weekStartDay) + 7) % 7));
+  return d;
+}
+function addDays(date, n) {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  d.setDate(d.getDate() + n);
+  return d;
+}
+// startdatum (lokaal, middernacht) van de week op `offset` weken t.o.v. de huidige week
+function weekStartFor(weekStartDay, offset) {
+  return addDays(startOfWeek(new Date(), weekStartDay), offset * 7);
+}
+function weekDateKeys(weekStartDay, offset) {
+  const start = weekStartFor(weekStartDay, offset);
+  return Array.from({ length: 7 }, (_, i) => dateKey(addDays(start, i)));
+}
+// aantal weken tussen de week van fromDate en de week van toDate
+function weeksBetween(fromDate, toDate, weekStartDay) {
+  return Math.round((startOfWeek(toDate, weekStartDay) - startOfWeek(fromDate, weekStartDay)) / (7 * 24 * 3600 * 1000));
+}
+// maandrooster voor de kalender; kolommen starten op de ingestelde weekstart
+function monthGrid(year, month, weekStartDay) {
+  const first = new Date(year, month, 1);
+  const last = new Date(year, month + 1, 0);
+  let cursor = startOfWeek(first, weekStartDay);
+  const weeks = [];
+  for (;;) {
+    const row = [];
+    for (let i = 0; i < 7; i++) {
+      row.push({ date: new Date(cursor), key: dateKey(cursor), inMonth: cursor.getMonth() === month });
+      cursor = addDays(cursor, 1);
+    }
+    weeks.push(row);
+    if (cursor.getTime() > last.getTime()) break;
+  }
+  return weeks;
+}
+
 const fmtEuro = (v) => "€ " + v.toFixed(2).replace(".", ",");
 const priceKey = (s) => s.trim().toLowerCase();
 const marketPrice = (item, key, prices) => {
@@ -200,6 +248,33 @@ function saveState(state) {
   } catch (e) {}
 }
 
+// Migratie (ADR-005): oude state met `menu` als array van 7 dagen (index t.o.v. de weekstart,
+// zonder datum) wordt omgezet naar `menuByDate` keyed op de datum van de huidige week.
+// Vinkjes-sleutels "<dagindex>-..." worden mee omgezet naar "<datum>-...".
+function migrateStored(stored) {
+  if (!stored || typeof stored !== "object" || Array.isArray(stored)) return stored;
+  const out = { ...stored };
+  if (!out.menuByDate && Array.isArray(out.menu)) {
+    const weekStartDay = normalizeSettings(out.settings).weekStartDay;
+    const keys = weekDateKeys(weekStartDay, 0);
+    const mbd = {};
+    out.menu.forEach((entry, i) => {
+      if (entry && keys[i]) mbd[keys[i]] = entry;
+    });
+    out.menuByDate = mbd;
+    if (out.checked && typeof out.checked === "object") {
+      const checked = {};
+      Object.entries(out.checked).forEach(([k, v]) => {
+        const m = /^(\d)-(.+)$/.exec(k);
+        checked[m && keys[Number(m[1])] ? `${keys[Number(m[1])]}-${m[2]}` : k] = v;
+      });
+      out.checked = checked;
+    }
+    delete out.menu;
+  }
+  return out;
+}
+
 function loadRecipes(stored) {
   const edits = (stored && stored.edits) || {};
   if (stored && Array.isArray(stored.recipes) && stored.recipes.length > 0) {
@@ -218,9 +293,10 @@ function shuffle(arr) {
 }
 
 function App() {
-  const stored = useMemo(loadState, []);
+  const stored = useMemo(() => migrateStored(loadState()), []);
   const [tab, setTab] = useState("menu");
-  const [menu, setMenu] = useState((stored && stored.menu) || Array(7).fill(null)); // per day: {id, locked}
+  const [menuByDate, setMenuByDate] = useState((stored && stored.menuByDate) || {}); // per datum (YYYY-MM-DD): {id, locked}
+  const [weekOffset, setWeekOffset] = useState(0); // 0 = week van vandaag; bij openen start de app automatisch in de huidige week
   const [recipes, setRecipes] = useState(() => loadRecipes(stored)); // bewerkbare receptenpool (ADR-006)
   const [newRecipe, setNewRecipe] = useState({ name: "", cat: "vega", ingredients: "", bereiding: "" });
   const [checked, setChecked] = useState((stored && stored.checked) || {});
@@ -239,8 +315,8 @@ function App() {
   const [openRecipe, setOpenRecipe] = useState(null);
 
   useEffect(() => {
-    saveState({ menu, recipes, checked, extraItems, settings, stock, prices });
-  }, [menu, recipes, checked, extraItems, settings, stock, prices]);
+    saveState({ menuByDate, recipes, checked, extraItems, settings, stock, prices });
+  }, [menuByDate, recipes, checked, extraItems, settings, stock, prices]);
 
   const markets = settings.markets;
   const days = useMemo(
@@ -250,6 +326,16 @@ function App() {
   const fishDays = settings.fishDays;
   const otherDays = [0, 1, 2, 3, 4, 5, 6].filter((d) => !fishDays.includes(d));
   const vegaCount = Math.min(Math.max(0, Number(settings.vegaTarget) || 0), otherDays.length);
+
+  // Geselecteerde week (offset in weken t.o.v. de huidige week) en bijbehorende datums.
+  const todayKey = dateKey(new Date());
+  const weekStart = weekStartFor(settings.weekStartDay, weekOffset);
+  const weekKeys = weekDateKeys(settings.weekStartDay, weekOffset);
+  const weekEntries = weekKeys.map((k) => menuByDate[k] || null);
+  const weekEnd = addDays(weekStart, 6);
+  const weekLabel = `${fmtShort(weekStart)} – ${fmtShort(weekEnd)} ${weekEnd.getFullYear()}`;
+  const calAnchor = addDays(weekStart, 3); // kalender toont de maand rond het midden van de getoonde week
+  const calWeeks = monthGrid(calAnchor.getFullYear(), calAnchor.getMonth(), settings.weekStartDay);
 
   function updateSettings(patch) {
     setSettings((s) => normalizeSettings({ ...s, ...patch }));
@@ -319,12 +405,32 @@ function App() {
       if (chosen[i]) next[d] = { id: chosen[i].id, locked: false };
     });
 
-    setMenu(next.map((d, i) => (menu[i] && menu[i].locked ? menu[i] : d)));
-    setChecked({});
+    setMenuByDate((m) => {
+      const out = { ...m };
+      weekKeys.forEach((key, i) => {
+        if (m[key] && m[key].locked) return; // vergrendelde dag van de getoonde week blijft staan
+        if (next[i]) out[key] = { id: next[i].id, locked: false };
+        else delete out[key];
+      });
+      return out;
+    });
+    setChecked((c) => {
+      const out = {};
+      Object.entries(c).forEach(([k, v]) => {
+        if (!weekKeys.some((wk) => k.startsWith(wk + "-"))) out[k] = v; // vinkjes van de getoonde week wissen
+      });
+      return out;
+    });
   }
 
   function setDay(day, entry) {
-    setMenu((m) => m.map((d, i) => (i === day ? entry : d)));
+    const key = weekKeys[day];
+    setMenuByDate((m) => {
+      const out = { ...m };
+      if (entry) out[key] = entry;
+      else delete out[key];
+      return out;
+    });
   }
 
   function updateRecipe(id, patch) {
@@ -350,7 +456,13 @@ function App() {
 
   function deleteRecipe(id) {
     setRecipes((rs) => rs.filter((r) => r.id !== id));
-    setMenu((m) => m.map((d) => (d && d.id === id ? null : d)));
+    setMenuByDate((m) => {
+      const out = {};
+      Object.entries(m).forEach(([k, v]) => {
+        if (v.id !== id) out[k] = v;
+      });
+      return out;
+    });
     setOpenRecipe(null);
   }
 
@@ -385,18 +497,18 @@ function App() {
 
   const shoppingRows = useMemo(() => {
     const rows = [];
-    menu.forEach((d, day) => {
-      if (!d) return;
-      const r = byId[d.id];
+    weekEntries.forEach((entry, day) => {
+      if (!entry) return;
+      const r = byId[entry.id];
       if (!r) return;
       (r.ingredients || []).filter(Boolean).forEach((ing) => {
-        rows.push({ key: `${day}-${r.id}-${ing}`, day, label: ing, recipe: r.name });
+        rows.push({ key: `${weekKeys[day]}-${r.id}-${ing}`, day, label: ing, recipe: r.name });
       });
     });
     return rows;
-  }, [menu, byId]);
+  }, [menuByDate, weekKeys, byId]);
 
-  const activeMenuIds = menu.filter(Boolean).map((d) => d.id);
+  const activeMenuIds = weekEntries.filter(Boolean).map((d) => d.id);
   const stockShort = stock.filter((s) => s.have < s.want);
   const totalItems = shoppingRows.length + extraItems.length + stockShort.length;
   const doneItems =
@@ -436,11 +548,35 @@ function App() {
                 tab === t.key ? "bg-stone-800 text-white" : "text-stone-500 hover:bg-stone-100"
               }` }, t.label)
           ))), tab === "menu" && (
-          /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm p-4 mb-4" }, /*#__PURE__*/React.createElement("div", { "className": "text-sm font-medium mb-2" }, "Verdeling voor de week"), /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-500 mb-3" }, "Vis op", fishDays.length ? fishDays.map((d) => days[d]).join(", ") : "geen dag", " (", fishDays.length, " ", fishDays.length === 1 ? "dag" : "dagen", "). Overige ", otherDays.length, " dagen: ", vegaCount, " vega / ", otherDays.length - vegaCount, " vlees."), /*#__PURE__*/React.createElement("button", { "onClick": generateMenu, "className": "w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl" }, "Genereer weekmenu"), /*#__PURE__*/React.createElement("p", { "className": "text-xs text-stone-400 mt-2" }, "Vergrendelde dagen blijven staan. Vis-dagen en de vega/vlees-verdeling stel je in bij Instellingen. Recepten zonder ingredientenlijst worden nog niet automatisch ingepland, maar kun je wel handmatig kiezen.")), /*#__PURE__*/React.createElement("div", { "className": "space-y-2" }, days.map((day, i) => {
-                const entry = menu[i];
+          /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm p-4 mb-4" }, /*#__PURE__*/React.createElement("div", { "className": "flex items-center justify-between gap-2" }, /*#__PURE__*/React.createElement("button", { "onClick": () => setWeekOffset((o) => o - 1), "className": "px-3 py-2 border rounded-lg text-sm text-stone-600" }, "◀ Vorige week"), /*#__PURE__*/React.createElement("div", { "className": "text-sm font-semibold text-center" }, weekLabel), /*#__PURE__*/React.createElement("button", { "onClick": () => setWeekOffset((o) => o + 1), "className": "px-3 py-2 border rounded-lg text-sm text-stone-600" }, "Volgende week ▶")), weekOffset !== 0 && (
+                /*#__PURE__*/React.createElement("button", { "onClick": () => setWeekOffset(0), "className": "w-full mt-2 py-1.5 border rounded-lg text-xs text-stone-500" }, "Naar deze week")
+              ), /*#__PURE__*/React.createElement("div", { "className": "text-sm font-medium mt-3 mb-1" }, MONTH_NAMES[calAnchor.getMonth()], " ", calAnchor.getFullYear()), /*#__PURE__*/React.createElement("div", { "className": "grid grid-cols-7 gap-0.5 mb-0.5" }, days.map((d) => (
+                  /*#__PURE__*/React.createElement("div", { "key": d, "className": "text-[10px] text-stone-400 text-center font-medium" }, d.slice(0, 2))
+                ))), calWeeks.map((row, wi) => (
+                /*#__PURE__*/React.createElement("div", { "key": wi, "className": "grid grid-cols-7 gap-0.5" }, row.map((cell) => {
+                    const entry = menuByDate[cell.key];
+                    const r = entry ? byId[entry.id] : null;
+                    const locked = !!(entry && entry.locked);
+                    const isToday = cell.key === todayKey;
+                    const inWeek = weekKeys.includes(cell.key);
+                    return (
+                      /*#__PURE__*/React.createElement("button", { "key": cell.key, "data-date": cell.key, "title": r ? r.name : "", "onClick": () => setWeekOffset(weeksBetween(new Date(), cell.date, settings.weekStartDay)), "className": `flex flex-col items-center justify-center py-1 rounded-lg text-xs ${
+                          isToday
+                            ? "bg-emerald-600 text-white font-bold"
+                            : inWeek
+                              ? "bg-stone-100 font-semibold " + (cell.inMonth ? "text-stone-700" : "text-stone-300")
+                              : cell.inMonth
+                                ? "text-stone-700"
+                                : "text-stone-300"
+                        }` }, cell.date.getDate(), locked && /*#__PURE__*/React.createElement("span", { "className": "text-[10px]" }, "🔒"))
+                    );
+                  }))
+              )), /*#__PURE__*/React.createElement("p", { "className": "text-xs text-stone-400 mt-2" }, "Klik op een dag om naar de week van die dag te springen. Vergrendelde gerechten (🔒) worden per datum bewaard en zijn op die datum later terug te vinden.")), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm p-4 mb-4" }, /*#__PURE__*/React.createElement("div", { "className": "text-sm font-medium mb-2" }, "Verdeling voor de week"), /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-500 mb-3" }, "Vis op", fishDays.length ? fishDays.map((d) => days[d]).join(", ") : "geen dag", " (", fishDays.length, " ", fishDays.length === 1 ? "dag" : "dagen", "). Overige ", otherDays.length, " dagen: ", vegaCount, " vega / ", otherDays.length - vegaCount, " vlees."), /*#__PURE__*/React.createElement("button", { "onClick": generateMenu, "className": "w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl" }, "Genereer weekmenu"), /*#__PURE__*/React.createElement("p", { "className": "text-xs text-stone-400 mt-2" }, "Vergrendelde dagen blijven staan en worden per datum opgeslagen. Vis-dagen en de vega/vlees-verdeling stel je in bij Instellingen. Recepten zonder ingredientenlijst worden nog niet automatisch ingepland, maar kun je wel handmatig kiezen.")), /*#__PURE__*/React.createElement("div", { "className": "space-y-2" }, days.map((day, i) => {
+                const entry = weekEntries[i];
                 const r = entry ? byId[entry.id] : null;
+                const isToday = weekKeys[i] === todayKey;
                 return (
-                  /*#__PURE__*/React.createElement("div", { "key": day, "className": "bg-white rounded-xl shadow-sm p-3 flex items-center gap-3" }, /*#__PURE__*/React.createElement("div", { "className": "w-20 shrink-0 text-sm font-semibold" }, day), r ? (
+                  /*#__PURE__*/React.createElement("div", { "key": weekKeys[i], "className": `rounded-xl shadow-sm p-3 flex items-center gap-3 ${isToday ? "bg-emerald-100" : "bg-white"}` }, /*#__PURE__*/React.createElement("div", { "className": "w-20 shrink-0" }, /*#__PURE__*/React.createElement("div", { "className": `text-sm font-semibold ${isToday ? "text-emerald-700" : ""}` }, day), /*#__PURE__*/React.createElement("div", { "className": "text-[10px] text-stone-400" }, fmtDay(weekKeys[i]), isToday ? " · vandaag" : "")), r ? (
                       /*#__PURE__*/React.createElement("div", { "className": "flex-1 min-w-0" }, /*#__PURE__*/React.createElement("button", { "className": "font-medium text-left truncate hover:underline", "onClick": () => { setOpenRecipe(r.id); setTab("recipes"); } }, r.name), /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-400" }, /*#__PURE__*/React.createElement("span", { "className": `inline-block px-1.5 rounded ${CAT_STYLE[r.cat]}` }, CAT_LABEL[r.cat]), r.time ? ` · ${r.time} min` : " · tijd onbekend", r.cook ? ` · ${r.cook}` : ""))
                     ) : (
                       /*#__PURE__*/React.createElement("div", { "className": "flex-1 text-sm text-stone-400" }, "Nog niets gekozen")
@@ -536,9 +672,9 @@ function App() {
                     )), run.days.map((i) => {
                     const rows = shoppingRows.filter((r) => r.day === i);
                     if (!rows.length) return null;
-                    const rec = byId[menu[i].id];
+                    const rec = byId[weekEntries[i].id];
                     return (
-                      /*#__PURE__*/React.createElement("div", { "key": i, "className": "mb-3" }, /*#__PURE__*/React.createElement("div", { "className": "text-xs font-semibold text-stone-500 mb-1" }, days[i], " · ", rec.name), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm divide-y divide-stone-100" }, rows.map((r) => (
+                      /*#__PURE__*/React.createElement("div", { "key": i, "className": "mb-3" }, /*#__PURE__*/React.createElement("div", { "className": "text-xs font-semibold text-stone-500 mb-1" }, days[i], " ", fmtDay(weekKeys[i]), " · ", rec.name), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm divide-y divide-stone-100" }, rows.map((r) => (
                             /*#__PURE__*/React.createElement("label", { "key": r.key, "className": "flex items-center gap-3 px-3 py-2 cursor-pointer" }, /*#__PURE__*/React.createElement("input", { "type": "checkbox", "checked": !!checked[r.key], "onChange": (e) => setChecked({ ...checked, [r.key]: e.target.checked }), "className": "w-4 h-4 accent-emerald-600" }), /*#__PURE__*/React.createElement("span", { "className": `text-sm ${checked[r.key] ? "line-through text-stone-300" : ""}` }, r.label), (() => {
                                 const best = bestPrice(r.label, prices, markets);
                                 return best ? (

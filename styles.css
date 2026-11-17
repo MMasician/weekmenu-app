@@ -127,3 +127,9 @@ input, select, textarea { font: inherit; }
 .text-amber-700 { color: var(--amber-700); }
 .text-blue-800 { color: var(--blue-800); }
 .text-green-800 { color: var(--green-800); }
+
+/* --- kalender in het weekmenu --- */
+.grid-cols-7 { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.gap-0\.5 { gap: .125rem; }
+.mb-0\.5 { margin-bottom: .125rem; }
+.justify-center { justify-content: center; }

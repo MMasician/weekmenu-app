@@ -13,6 +13,9 @@
 - Week regenereren: vis-dagen tonen visgerechten; overige dagen alleen vega/vlees volgens de ingestelde mix (som = aantal overige dagen).
 - Instellingen wijzigen (weekstart, vis-dagen, vega-aantal, shop-runs, aantal eters) → weekmenu en boodschappenlijst volgen de nieuwe instellingen (ADR-009).
 - Vergrendelde dag blijft staan bij regenereren; override per dag kiesbaar uit alle recepten behalve "extra"; een recept komt niet dubbel in één week waar mogelijk.
+- Kalender: bij openen start de app in de huidige week met vandaag gehighlight (daglijst + kalender); ◀/▶ navigeren 1 of meer weken terug/vooruit, klik op een kalenderdag springt naar de week van die dag, "Naar deze week" zet terug naar offset 0.
+- Vergrendelde gerechten worden per datum opgeslagen (`menuByDate`) en zijn op die datum later terug te vinden (ook in een nieuwe app-instance); de kalendercel toont 🔒; de boodschappenlijst volgt de getoonde week.
+- Migratie: een oude `menu`-array wordt bij het laden gemigreerd naar `menuByDate` op de datums van de huidige week, incl. vinkjes-sleutels (ADR-005).
 
 ### Boodschappen
 - Ingrediënten vallen onder de juiste run (volgens `shopRuns`), gegroepeerd per dag en per gerecht.
