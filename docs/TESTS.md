@@ -13,7 +13,10 @@
 - Week regenereren: vis-dagen tonen visgerechten; overige dagen alleen vega/vlees volgens de ingestelde mix (som = aantal overige dagen).
 - Instellingen wijzigen (weekstart, vis-dagen, vega-aantal, shop-runs, aantal eters) → weekmenu en boodschappenlijst volgen de nieuwe instellingen (ADR-009).
 - Vergrendelde dag blijft staan bij regenereren; override per dag kiesbaar uit alle recepten behalve "extra"; een recept komt niet dubbel in één week waar mogelijk.
-- Kalender: bij openen start de app in de huidige week met vandaag gehighlight (daglijst + kalender); ◀/▶ navigeren 1 of meer weken terug/vooruit, klik op een kalenderdag springt naar de week van die dag, "Naar deze week" zet terug naar offset 0.
+- Kalender: bij openen start de app in de huidige week met vandaag gehighlight (daglijst); de tab toont alleen VANDAAG + knop "Kies een datum" (kalender zit in de bottom sheet); in de sheet: ◀/▶ navigeren 1 of meer weken terug/vooruit, klik op een kalenderdag springt naar de week van die dag, "Naar deze week" zet terug naar offset 0, backdrop/✕ sluit de sheet.
+- Regels-sheet (knop onderaan het weekmenu): weekstart/visdagen/vega-doel wijzigen → direct doorgevoerd in `settings`; "Klaar" sluit.
+- Gerecht typen (ADR-012): < 2 letters geen suggesties; ≥ 2 letters suggestielijst (categorie "extra" uitgesloten, gematchte letters gemarkeerd); Enter/klik selecteert; exacte match → recept; vrije tekst → `{ custom }` met tag "geen boodschappen" en géén regel op de boodschappenlijst; leeg veld wist de dag; vergrendeling blijft behouden.
+- Eters per dag (ADR-012): 👥-icoon met badge bij afwijking, inline stapper, `{ eaters }` in `menuByDate` (absoluut, ook lager), "Standaard herstellen" wist de override; bij vrije tekst is het icoon uit; boodschappenlijst schaalt mee (factor = eaters/householdSize, Math.round min 1, vaste verpakkingen uitgezonderd) met chip in de dagkop en footnote.
 - Vergrendelde gerechten worden per datum opgeslagen (`menuByDate`) en zijn op die datum later terug te vinden (ook in een nieuwe app-instance); de kalendercel toont 🔒; de boodschappenlijst volgt de getoonde week.
 - Migratie: een oude `menu`-array wordt bij het laden gemigreerd naar `menuByDate` op de datums van de huidige week, incl. vinkjes-sleutels (ADR-005).
 

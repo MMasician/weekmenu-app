@@ -1,8 +1,6 @@
 # UX-voorstel: weekmenu-tab versimpelen
 
-**Status: ter review.** Dit voorstel is expres nog **niet** verwerkt in `docs/SPECS.md`, de ADR's of tests. Pas nadat een scherm hier is goedgekeurd, worden de implicaties daarvoor doorgevoerd (SPECS, nieuw ADR, tests, implementatie in `src/App.jsx`).
-
-**Goedgekeurd in ronde 1 (keuze van de opdrachtgever): scherm 1 = versie A, scherm 2 = versie A, scherm 3 = versie A, scherm 4 = versie B** (dus `01`, `03`, `05`, `08`).
+**Status: goedgekeurd en verwerkt.** Ronde 1: schermen **1A, 2A, 3A, 4B** (`01`, `03`, `05`, `08`). Ronde 2 (eters per dag): dagregel = **versie 10 (badge) met inline aanpassen zoals versie 11**, boodschappen = **versie 12**; absoluut aantal eters (ook lager), afronden bij schalen prima. Verwerkt in `docs/SPECS.md`, `docs/adr/ADR-012-*.md`, `tools/test-weekmenu-ux.cjs` en `src/App.jsx` (+ build `src/app.js`).
 
 ## Aanleiding (wensen)
 
