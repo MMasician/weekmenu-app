@@ -2,6 +2,8 @@
 
 **Status: ter review.** Dit voorstel is expres nog **niet** verwerkt in `docs/SPECS.md`, de ADR's of tests. Pas nadat een scherm hier is goedgekeurd, worden de implicaties daarvoor doorgevoerd (SPECS, nieuw ADR, tests, implementatie in `src/App.jsx`).
 
+**Goedgekeurd in ronde 1 (keuze van de opdrachtgever): scherm 1 = versie A, scherm 2 = versie A, scherm 3 = versie A, scherm 4 = versie B** (dus `01`, `03`, `05`, `08`).
+
 ## Aanleiding (wensen)
 
 1. De kalender toont alleen de datum van vandaag; pas na een knopdruk verschijnen meer datum-opties.
@@ -42,6 +44,31 @@ In beide versies vervalt de huidige `<select>`-dropdown met alle gerechten. Vrij
 - Na kiezen van een andere week: daglijst wisselt mee (zoals nu) — en moet de knop "Naar deze week" terug KOMEN zodra je niet in de huidige week zit?
 - Regels: volledig eigen scherm (A) of compacte sheet met alleen generatie-regels (B)?
 - Datumkiezer: bottom sheet (A) of inline paneel (B)?
+
+## 5. Nieuw verzoek (ronde 2): afwijkend aantal eters per dag
+
+Wens: naast het slot een extra icoontje per dag om een afwijkend aantal eters te tonen/instellen (bezoekers mee-eten); dit heeft gevolgen voor de hoeveelheid boodschappen voor die dag.
+
+Let op: in de huidige app schaalt `householdSize` niets — het aantal eters staat alleen in de kop en in Instellingen; ingrediënten zijn al voor dat aantal geschreven. Schalen per dag is dus een **nieuwe** functionaliteit (slagorde: `aantal eters die dag / householdSize`).
+
+### 5a. Dagregel in het weekmenu (op basis van goedgekeurd scherm 1A)
+
+- `09-dagregel-eters-versie-A-popover.png` — icoon `👥 4` altijd zichtbaar (grijs = standaard); bij afwijking amber `👥 6`. Tik → popover boven de regel met stapper (− 6 +), "standaard: 4 eters" en "Standaard herstellen".
+- `10-dagregel-eters-versie-B-badge.png` — zelfde popover, maar het aantal staat alléén als badge op het icoon bij afwijking; standaard alleen `👥` (stiller).
+- `11-dagregel-eters-versie-C-inline.png` — geen popover: de regel klapt inline open met stapper + "Standaard herstellen" + hint "boodschappenlijst ×1,5 voor deze dag".
+
+In alle versies: bij vrije tekst (geen boodschappen, bijv. "Eten bij oma in Breda") is het eters-icoon gedimd/uit.
+
+### 5b. Weergave op de Boodschappen-tab (gevolg)
+
+- `12-boodschappen-eters-versie-A-expliciet.png` — dagkop krijgt chip "👥 6 eters"; geschaalde regels tonen origineel doorgestreept → geschaald (bijv. "3 tomaten → 5 tomaten"); regels zonder getal blijven gelijk; footnote legt ×1,5 uit.
+- `13-boodschappen-eters-versie-B-tag.png` — dagkop chip "👥 6 ×1,5"; geschaalde regel toont alléén de nieuwe hoeveelheid met tag "×1,5"; footnote: alleen regels met een getal ervóór worden geschaald.
+
+### Open vragen bij 5
+- Absoluut aantal eters per dag (👥 6, huidig voorstel) of aantal extra bezoekers (+2)?
+- Afstemming: afronden hoe? (voorstel: naar boven afronden op hele stuks, bijv. 3 tomaten ×1,5 → 5)
+- Welke eenheden schalen mee? (voorstel: getal + g/kg/ml/l/stuks; "1 blik …" niet)
+- Vrije-tekst dagen: eters-icoon tonen maar uitgeschakeld (huidig voorstel)?
 
 ## Wat er ná goedkeuring per scherm gebeurt (nog niet uitgevoerd)
 
