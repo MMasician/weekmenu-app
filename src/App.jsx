@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 
-const DAYS = ["Zaterdag", "Zondag", "Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag"];
-const FISH_DAYS = [0, 4]; // zaterdag en woensdag = vis
-const OTHER_DAYS = [1, 2, 3, 5, 6]; // de overige dagen: vega of vlees
+const DAY_NAMES = ["Zaterdag", "Zondag", "Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag"]; // index 0 = zaterdag
+const FISH_DAYS = [0, 4]; // standaard vis-dagen, relatief t.o.v. de weekstart
 const SHOP_RUNS = [
   { label: "Boodschappenlijst zaterdag", hint: "zaterdag t/m dinsdag", days: [0, 1, 2, 3] },
   { label: "Boodschappenlijst woensdag", hint: "woensdag t/m vrijdag", days: [4, 5, 6] },
@@ -12,6 +11,46 @@ const MARKETS = [
   { key: "jumbo", label: "Jumbo" },
   { key: "lidl", label: "Lidl" },
 ];
+
+// Per-huishouden instellingen (ADR-009). De oude constanten zijn de standaardwaarden.
+const DEFAULT_SETTINGS = {
+  householdSize: 4,
+  weekStartDay: 0, // index in DAY_NAMES (0 = zaterdag)
+  shopRuns: SHOP_RUNS.map((r) => ({ label: r.label, days: [...r.days] })),
+  fishDays: [...FISH_DAYS],
+  vegaTarget: 2,
+  markets: MARKETS.map((m) => ({ ...m })),
+};
+
+function normalizeDayList(arr, fallback) {
+  if (!Array.isArray(arr)) return [...fallback];
+  return [...new Set(arr.filter((n) => Number.isInteger(n) && n >= 0 && n < 7).map(Number))];
+}
+
+function normalizeSettings(s) {
+  const d = DEFAULT_SETTINGS;
+  const src = s && typeof s === "object" ? s : {};
+  const out = { ...d, ...src };
+  out.householdSize = Math.max(1, Math.floor(Number(out.householdSize) > 0 ? Number(out.householdSize) : d.householdSize));
+  out.weekStartDay = Math.min(6, Math.max(0, Math.floor(Number(out.weekStartDay) || 0)));
+  out.fishDays = normalizeDayList(out.fishDays, d.fishDays);
+  const runs = Array.isArray(out.shopRuns) && out.shopRuns.length ? out.shopRuns : d.shopRuns;
+  out.shopRuns = runs.map((r) => ({
+    label: String(r && r.label != null && String(r.label).trim() ? r.label : "Boodschappenlijst"),
+    days: normalizeDayList(r && r.days, []),
+  }));
+  out.vegaTarget = Math.max(0, Math.floor(Number(out.vegaTarget) || 0));
+  const mkts = Array.isArray(out.markets) && out.markets.length ? out.markets : d.markets;
+  out.markets = mkts
+    .map((m) => ({
+      key: String(m && m.key != null ? m.key : "").trim().toLowerCase(),
+      label: String(m && m.label != null ? m.label : ""),
+    }))
+    .filter((m) => m.key)
+    .filter((m, i, arr) => arr.findIndex((x) => x.key === m.key) === i);
+  if (!out.markets.length) out.markets = d.markets.map((m) => ({ ...m }));
+  return out;
+}
 const STOCK_CATS = [
   { key: "kast", label: "Voorraadkast" },
   { key: "koel", label: "Koelkast" },
@@ -125,18 +164,18 @@ const marketPrice = (item, key, prices) => {
   const p = prices[priceKey(item)];
   return p && p[key] != null && Number(p[key]) > 0 ? Number(p[key]) : null;
 };
-function bestPrice(item, prices) {
+function bestPrice(item, prices, markets) {
   let best = null;
-  MARKETS.forEach((m) => {
+  markets.forEach((m) => {
     const v = marketPrice(item, m.key, prices);
     if (v != null && (!best || v < best.price)) best = { market: m, price: v };
   });
   return best;
 }
-function marketTotals(items, prices) {
-  const totals = MARKETS.map((m) => ({ market: m, total: 0, count: 0 }));
+function marketTotals(items, prices, markets) {
+  const totals = markets.map((m) => ({ market: m, total: 0, count: 0 }));
   items.forEach((item) => {
-    MARKETS.forEach((m, i) => {
+    markets.forEach((m, i) => {
       const v = marketPrice(item, m.key, prices);
       if (v != null) {
         totals[i].total += v;
@@ -194,14 +233,46 @@ export default function App() {
   );
   const [newStock, setNewStock] = useState("");
   const [newStockCat, setNewStockCat] = useState("koel");
-  const [mix, setMix] = useState((stored && stored.mix) || { vega: 2, vis: 2, vlees: 3 });
+  const [settings, setSettings] = useState(() => normalizeSettings(stored && stored.settings)); // per huishouden, lokaal bewaard (ADR-009)
   const [prices, setPrices] = useState((stored && stored.prices) || {}); // prijzendatabase per artikel (ADR-008)
   const [newPriceItem, setNewPriceItem] = useState("");
   const [openRecipe, setOpenRecipe] = useState(null);
 
   useEffect(() => {
-    saveState({ menu, recipes, checked, extraItems, mix, stock, prices });
-  }, [menu, recipes, checked, extraItems, mix, stock, prices]);
+    saveState({ menu, recipes, checked, extraItems, settings, stock, prices });
+  }, [menu, recipes, checked, extraItems, settings, stock, prices]);
+
+  const markets = settings.markets;
+  const days = useMemo(
+    () => DAY_NAMES.map((_, i) => DAY_NAMES[(settings.weekStartDay + i) % 7]),
+    [settings.weekStartDay]
+  );
+  const fishDays = settings.fishDays;
+  const otherDays = [0, 1, 2, 3, 4, 5, 6].filter((d) => !fishDays.includes(d));
+  const vegaCount = Math.min(Math.max(0, Number(settings.vegaTarget) || 0), otherDays.length);
+
+  function updateSettings(patch) {
+    setSettings((s) => normalizeSettings({ ...s, ...patch }));
+  }
+
+  function updateShopRun(ri, patch) {
+    setSettings((s) => normalizeSettings({ ...s, shopRuns: s.shopRuns.map((r, j) => (j === ri ? { ...r, ...patch } : r)) }));
+  }
+
+  function updateShopRunDay(ri, day, on) {
+    setSettings((s) =>
+      normalizeSettings({
+        ...s,
+        shopRuns: s.shopRuns.map((r, j) =>
+          j === ri ? { ...r, days: on ? [...new Set([...r.days, day])] : r.days.filter((x) => x !== day) } : r
+        ),
+      })
+    );
+  }
+
+  function updateMarket(mi, patch) {
+    setSettings((s) => normalizeSettings({ ...s, markets: s.markets.map((m, j) => (j === mi ? { ...m, ...patch } : m)) }));
+  }
 
   function setPrice(item, marketKey, value) {
     const key = priceKey(item);
@@ -210,7 +281,7 @@ export default function App() {
       const cur = ps[key] || {};
       const next = { ...cur, [marketKey]: v };
       // hele entry weghalen als alle prijzen leeg zijn
-      if (MARKETS.every((m) => next[m.key] == null)) {
+      if (markets.every((m) => next[m.key] == null)) {
         const copy = { ...ps };
         delete copy[key];
         return copy;
@@ -225,35 +296,26 @@ export default function App() {
     const pool = (cat) => shuffle(recipes.filter((r) => r.cat === cat && (r.ingredients || []).filter(Boolean).length > 0).map((r) => r.id));
     const next = Array(7).fill(null);
 
-    // Zaterdag en woensdag: vis
+    // Vis-dagen uit de instellingen
     const fish = pool("vis");
-    FISH_DAYS.forEach((d, i) => {
+    fishDays.forEach((d, i) => {
       if (fish[i]) next[d] = { id: fish[i], locked: false };
     });
 
-    // Overige dagen: vega/vlees volgens de gekozen verdeling
-    const want = { ...mix };
-    const over = want.vega + want.vlees - OTHER_DAYS.length;
-    if (over > 0) {
-      for (const c of ["vlees", "vega"]) {
-        const t = Math.min(over, want[c]);
-        want[c] -= t;
-      }
-    }
+    // Overige dagen: vega/vlees volgens vegaTarget (vlees = overige dagen minus vega, >= 0)
     const chosen = [];
-    for (const c of ["vega", "vlees"]) {
-      chosen.push(...pool(c).slice(0, want[c]).map((id) => ({ id, cat: c })));
-    }
+    chosen.push(...pool("vega").slice(0, vegaCount).map((id) => ({ id })));
+    chosen.push(...pool("vlees").slice(0, otherDays.length - vegaCount).map((id) => ({ id })));
     const rest = shuffle(
       recipes
         .filter((r) => (r.cat === "vega" || r.cat === "vlees") && (r.ingredients || []).filter(Boolean).length > 0)
         .map((r) => r.id)
     );
     for (const id of rest) {
-      if (chosen.length >= OTHER_DAYS.length) break;
+      if (chosen.length >= otherDays.length) break;
       if (!chosen.some((c) => c.id === id)) chosen.push({ id });
     }
-    OTHER_DAYS.forEach((d, i) => {
+    otherDays.forEach((d, i) => {
       if (chosen[i]) next[d] = { id: chosen[i].id, locked: false };
     });
 
@@ -365,6 +427,7 @@ export default function App() {
     { key: "stock", label: "Voorraad" },
     { key: "shopping", label: `Boodschappen${totalItems ? ` (${doneItems}/${totalItems})` : ""}` },
     { key: "prices", label: "Prijzen" },
+    { key: "settings", label: "Instellingen" },
   ];
 
   return (
@@ -372,7 +435,7 @@ export default function App() {
       <div className="mx-auto max-w-2xl px-4 pb-16">
         <header className="pt-6 pb-3 flex items-center justify-between">
           <h1 className="text-2xl font-bold">Weekmenu &amp; Boodschappen</h1>
-          <span className="text-xs text-stone-400">gezinsrecepten</span>
+          <span className="text-xs text-stone-400">{settings.householdSize + " eters"}</span>
         </header>
 
         <nav className="flex gap-1 bg-white rounded-xl p-1 shadow-sm mb-4 sticky top-2 z-10">
@@ -393,29 +456,8 @@ export default function App() {
           <div>
             <div className="bg-white rounded-xl shadow-sm p-4 mb-4">
               <div className="text-sm font-medium mb-2">Verdeling voor de week</div>
-              <div className="text-xs text-stone-500 mb-2">
-                Zaterdag en woensdag eten jullie vis (automatisch). De overige 5 dagen zijn vega of vlees:
-              </div>
-              <div className="flex gap-2 mb-3">
-                {["vega", "vlees"].map((c) => (
-                  <label key={c} className="flex-1 text-xs">
-                    <span className={`inline-block px-2 py-0.5 rounded-full mb-1 ${CAT_STYLE[c]}`}>{CAT_LABEL[c]}</span>
-                    <input
-                      type="number"
-                      min="0"
-                      max="5"
-                      value={mix[c]}
-                      onChange={(e) =>
-                        setMix({ ...mix, [c]: Math.max(0, Math.min(5, Number(e.target.value) || 0)) })
-                      }
-                      className="w-full border rounded-lg px-2 py-1.5"
-                    />
-                  </label>
-                ))}
-                <div className="flex-1 text-xs">
-                  <span className={`inline-block px-2 py-0.5 rounded-full mb-1 ${CAT_STYLE.vis}`}>Vis</span>
-                  <div className="border rounded-lg px-2 py-1.5 text-stone-400 text-center">2 (zat. + wo.)</div>
-                </div>
+              <div className="text-xs text-stone-500 mb-3">
+                Vis op {fishDays.length ? fishDays.map((d) => days[d]).join(", ") : "geen dag"} ({fishDays.length} {fishDays.length === 1 ? "dag" : "dagen"}). Overige {otherDays.length} dagen: {vegaCount} vega / {otherDays.length - vegaCount} vlees.
               </div>
               <button
                 onClick={generateMenu}
@@ -424,12 +466,12 @@ export default function App() {
                 Genereer weekmenu
               </button>
               <p className="text-xs text-stone-400 mt-2">
-                Vergrendelde dagen blijven staan. Zaterdag en woensdag krijgen automatisch een visgerecht, de andere dagen vega of vlees. Recepten zonder ingredientenlijst worden nog niet automatisch ingepland, maar kun je wel handmatig kiezen.
+                Vergrendelde dagen blijven staan. Vis-dagen en de vega/vlees-verdeling stel je in bij Instellingen. Recepten zonder ingredientenlijst worden nog niet automatisch ingepland, maar kun je wel handmatig kiezen.
               </p>
             </div>
 
             <div className="space-y-2">
-              {DAYS.map((day, i) => {
+              {days.map((day, i) => {
                 const entry = menu[i];
                 const r = entry ? byId[entry.id] : null;
                 return (
@@ -800,18 +842,20 @@ export default function App() {
               </div>
             )}
 
-            {SHOP_RUNS.map((run) => {
+            {settings.shopRuns.map((run, ri) => {
               const runRows = shoppingRows.filter((r) => run.days.includes(r.day));
               if (!runRows.length) return null;
-              const totals = marketTotals(runRows.map((r) => r.label), prices);
+              const totals = marketTotals(runRows.map((r) => r.label), prices, markets);
               const full = totals.filter((t) => t.count === runRows.length && runRows.length > 0);
               const cheapest = full.length ? full.reduce((a, b) => (a.total <= b.total ? a : b)) : null;
               const anyPrice = totals.some((t) => t.count > 0);
               return (
-                <div key={run.label} className="mb-6">
+                <div key={ri} className="mb-6">
                   <div className="bg-stone-800 text-white rounded-xl px-3 py-2.5 mb-2">
                     <div className="font-semibold text-sm">{run.label}</div>
-                    <div className="text-xs text-stone-300">{run.hint}</div>
+                    <div className="text-xs text-stone-300">
+                      {[...run.days].sort((a, b) => a - b).map((d) => days[d]).join(", ")}
+                    </div>
                     {anyPrice && (
                       <div className="text-xs mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5">
                         {totals.map((t) => (
@@ -833,7 +877,7 @@ export default function App() {
                     return (
                       <div key={i} className="mb-3">
                         <div className="text-xs font-semibold text-stone-500 mb-1">
-                          {DAYS[i]} · {rec.name}
+                          {days[i]} · {rec.name}
                         </div>
                         <div className="bg-white rounded-xl shadow-sm divide-y divide-stone-100">
                           {rows.map((r) => (
@@ -846,7 +890,7 @@ export default function App() {
                               />
                               <span className={`text-sm ${checked[r.key] ? "line-through text-stone-300" : ""}`}>{r.label}</span>
                               {(() => {
-                                const best = bestPrice(r.label, prices);
+                                const best = bestPrice(r.label, prices, markets);
                                 return best ? (
                                   <span className="ml-auto text-xs text-stone-400 whitespace-nowrap">
                                     {best.market.label.split(" ")[0]} {fmtEuro(best.price)}
@@ -934,7 +978,7 @@ export default function App() {
                 className="flex-1 border rounded-lg px-3 py-2 text-sm"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && newPriceItem.trim()) {
-                    setPrice(newPriceItem, "ah", "");
+                    setPrice(newPriceItem, markets[0].key, "");
                     setNewPriceItem("");
                   }
                 }}
@@ -942,7 +986,7 @@ export default function App() {
               <button
                 onClick={() => {
                   if (newPriceItem.trim()) {
-                    setPrice(newPriceItem, "ah", "");
+                    setPrice(newPriceItem, markets[0].key, "");
                     setNewPriceItem("");
                   }
                 }}
@@ -964,7 +1008,7 @@ export default function App() {
                     return (
                       <div key={it.key} className="flex items-center gap-2 px-3 py-2">
                         <span className="flex-1 text-sm truncate">{it.label}</span>
-                        {MARKETS.map((m) => (
+                        {markets.map((m) => (
                           <label key={m.key} className="text-[10px] text-stone-400 shrink-0">
                             {m.label.split(" ")[0]}
                             <input
@@ -1001,6 +1045,144 @@ export default function App() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {tab === "settings" && (
+          <div>
+            <div className="mb-2 text-xs text-stone-500">
+              Instellingen per huishouden. Ze worden alleen lokaal op dit toestel bewaard (localStorage) en gelden direct voor het weekmenu en de boodschappenlijst. Dagindex 0 is de weekstart ({days[0]}).
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm p-4 mb-4">
+              <div className="text-sm font-medium mb-2">Huishouden</div>
+              <label className="flex items-center justify-between gap-2 text-sm mb-2">
+                <span className="text-stone-600">Aantal eters</span>
+                <input
+                  type="number"
+                  min="1"
+                  value={settings.householdSize}
+                  onChange={(e) => updateSettings({ householdSize: Math.max(1, Number(e.target.value) || 1) })}
+                  className="w-20 border rounded-lg px-2 py-1.5 text-sm text-center"
+                />
+              </label>
+              <label className="flex items-center justify-between gap-2 text-sm">
+                <span className="text-stone-600">Week start op</span>
+                <select
+                  value={settings.weekStartDay}
+                  onChange={(e) => updateSettings({ weekStartDay: Number(e.target.value) })}
+                  className="border rounded-lg px-2 py-1.5 text-sm text-stone-600"
+                >
+                  {DAY_NAMES.map((d, i) => (
+                    <option key={d} value={i}>{d}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm p-4 mb-4">
+              <div className="text-sm font-medium mb-2">Eetpatroon</div>
+              <div className="text-xs text-stone-500 mb-2">Vis-dagen:</div>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {days.map((d, i) => (
+                  <label key={i} className="flex items-center gap-1 text-xs border rounded-lg px-2 py-1 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={fishDays.includes(i)}
+                      onChange={(e) =>
+                        updateSettings({ fishDays: e.target.checked ? [...fishDays, i] : fishDays.filter((x) => x !== i) })
+                      }
+                      className="accent-emerald-600"
+                    />
+                    {d}
+                  </label>
+                ))}
+              </div>
+              <label className="flex items-center justify-between gap-2 text-sm">
+                <span className="text-stone-600">Aantal vega-dagen (op niet-vis-dagen)</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="7"
+                  value={settings.vegaTarget}
+                  onChange={(e) => updateSettings({ vegaTarget: Math.max(0, Number(e.target.value) || 0) })}
+                  className="w-20 border rounded-lg px-2 py-1.5 text-sm text-center"
+                />
+              </label>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm p-4 mb-4">
+              <div className="text-sm font-medium mb-2">Boodschappenmomenten</div>
+              {settings.shopRuns.map((run, ri) => (
+                <div key={ri} className="mb-3 border border-stone-100 rounded-lg p-2">
+                  <div className="flex gap-2 mb-2">
+                    <input
+                      value={run.label}
+                      onChange={(e) => updateShopRun(ri, { label: e.target.value })}
+                      placeholder="Label…"
+                      className="flex-1 border rounded-lg px-2 py-1.5 text-sm"
+                    />
+                    <button
+                      onClick={() => updateSettings({ shopRuns: settings.shopRuns.filter((_, j) => j !== ri) })}
+                      className="text-stone-300 hover:text-red-500 text-sm px-1"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {days.map((d, i) => (
+                      <label key={i} className="flex items-center gap-1 text-xs border rounded-lg px-2 py-1 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={run.days.includes(i)}
+                          onChange={(e) => updateShopRunDay(ri, i, e.target.checked)}
+                          className="accent-emerald-600"
+                        />
+                        {d}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              <button
+                onClick={() => updateSettings({ shopRuns: [...settings.shopRuns, { label: "Nieuwe run", days: [] }] })}
+                className="w-full py-2 border rounded-xl text-sm text-stone-500 hover:bg-white"
+              >
+                + Boodschappenmoment toevoegen
+              </button>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm p-4 mb-4">
+              <div className="text-sm font-medium mb-2">Winkels (voor prijzen)</div>
+              {markets.map((m, mi) => (
+                <div key={mi} className="flex gap-2 mb-2">
+                  <input
+                    value={m.key}
+                    onChange={(e) => updateMarket(mi, { key: e.target.value })}
+                    placeholder="sleutel…"
+                    className="w-20 border rounded-lg px-2 py-1.5 text-sm"
+                  />
+                  <input
+                    value={m.label}
+                    onChange={(e) => updateMarket(mi, { label: e.target.value })}
+                    placeholder="Naam…"
+                    className="flex-1 border rounded-lg px-2 py-1.5 text-sm"
+                  />
+                  <button
+                    onClick={() => updateSettings({ markets: markets.filter((_, j) => j !== mi) })}
+                    className="text-stone-300 hover:text-red-500 text-sm px-1"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+              <button
+                onClick={() => updateSettings({ markets: [...markets, { key: "winkel" + (markets.length + 1), label: "Nieuwe winkel" }] })}
+                className="w-full py-2 border rounded-xl text-sm text-stone-500 hover:bg-white"
+              >
+                + Winkel toevoegen
+              </button>
+            </div>
           </div>
         )}
       </div>

@@ -1,32 +1,24 @@
 # Intentie
 
 ## Doel
-Een simpel huishoudelijk hulpmiddel voor het gezin: automatisch een weekmenu
-samenstellen uit een vaste receptenpool en daaruit, plus de voorraadstatus,
-met n klik een boodschappenlijst genereren voor twee vaste boodschappenmomenten.
+Een simpele, installeerbare web-app (PWA) waarmee een huishouden automatisch een weekmenu samenstelt uit een eigen receptenpool en daraus, plus de voorraadstatus, met één klik een boodschappenlijst genereert — gesplitst per boodschappenmoment.
 
-## Gebruikerswensen
-1. Week start op **zaterdag** (boodschappen dag 1) met tweede boodschappenrun op **woensdag**.
-2. Vaste regels: **vis op zaterdag en woensdag**; de overige dagen een mix van
-   vegetarisch en vlees, met instelbare verhouding (standaard 2 vega / 3 vlees).
-3. Recepten uit het eigen Word-document "Recepten 2 per blad" (52 recepten).
-4. Dagen kunnen vergrendeld worden; per dag kan een gerecht handmatig worden
-   overschreven (dropdown met alle recepten behalve categorie "extra").
-5. Boodschappenlijst gegroepeerd per dag en per gerecht, plus vrije extra
-   artikelen en een "Standaardvoorraad aanvullen"-sectie, met afvinkboxen.
-6. Voorraadbeheer (kast, koel, fruit, kruiden): tekorten komen automatisch op
-   de boodschappenlijst ("n van want"). Kruidenla werkt met binaire toggle
-   (aanwezig ja/nee). Knoppen "Alles aangevuld" en "Standaardlijst terug".
-7. Alles lokaal (geen account, geen server): status bewaart in localStorage.
-8. Per recept bewerkbare bereidingstijd (minuten) en vrije tekst voor het
-   koken (bijv. "stomen", "oven 200C").
-9. Prijzen per artikel bijhouden voor de vaste supermarkten (Albert Heijn,
-   Jumbo, Lidl) en daarmee per boodschappenrun een richtprijs per winkel
-   tonen, plus een tip voor de goedkoopste winkel. Prijzen worden handmatig
-   ingevoerd (uit de supermarkt-apps/folders) en lokaal bewaard; er is geen
-   live koppeling met de supermarkten (zie ADR-008).
+De app is niet aan één huishouden gebonden: elk huishouden kan zelf instellen hoe het wil eten en boodschappen doen (weekstart, boodschappenmomenten, dagcategorieën zoals vis/vegetarisch/vlees, en het aantal eters waarop de recepten zijn afgestemd). Die gegevens zijn per huishouden en blijven lokaal op het eigen apparaat.
 
-## Niet-functionele wensen
-- Klein en overzichtelijk: n React-component, geen dependencies.
-- Toekomstige uitbreidingen via Vibe met minimale tokens: daarom staan intent,
-  specs, ADR's en tests in deze repo als context.
+## Principes
+1. **Per huishouden instelbaar en lokaal bewaard** — instellingen, recepten, voorraad, weekmenu, afvinkstatus en prijzen staan in localStorage op het eigen apparaat. Geen account, geen server; het ene huishouden ziet niets van het andere (ADR-009).
+2. **Privé-context staat niet in GitHub** — household-specifieke context (gezinssamenstelling, routines, voorkeuren) hoort niet in deze repo. In de repo staat alleen de algemene, deelbare app. Privé-context leeft buiten de repo: in een privé-skill en in de lokale app-instellingen (ADR-010).
+3. **Offline-first; online alleen voor niet-privé data** — de app werkt volledig offline. Netwerk mag alleen worden gebruikt voor gegevens die niet privé zijn, zoals het optioneel ophalen van actuele supermarktprijzen (ADR-008, ADR-010).
+4. **Zo min mogelijk handwerk** — weekmenu en boodschappenlijst worden automatisch gegenereerd; per dag kan handmatig worden afgeweken (vergrendelen / override).
+5. **Eén bronbestand** — de app-logica staat in `src/App.jsx` en wordt met een vastgelegde build-stap gecompileerd naar `src/app.js` (`npm run build`). Zo lang dat beheerbaar is, blijft het één bestand (ADR-001, ADR-011).
+6. **Alle functionaliteit automatisch getest** — alles wat in SPECS.md staat, heeft een automatische test in `tools/test-*.cjs`, te draaien met `npm test` (docs/TESTS.md, ADR-011). Agents maken hiervoor geen losse scripts.
+
+## Functionele wensen (algemeen; per huishouden instelbaar via Instellingen)
+1. Weekstart instelbaar (standaard: zaterdag).
+2. Boodschappenmomenten instelbaar: standaard twee runs (start van de week en halverwege), elk met eigen label en dagen.
+3. Dagcategorieën instelbaar: vaste vis-dagen (standaard: weekstart en middel van de week) en voor de overige dagen een instelbare vega/vlees-verhouding.
+4. Eigen receptenpool: recepten toevoegen, bewerken (naam, categorie, ingredienten, bereiding, tijd, kok), verwijderen, exporteren/importeren als JSON en resetten naar de startpool.
+5. Weekmenu automatisch genereren: per dag een recept uit de dagcategorie (niet herhaald binnen de week waar mogelijk), met knop vergrendelen en dropdown override per dag.
+6. Boodschappenlijst per run, gegroepeerd per dag en per gerecht, plus vrije extra artikelen en een automatische sectie "Standaardvoorraad aanvullen" uit de voorraadtekorten, met afvinkboxen en een teller in de tab.
+7. Voorraadbeheer per categorie (kast, koel, fruit, kruiden) met have/want; kruidenla binair (aanwezig ja/nee); knoppen "Alles aangevuld" en "Standaardlijst terug".
+8. Prijzen per artikel per winkel: richtprijs per run per winkel met dekking "(x/n)" en een "goedkoopste"-tip; lokaal bewaard, optioneel online opgehaald (niet-privé data).
