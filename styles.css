@@ -175,3 +175,40 @@ input, select, textarea { font: inherit; }
   font-weight: 500; background: var(--amber-100); color: var(--amber-700); }
 .tag-eaters { display: inline-block; font-size: 10px; padding: .125rem .375rem; border-radius: .25rem;
   font-weight: 500; background: var(--amber-100); color: var(--amber-700); margin-left: .375rem; }
+
+/* --- recepten-tab: zoeken/filteren, tags en bereidingstijd-categorie (ADR-013) --- */
+.searchbar { display: flex; align-items: center; gap: .5rem; background: var(--white); border: 1px solid var(--stone-300);
+  border-radius: .75rem; padding: .5rem .75rem; box-shadow: 0 1px 2px 0 rgba(0,0,0,.05); }
+.searchbar .sicon { color: var(--stone-400); font-size: .875rem; background: none; border: none; padding: 0; }
+.searchbar input { border: none; outline: none; flex: 1; font-size: .875rem; background: transparent; color: var(--stone-800); min-width: 0; }
+.searchbar input::placeholder { color: var(--stone-400); }
+.iconbtn { width: 1.75rem; height: 1.75rem; border-radius: .5rem; border: 1px solid var(--stone-300); background: var(--white);
+  color: var(--stone-500); font-size: .8rem; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.filterrow { display: flex; gap: .375rem; align-items: center; flex-wrap: wrap; margin-top: .5rem; }
+.chip.kort.on { background: var(--emerald-100); color: var(--emerald-700); border-color: var(--emerald-400); }
+.chip.normaal.on { background: var(--stone-800); color: var(--white); border-color: var(--stone-800); }
+.chip.lang.on { background: var(--amber-100); color: var(--amber-700); border-color: #f59e0b; }
+.afilterrow { display: flex; gap: .375rem; align-items: center; flex-wrap: wrap; margin-top: .5rem; }
+.afilter { display: inline-flex; align-items: center; gap: .3rem; font-size: .75rem; padding: .3rem .5rem;
+  border-radius: 9999px; background: var(--stone-800); color: var(--white); }
+.afilter .x { background: none; border: none; color: var(--white); font-weight: 700; padding: 0; font-size: .75rem; }
+.clearall { font-size: .75rem; font-weight: 600; color: var(--emerald-700); background: none; border: none; padding: 0; }
+.count { font-size: .75rem; color: var(--stone-500); margin-left: auto; }
+.tag { display: inline-flex; align-items: center; gap: .25rem; font-size: 10px; padding: .125rem .375rem;
+  border-radius: .25rem; background: var(--stone-100); color: var(--stone-600); font-weight: 500; }
+.tagx { background: none; border: none; color: var(--stone-400); font-weight: 700; padding: 0; font-size: 10px; }
+.tb { font-size: 10px; padding: .125rem .375rem; border-radius: .25rem; font-weight: 600; white-space: nowrap; }
+.tb-kort { background: var(--emerald-100); color: var(--emerald-700); }
+.tb-normaal { background: var(--stone-100); color: var(--stone-500); }
+.tb-lang { background: var(--amber-100); color: var(--amber-700); }
+.metarow { display: flex; align-items: center; gap: .25rem; margin-top: .25rem; flex-wrap: wrap; }
+.segl { display: flex; border: 1px solid var(--stone-300); border-radius: .5rem; overflow: hidden; }
+.segl button { flex: 1; padding: .4rem 0; font-size: .75rem; background: var(--white); color: var(--stone-600); border: none; }
+.segl button + button { border-left: 1px solid var(--stone-300); }
+.segl button.on { background: var(--stone-800); color: var(--white); font-weight: 600; }
+.tagadd { display: flex; gap: .375rem; align-items: center; margin-top: .375rem; }
+.tagadd input { flex: 1; border: 1px solid var(--stone-300); border-radius: .5rem; padding: .375rem .5rem; font-size: .75rem; }
+.tagadd button { border: 1px solid var(--stone-300); border-radius: .5rem; padding: .375rem .5rem; font-size: .75rem;
+  color: var(--stone-500); background: var(--white); }
+.mutedrow { display: flex; gap: .75rem; margin-top: 1rem; }
+.linkbtn { font-size: .75rem; color: var(--stone-500); background: none; border: none; padding: 0; }

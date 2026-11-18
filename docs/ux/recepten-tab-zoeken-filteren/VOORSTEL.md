@@ -1,6 +1,6 @@
 # UX-voorstel: recepten-tab — zoeken, filteren, tags en bereidingstijd-categorieën
 
-**Status: ter review.** 10 mock-screenshots (2 versies per scherm) in deze map, 390px telefoonbreedte (device_scale_factor 2), gerenderd in de eigen huisstijl van de app (`styles.css` inline) met headless Chromium; recepten uit `BASE_RECIPES`.
+**Status: ronde 1 goedgekeurd en verwerkt (ADR-013).** Goedgekeurd per scherm: 1 = versie B mét aanpassingen (maximaal 5 tags direct zichtbaar, uitlegtekst achter ℹ️-icoon, toevoegen via klein ＋-icoon), 2 = versie A (bottom sheet), 3 = versie B (platte resultaatlijst met teller), 4 = versie A (toevoegen in bottom sheet), 5 = versie A (bewerken met chips/segmented). Beslissingen: tag-filters AND; ingrediënt-filter als vrij tekstveld "bevat"; migratiedrempels ≤ 25 min = kort / ≥ 45 min = lang; `lang` = r2/r24/r36(Borsjt)/r37/r42(Kofta)/r45/r51, `kort` = r17(Tortelloni)/r41(Kip Siam); export/import/reset blijven onderaan de tab. Verwerkt in `docs/SPECS.md`, `docs/adr/ADR-013-*.md`, `tools/test-recepten-ux.cjs` en `src/App.jsx` (+ build `src/app.js`); `npm run verify` groen. Ronde 2 (scherm 6) staat hieronder, ter review.
 
 ## Aanleiding (wensen)
 
@@ -67,3 +67,15 @@ In beide versies: filters combineren (AND): zoekterm op naam + tijdcategorie + i
 - Tests in `tools/test-recepten-ux.cjs` (nieuw, via `tools/render-harness.cjs`): zoekfilter op naam, filter op tijdCat/ingrediënt/tags, teller, toevoegen pas na knop, tags toevoegen/verwijderen, kok-veld absent, seed timeCat-waarden.
 - Implementatie in `src/App.jsx` (+ `npm run build` → `src/app.js` synchroon, `npm run verify` groen): zoekbalk + filters bovenaan de recepten-tab, toevoegen-knop, bewerkformulier zonder kok mét tags en tijd-segmented, badges op de rijen, weekmenu-dagregel met tijd-badge.
 - Dit `VOORSTEL.md` wordt na goedkeuring aangevuld met de gekozen versies per scherm.
+
+## 6. Nieuw verzoek (ronde 2): per recept een knop om toe te voegen aan het weekmenu van deze week
+
+Wens: in de receptenlijst rechts per recept een knop om het recept toe te voegen aan een **onvergrendelde dag** van het weekmenu van **deze week** (week van za 14 – vr 20 nov 2026 in de mocks).
+
+- `11-rij-weekmenu-knop-versie-A-direct.png` — icoonknop 📅 rechts op de rij (naast de ▾). Klik voegt direct toe aan de **eerste onvergrendelde dag zonder gerecht** van deze week; melding onderaan (toast): "✅ <recept> toegevoegd aan <dag> <datum>". Als alle onvergrendelde dagen al een gerecht hebben: knop gedimd/uit.
+- `12-rij-weekmenu-knop-versie-B-dagkiezer.png` — klik op 📅 opent een bottom sheet "Kies een dag deze week" met de 7 dagen (dag + datum, 🔒 bij vergrendeld = niet klikbaar, evt. huidig gerecht erachter). Klik op een onvergrendelde dag → het recept staat op die dag (overschrijft een onvergrendeld gerecht aldaar; vergrendelde dagen zijn niet klikbaar).
+
+### Open vragen bij 6
+- Direct toevoegen aan de eerste vrije onvergrendelde dag (A) of zelf een dag kiezen in een sheet (B)?
+- Bij B: mag een onvergrendelde dag met bestaand gerecht worden overschreven, of alleen lege dagen klikbaar? (huidig voorstel: overschrijven mag, vergrendeld niet)
+- Melding na toevoegen: toast onderaan (A) of direct zichtbaar in de dagregel/weekmenu?
