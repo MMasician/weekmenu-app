@@ -1,5 +1,5 @@
 // Functionele test van de prijzenmodule: interactie via onChange-handlers.
-const { loadApp, serialize } = require("/home/user/weekmenu-app/tools/render-harness.cjs");
+const { loadApp, serialize } = require("./render-harness.cjs");
 
 const seed = {
   menu: [{ id: "r25", locked: true }, null, null, null, null, null, null], // Thaise viscurry (5 ingredienten)
@@ -34,14 +34,6 @@ const items = ["Zalm", "Rode curry", "Kokosmelk", "Rivolitomaatjes", "Rijst (bul
 const priceOf = { "Zalm": [8.5, 9.0, 7.5], "Rode curry": [1.99, 1.79, 1.49], "Kokosmelk": [1.29, 1.19, 0.99],
   "Rivolitomaatjes": [1.10, 1.05, 0.95], "Rijst (bulgur)": [2.00, 1.80, 1.60],
   "800 g wokgroente met peulen": [2.29, 2.19, 1.89], "Kroepoek": [1.00, 0.90, 0.80] };
-// vind in de gerenderde prijzen-tab alle inputs en vul ze via onChange
-let filled = 0;
-walk(render(), (n) => {
-  if (n && n.type === "input" && n.props.type === "number" && n.props.step === "0.01") {
-    const row = [];
-    // zoek de label-tekst van deze rij (bovenliggende structuur is lastig; vul via placeholder-check hieronder)
-  }
-});
 // directer: gebruik de bekende setPrice-API via de labeltekst in de tab
 // Rijen: <div><span>label</span><label>AH<input/></label>...</div>
 // We lopen de boom en koppelen inputs aan de dichtstbijzijnde tekst

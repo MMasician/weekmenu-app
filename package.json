@@ -6,6 +6,16 @@
   "scripts": {
     "build": "node tools/jsx-transform.cjs src/App.jsx src/app.js",
     "test": "node tools/run-tests.cjs",
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.sw.json",
     "verify": "npm run build && npm test"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "@types/react": "^19.3.0",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react-hooks": "^6.1.1",
+    "globals": "^16.5.0",
+    "typescript": "^5.9.3"
   }
 }

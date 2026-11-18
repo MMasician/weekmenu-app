@@ -14,7 +14,8 @@ fs.readFileSync = function (p, ...rest) {
   return origReadFileSync.call(this, mapPath(p), ...rest);
 };
 
-const origResolveFilename = Module._resolveFilename;
-Module._resolveFilename = function (request, ...rest) {
+const ModuleAny = /** @type {any} */ (Module);
+const origResolveFilename = ModuleAny._resolveFilename;
+ModuleAny._resolveFilename = function (request, ...rest) {
   return origResolveFilename.call(this, mapPath(request), ...rest);
 };

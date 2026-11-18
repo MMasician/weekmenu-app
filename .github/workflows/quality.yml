@@ -1,0 +1,47 @@
+name: code-quality
+on:
+  push:
+  pull_request:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      # npm ci faalt als package.json en package-lock.json niet synchroon zijn
+      - name: Installeer dependencies exact volgens lockfile
+        run: npm ci
+      - name: Lint (ESLint)
+        run: npm run lint
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Installeer dependencies exact volgens lockfile
+        run: npm ci
+      - name: Typecheck (tsc --checkJs)
+        run: npm run typecheck
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Installeer dependencies exact volgens lockfile
+        run: npm ci
+      - name: Dependency-audit (npm audit)
+        run: npm audit --audit-level=moderate

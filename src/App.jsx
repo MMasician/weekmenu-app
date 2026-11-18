@@ -88,7 +88,6 @@ function normalizeStock(arr) {
     have: s.have ?? (s.qty === 0 ? 0 : s.want ?? s.defaultQty ?? s.qty ?? 1),
   }));
 }
-const CATS = ["vega", "vis", "vlees"];
 const CAT_LABEL = { vega: "Vega", vis: "Vis", vlees: "Vlees", extra: "Extra" };
 const CAT_STYLE = {
   vega: "bg-green-100 text-green-800",
@@ -212,7 +211,7 @@ function weekDateKeys(weekStartDay, offset) {
 }
 // aantal weken tussen de week van fromDate en de week van toDate
 function weeksBetween(fromDate, toDate, weekStartDay) {
-  return Math.round((startOfWeek(toDate, weekStartDay) - startOfWeek(fromDate, weekStartDay)) / (7 * 24 * 3600 * 1000));
+  return Math.round((startOfWeek(toDate, weekStartDay).getTime() - startOfWeek(fromDate, weekStartDay).getTime()) / (7 * 24 * 3600 * 1000));
 }
 // maandrooster voor de kalender; kolommen starten op de ingestelde weekstart
 function monthGrid(year, month, weekStartDay) {
@@ -646,7 +645,7 @@ export default function App() {
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const arr = JSON.parse(reader.result);
+        const arr = JSON.parse(String(reader.result));
         if (Array.isArray(arr) && arr.length > 0 && arr.every((r) => r && r.id && r.name)) {
           setRecipes(arr.map((r) => normalizeRecipe({ ingredients: [], bereiding: "", ...r })));
         }

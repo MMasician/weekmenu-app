@@ -153,7 +153,7 @@ function make(seed) {
 {
   const t = make({});
   t.findTab("Instellingen").props.onClick();
-  let weekSel = null;
+  let weekSel = /** @type {any} */ (null);
   t.walk(t.render(), (n) => {
     if (n && n.type === "select" && !weekSel) weekSel = n; // in de Instellingen-tab is dit de weekstart-select
   });
@@ -165,7 +165,7 @@ function make(seed) {
   check("menu toont week vanaf maandag", t.dayLabels()[0] === "Maandag" && t.dayLabels()[6] === "Zondag");
 
   t.findTab("Instellingen").props.onClick();
-  let vegaInput = null;
+  let vegaInput = /** @type {any} */ (null);
   t.walk(t.render(), (n) => {
     if (n && n.type === "input" && n.props.type === "number" && String(n.props.max) === "7") vegaInput = n;
   });

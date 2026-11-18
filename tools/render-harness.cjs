@@ -9,7 +9,7 @@ function loadApp(file, seed) {
     const set = (v) => { hooks.state[i] = typeof v === "function" ? v(hooks.state[i]) : v; };
     return [hooks.state[i], set];
   };
-  const useMemo = (fn, deps) => fn();
+  const useMemo = (fn, _deps) => fn();
   const useEffect = () => {};
   const React = {
     createElement: (type, props, ...children) => ({ type, props: props || {}, children }),
