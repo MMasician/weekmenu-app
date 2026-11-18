@@ -11,6 +11,7 @@
     "verify": "npm run build && npm test"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
     "eslint": "^10.15.0",
