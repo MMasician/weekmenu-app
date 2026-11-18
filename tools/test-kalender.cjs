@@ -107,7 +107,7 @@ function make(seed) {
   check("vandaag gehighlight in de kalender (bg-emerald-600)", !!todayCell && String(todayCell.props.className).indexOf("bg-emerald-600") !== -1);
   check("weekknoppen aanwezig in de datum-sheet (vorige/volgende week)", !!t.findButton("Vorige week") && !!t.findButton("Volgende week"));
   check("bij offset 0 geen 'Naar deze week'-knop", !t.findButton("Naar deze week"));
-  let backdrop = null;
+  let backdrop = /** @type {any} */ (null);
   t.walk(t.render(), (n) => { if (n && n.type === "div" && n.props.className === "backdrop") backdrop = n; });
   backdrop.props.onClick();
   check("backdrop sluit de datum-sheet (geen kalender meer op de tab)", t.calCells().length === 0);

@@ -261,7 +261,6 @@ function make(seed) {
 {
   const keys = weekKeysFor(0, 0);
   const t = make({ menuByDate: { [keys[3]]: { id: "r25", locked: true }, [keys[0]]: { id: "r46" } } });
-  const menuByDateState = () => m => m; // placeholder, hieronder direct
   t.goRecipes();
   const calBtnFor = (name) => {
     let card = null;

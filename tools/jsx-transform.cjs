@@ -2,21 +2,6 @@
 // bestaande gecompileerde src/app.js (esbuild-uitvoer) in deze repo.
 "use strict";
 
-const KNOWN_TAGS = new Set([
-  "div", "span", "button", "input", "select", "option", "label", "textarea",
-  "header", "nav", "h1", "h2", "h3", "p", "a", "img", "table", "td", "tr",
-]);
-
-function isJsxStart(s, i) {
-  const c = s[i];
-  if (c !== "<") return false;
-  const n = s[i + 1];
-  if (n === ">") return true; // fragment
-  if (!/[A-Za-z]/.test(n)) return false;
-  // vergelijkingen als "a < b" hebben een spatie na <; JSX nooit
-  return true;
-}
-
 // Slaat een string (', ", `) over, inclusief geneste ${} in templates.
 function skipString(s, i) {
   const q = s[i];

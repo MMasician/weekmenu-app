@@ -12,8 +12,9 @@ De app is per huishouden instelbaar (weekstart, boodschappenmomenten, vis/vega/v
 - Bronbestand: `src/App.jsx` (enige app-bron, ADR-001). Gecompileerde versie: `src/app.js`.
 - Build: `npm run build` — compileert `src/App.jsx` naar `src/app.js` via `tools/jsx-transform.cjs`. `src/app.js` wordt meegecommit; CI controleert dat beide synchroon zijn (ADR-011).
 - Tests: `npm test` — draait alle automatische tests in `tools/test-*.cjs` via `tools/run-tests.cjs`. Elke functionaliteit in `docs/SPECS.md` moet gedekt zijn (zie `docs/TESTS.md`). Alles in één keer: `npm run verify`.
+- Lint: `npm run lint` (ESLint, flat config in `eslint.config.mjs`, zie ADR-014). Typecheck: `npm run typecheck` (tsc `--checkJs` via `tsconfig.json` + `tsconfig.sw.json`).
 - Maak geen losse build/test-scripts (ADR-011); breid `tools/test-*.cjs` uit met relatieve paden.
-- CI: plaats de workflow uit ADR-011 als `.github/workflows/test.yml` (vereist een token met `workflow`-scope).
+- CI (allemaal op elke push en pull request, zie ADR-014): `.github/workflows/test.yml` = build + sync-check + tests (ADR-011); `.github/workflows/quality.yml` = lint + typecheck + `npm ci` (lockfile-check) + `npm audit`; `.github/workflows/security.yml` = gitleaks secret-scan (push/PR) + dependency-review (alleen PR); CodeQL loopt via de default code scanning-setup van GitHub (check `CodeQL`). Dependencies lopen via `package-lock.json` (`npm ci`) en Dependabot (`.github/dependabot.yml`).
 
 ## Documentatie
 - `docs/INTENT.md` — doel en principes

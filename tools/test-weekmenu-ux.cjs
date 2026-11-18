@@ -59,7 +59,7 @@ function make(seed) {
     return out;
   };
   const stepperBtn = (label) => {
-    let s = null;
+    let s = /** @type {any} */ (null);
     walk(render(), (n) => { if (n && n.type === "div" && String(n.props.className || "").indexOf("stepper") !== -1) s = n; });
     return s ? s.children.find((c) => c && c.children && c.children[0] === label) : null;
   };
