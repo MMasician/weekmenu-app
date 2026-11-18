@@ -36,10 +36,19 @@ Zie INTENT.md voor doel en principes; ADR-009 t/m ADR-011 voor configuratie, pri
 - Week regenereren (geldt voor de getoonde week): vergrendelde dagen blijven staan; de afvinkjes van de getoonde week worden gewist. De boodschappenlijst volgt altijd de getoonde week.
 - Migratie (ADR-005): een oude `menu`-array van 7 dagen (index t.o.v. de weekstart, zonder datum) wordt bij het laden afgebeeld op de datums van de huidige week; vinkjes-sleutels "<dagindex>-…" worden mee omgezet naar "<datum>-…".
 
-## Recepten
-- Startpool `BASE_RECIPES` in `src/App.jsx` (ids `r1`..`rN`); de actuele pool is app-state in localStorage `weekmenu-app-v1`, veld `recipes` (ADR-006); `BASE_RECIPES` is seed- en reset-waarde.
-- Recept: id, naam, categorie (`vega`/`vis`/`vlees`/`extra`), ingredienten[], bereiding, tijd (min), kok.
-- Bewerken per recept (incl. verwijderen; een verwijderd recept verdwijnt ook uit een lopend weekmenu), nieuw recept toevoegen, exporteren/importeren als JSON, "Standaardlijst terug".
+## Recepten (ADR-006, ADR-013)
+- Startpool `BASE_RECIPES` in `src/App.jsx` (ids `r1`..`rN`); de actuele pool is app-state in localStorage `weekmenu-app-v1`, veld `recipes`; `BASE_RECIPES` is seed- en reset-waarde.
+- Recept: id, naam, categorie (`vega`/`vis`/`vlees`/`extra`), ingredienten[], bereiding, **`timeCat` (`kort`/`normaal`/`lang`)**, **`tags`: string[]**. De oude velden `time` (minuten) en `cook` zijn vervallen (ADR-013).
+- **Zoeken & filteren (bovenaan de tab)**: zoekbalk op receptnaam (🔍, met ✕ om te wissen); direct zichtbare filterrij met tijd-chips (Alle/Kort/Normaal/Lang) + de **maximaal 5 meestvoorkomende tags** als chips (`＋n meer` en `⚙ Filters ▾` openen het filter-sheet). Uitlegtekst staat achter het ℹ️-icoon in de zoekbalk.
+- **Filter-sheet** (bottom sheet): bereidingstijd als segmented (Alles/Kort/Normaal/Lang), "Ingrediënt bevat" (vrije tekst, matcht op ingrediënten), alle tags in de pool als multi-select chips. Alle filters combineren met **AND** (meerdere tags = alle tags moeten op het recept staan). Onderaan "Wis filters" + "Toon N recepten" (sluit het sheet).
+- Bij actieve filters (zoekterm, tijd, ingrediënt of tag): **platte lijst op naam** + teller "n van N recepten" + actieve filterchips met × en "Alles wissen". Zonder actieve filters: gegroepeerd per categorie.
+- Receptrij: naam (+ "deze week" / "geen ingredienten bekend"), categorie-chip, **tijd-badge** (kort = groen, normaal = grijs, lang = amber) en tag-chips; klik opent het bewerkformulier.
+- **Toevoegen**: via het ＋-icoon in de zoekbalk → bottom sheet "Nieuw recept" (naam, categorie-chips, bereidingstijd segmented met standaard normaal, tags, ingrediënten één per regel, bereiding, knop "Toevoegen").
+- **Bewerken** per recept (incl. verwijderen; een verwijderd recept verdwijnt ook uit een lopend weekmenu): naam, categorie, bereidingstijd (segmented), tags (chips met × + "＋ tag toevoegen"-veld), ingrediënten, bereiding. Er is geen "kok"-veld meer.
+- Onderaan de tab: Exporteren / Importeren (JSON) / "Standaardlijst terug".
+- **Weekmenu-koppeling (ronde 2)**: rechts op elke receptenrij een 📅-knop → bottom sheet "Kies een dag deze week" met de 7 dagen van **deze week** (offset 0): dag + datum, 🔒 bij vergrendeld (niet klikbaar), "vandaag" gemarkeerd, huidig gerecht (of "leeg") erachter. Klik op een onvergrendelde dag → het recept wordt aan die dag toegewezen in `menuByDate` (`{ id }`, een onvergrendeld gerecht aldaar wordt overschreven, `eaters`-override blijft behouden; vergrendelde dagen worden nooit overschreven). Na keuze sluit het sheet en toont een toast "✅ <recept> toegevoegd aan <dag> <datum>".
+- **Seed & migratie (ADR-013)**: `BASE_RECIPES` seedt `timeCat`: `lang` = ovengerechten (r2, r24, r37, r45, r51), Kofta (r42) en Borsjt (r36); `kort` = Tortelloni met spinazie (r17) en Kip Siam (r41); alle overige recepten `normaal`; `tags: []`. Oude opslag met `time` (minuten) migreert bij het laden via `normalizeRecipe`: ≤ 25 min → `kort`, ≥ 45 min → `lang`, anders `normaal` (ontbrekend → `normaal`); `cook` wordt gewist; ontbrekende `timeCat`/`tags` worden aangevuld (ook bij import en reset).
+- In de weekmenu-dagregel toont een dag nu een tijd-badge (kort/normaal/lang) in plaats van "X min"; het kok-veld is daar ook verdwenen.
 - Oudere opslag zonder `recipes` wordt geseed uit `BASE_RECIPES`.
 
 ## Voorraad

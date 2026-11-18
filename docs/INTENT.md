@@ -17,7 +17,7 @@ De app is niet aan één huishouden gebonden: elk huishouden kan zelf instellen 
 1. Weekstart instelbaar (standaard: zaterdag).
 2. Boodschappenmomenten instelbaar: standaard twee runs (start van de week en halverwege), elk met eigen label en dagen.
 3. Dagcategorieën instelbaar: vaste vis-dagen (standaard: weekstart en middel van de week) en voor de overige dagen een instelbare vega/vlees-verhouding.
-4. Eigen receptenpool: recepten toevoegen, bewerken (naam, categorie, ingredienten, bereiding, tijd, kok), verwijderen, exporteren/importeren als JSON en resetten naar de startpool.
+4. Eigen receptenpool: recepten toevoegen, bewerken (naam, categorie, ingredienten, bereiding, bereidingstijd kort/normaal/lang, tags), verwijderen, exporteren/importeren als JSON en resetten naar de startpool. In de recepten-tab zoek je op receptnaam en filter je op bereidingstijd, ingrediënten en/of tags.
 5. Weekmenu automatisch genereren: per dag een recept uit de dagcategorie (niet herhaald binnen de week waar mogelijk), met knop vergrendelen en per dag een tekstveld met autocomplete (vrije tekst toegestaan, bijv. "Eten bij oma in Breda" — die dag staat in het menu maar genereert geen boodschappen).
 6. Boodschappenlijst per run, gegroepeerd per dag en per gerecht, plus vrije extra artikelen en een automatische sectie "Standaardvoorraad aanvullen" uit de voorraadtekorten, met afvinkboxen en een teller in de tab.
 7. Voorraadbeheer per categorie (kast, koel, fruit, kruiden) met have/want; kruidenla binair (aanwezig ja/nee); knoppen "Alles aangevuld" en "Standaardlijst terug".

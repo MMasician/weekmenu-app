@@ -96,11 +96,37 @@ const CAT_STYLE = {
   vlees: "bg-red-100 text-red-800",
   extra: "bg-amber-100 text-amber-800",
 };
+// Bereidingstijd als categorie (ADR-013): kort / normaal / lang ipv minuten.
+const TIME_CATS = ["kort", "normaal", "lang"];
+const TIME_LABEL = { kort: "kort", normaal: "normaal", lang: "lang" };
+const timeLabelCap = (t) => TIME_LABEL[t].charAt(0).toUpperCase() + TIME_LABEL[t].slice(1);
+const TIME_STYLE = {
+  kort: "bg-emerald-100 text-emerald-700",
+  normaal: "bg-stone-100 text-stone-500",
+  lang: "bg-amber-100 text-amber-700",
+};
+// Migratie van oude `time` (minuten) naar timeCat: <= 25 min kort, >= 45 min lang, anders normaal.
+function timeCatFromTime(time) {
+  const n = Number(time);
+  if (time == null || time === "" || !Number.isFinite(n)) return "normaal";
+  if (n <= 25) return "kort";
+  if (n >= 45) return "lang";
+  return "normaal";
+}
+// Normaliseert een recept naar het ADR-013-model: timeCat + tags aanwezig, oude time/cook gewist.
+function normalizeRecipe(r) {
+  const out = { ...r };
+  out.timeCat = TIME_CATS.includes(out.timeCat) ? out.timeCat : timeCatFromTime(r.time);
+  delete out.time;
+  delete out.cook;
+  out.tags = Array.isArray(out.tags) ? out.tags.filter(Boolean) : [];
+  return out;
+}
 
 const BASE_RECIPES = [
   // ---------- VEGA ----------
   { id: "r1", name: "Abrikoos/pompoen-tajine", cat: "vega", ingredients: ["Alfez apricot & coriander (Maroccan style)", "Pompoen", "Courgette", "2 tomaten", "1 blik kikkererwten", "Abrikoos", "Kip (optioneel)", "Couscous/rijst"], bereiding: "" },
-  { id: "r2", name: "Accenture burgers", cat: "vega", ingredients: ["Kikkererwten", "Wortels", "Havervlokken", "Zongedroogde tomaten", "Ui", "Knoflook", "Paprikapoeder", "Chilipoeder", "Oregano", "Azijn", "Zoete aardappel", "Maïzena", "Tomaten", "Komkommer", "Buns/burgerbroodjes", "(Peterselie/knoflook) pesto"], bereiding: "Oven voorverwarmen op 220°C. Zoete aardappel in frietjes met maïzena en olie, 20-25 min. bakken. Ui marineren in water, azijn en suiker. Kikkererwten, havervlokken, ui, knoflook, zongedroogde tomaten en kruiden pureren, burgers vormen en 15 min. bakken op lagere stand. Broodjes roosteren, beleggen met pesto, tomaat, komkommer, burger en rode ui." },
+  { id: "r2", name: "Accenture burgers", cat: "vega", timeCat: "lang", ingredients: ["Kikkererwten", "Wortels", "Havervlokken", "Zongedroogde tomaten", "Ui", "Knoflook", "Paprikapoeder", "Chilipoeder", "Oregano", "Azijn", "Zoete aardappel", "Maïzena", "Tomaten", "Komkommer", "Buns/burgerbroodjes", "(Peterselie/knoflook) pesto"], bereiding: "Oven voorverwarmen op 220°C. Zoete aardappel in frietjes met maïzena en olie, 20-25 min. bakken. Ui marineren in water, azijn en suiker. Kikkererwten, havervlokken, ui, knoflook, zongedroogde tomaten en kruiden pureren, burgers vormen en 15 min. bakken op lagere stand. Broodjes roosteren, beleggen met pesto, tomaat, komkommer, burger en rode ui." },
   { id: "r3", name: "Bonen Malaidar", cat: "vega", ingredients: ["Kikkererwten", "Kidneybonen", "Jackfruit", "600 g sperziebonen", "Maïs", "Cashewnoten", "125 ml kookroom", "Boemboe Malaidar"], bereiding: "" },
   { id: "r4", name: "Bonenschotel", cat: "vega", ingredients: ["Broccolirijst", "Paprika", "425 g black-eyed bonen", "200 g zwarte bonen", "150 g mais in blik", "25 g verse bieslook", "1 limoen", "1 el knoflook/chili-olie", "½ tl gemalen komijn"], bereiding: "Kook de rijst. Bonen en mais afspoelen en laten uitlekken. Dressing maken van limoenrasp en -sap, olie en komijn. Alles mengen en serveren. Lekker bij een kip-ananassalade." },
   { id: "r5", name: "Courgette-broccolisoep", cat: "vega", ingredients: ["1 broccoli", "1 courgette", "10 g tijm", "1 teen knoflook", "200 g ui", "1 groentebouillonblokje", "100 g verse pesto", "200 g geitenkaas", "50 g walnoten", "2 grote aardappelen", "Cannelonibonen (optioneel)", "Ovenbrood", "Tonijnsalade"], bereiding: "Oven voor op 220°C. Broccoli en courgette snijden, met ui, knoflook en tijm fruiten, 1 liter water en bouillonblokje toevoegen, 15 min. koken. Pesto en helft van de geitenkaas toevoegen en glad pureeren. Serveren met geitenkaas, walnoten en ovenbrood." },
@@ -115,7 +141,7 @@ const BASE_RECIPES = [
   { id: "r14", name: "Pompoensoep", cat: "vega", ingredients: ["5 paprika's", "3 uien", "1 pompoen", "1 blik kokosmelk", "2 bouillonblokjes", "Ovenbrood", "Tonijnsalade"], bereiding: "Snij in grove stukken en pureer. Opwarmen. Klaar!" },
   { id: "r15", name: "Rijst met pistachenoten en kokos", cat: "vega", ingredients: ["(Meergranen) rijst", "Nasi/bamigroenten", "Currykruiden", "Kurkuma", "Zwarte peper", "Kokosolie", "Geraspte kokos", "Pistachenoten", "Rode peper", "Eieren"], bereiding: "Kook rijst en eieren. Bak groenten kort met kruiden, kokosolie en pistachenoten. Rijst toevoegen, serveren met gekookt ei." },
   { id: "r16", name: "Snelle vega roti", cat: "vega", ingredients: ["1 aubergine", "2 grote zoete aardappelen", "300 g sperziebonen", "5 eieren", "5 tortillawraps", "Rode peper", "Gember", "4 el sojasaus", "2 el currykruiden", "1 teen knoflook"], bereiding: "Peper, knoflook, sojasaus en gember mengen. Aubergine marineeren en goudbruin bakken. Sperziebonen (15 min.) en eieren (7 min.) mee koken. Zoete aardappel met currykruiden koken. Wraps verwarmen." },
-  { id: "r17", name: "Tortelloni met spinazie", cat: "vega", ingredients: ["750 g tortelloni", "1200 g spinazie à la crème", "Zonnebloempitten", "Gewone rozijnen"], bereiding: "" },
+  { id: "r17", name: "Tortelloni met spinazie", cat: "vega", timeCat: "kort", ingredients: ["750 g tortelloni", "1200 g spinazie à la crème", "Zonnebloempitten", "Gewone rozijnen"], bereiding: "" },
   { id: "r18", name: "Vega burrito's", cat: "vega", ingredients: ["Pak burritos", "3 trostomaten", "1 ui", "1 paprika", "2 avocado's", "Blik maïs", "Blik kidneybonen", "200 g crème fraîche", "Geraspte kaas"], bereiding: "" },
   { id: "r19", name: "Vega risotto met champignons", cat: "vega", ingredients: ["200 g risottorijst", "250 g kastanjechampignons", "1 rode ui", "1 prei", "2 tomaten", "75 ml droge witte wijn", "2 tenen knoflook", "1 stuk gember", "1 l groentebouillon", "2 el edelgistvlokken", "2 el kokosolie", "200 g verse spinazie/sla"], bereiding: "Ui en prei in kokosolie 10 min. bakken, knoflook en gember toevoegen, rijst mee roeren, wijn erbij, daarna bouillon: 25 min. koken. Champignons en tomaten apart bakken en door de risotto roeren. Edelgistvlokken erover." },
   { id: "r20", name: "Vega tandoori (Knorr wereldgerecht)", cat: "vega", ingredients: [], bereiding: "Volgens verpakking Knorr wereldgerecht." },
@@ -123,7 +149,7 @@ const BASE_RECIPES = [
   { id: "r21", name: "Burritobowl met tonijn", cat: "vis", ingredients: ["125-150 g gedroogde linzenmix", "420 g kidneybonen", "200 g ijsbergsla", "340 g mais in blik", "1 groene paprika", "2 avocado's", "320 g tonijn", "150 g roze garnalen", "Sambalsaus"], bereiding: "Volgens Jumbo-recept is alles praktisch koud, maar opwarmen is ook lekker. Garnalen mogen mee verwarmd worden." },
   { id: "r22", name: "Makreelsalade", cat: "vis", ingredients: ["Gerookte makreel", "Slamelange met rucola", "Rode bietjes", "Appel", "Ui", "Ei", "Pompoenpitten", "Fritessaus", "Yoghurt", "Bieslook"], bereiding: "" },
   { id: "r23", name: "Paëlla", cat: "vis", ingredients: ["2 paprika's", "1 ui", "1 teentje knoflook", "1 courgette", "1 bouillonblokje", "150 g diepvriesdoperwten", "Garnalen", "Sardines", "Tonijn", "Kurkuma", "Rijst (couscous/bulgur)"], bereiding: "Rijst koken met kurkuma. Paprika, ui en knoflook bakken. Bouillonblokje, courgette en fruits de mer toevoegen. Rijst en doperwten toevoegen." },
-  { id: "r24", name: "Spinaziequiche met zalm", cat: "vis", ingredients: ["450 g spinazie", "1 rode paprika", "½ blikje mais", "Zalm in blokjes", "2 eieren", "½ pakje kookroom", "Geitenkaas of gewone kaas", "3 tl tofukruiden of Bretonse gehaktkruiden", "Bladerdeeg"], bereiding: "Oven voor op 200°C. Eieren, room, kruiden en kaas mengen. Ovenschaal met bladerdeeg bekleden, alle ingrediënten erin. 20-30 min. in de oven." },
+  { id: "r24", name: "Spinaziequiche met zalm", cat: "vis", timeCat: "lang", ingredients: ["450 g spinazie", "1 rode paprika", "½ blikje mais", "Zalm in blokjes", "2 eieren", "½ pakje kookroom", "Geitenkaas of gewone kaas", "3 tl tofukruiden of Bretonse gehaktkruiden", "Bladerdeeg"], bereiding: "Oven voor op 200°C. Eieren, room, kruiden en kaas mengen. Ovenschaal met bladerdeeg bekleden, alle ingrediënten erin. 20-30 min. in de oven." },
   { id: "r25", name: "Thaise viscurry", cat: "vis", ingredients: ["Zalm", "Rode curry", "Kokosmelk", "Rivolitomaatjes", "Rijst (bulgur)", "800 g wokgroente met peulen", "Kroepoek"], bereiding: "" },
   { id: "r26", name: "Tonijnpasta", cat: "vis", ingredients: [], bereiding: "" },
   { id: "r27", name: "Tonijn-peer salade", cat: "vis", ingredients: ["2 peren", "1 prei", "200 g blik tonijn", "100 g zwarte olijven", "80 g zonnebloempitten", "3 el balsamicoazijn", "2 el mayonaise", "3 el kwark", "150 g rucolamelange", "200 g linzenmix"], bereiding: "Prei in ringen wassen, peren in blokjes, olijven in ringetjes. Linzenmix 12 min. koken. Tonijn en prei kort verwarmen. Alles mengen." },
@@ -136,22 +162,22 @@ const BASE_RECIPES = [
   { id: "r33", name: "Babi ketjap (boemboe + sperziebonen)", cat: "vlees", ingredients: [], bereiding: "" },
   { id: "r34", name: "Bobotie (Knorr wereldgerecht)", cat: "vlees", ingredients: [], bereiding: "" },
   { id: "r35", name: "Boerenkoolstamppot", cat: "vlees", ingredients: [], bereiding: "" },
-  { id: "r36", name: "Borsjt", cat: "vlees", ingredients: ["Pot runderbouillon met vlees", "Bouillonblokje", "200 g aardappelen", "400 g groenten met kool", "200 g winterpeen", "1 ui", "Pot rode bietjes", "Blik tomatenblokjes", "Blik knakworstjes", "Peper", "Paprikapoeder", "Laurierblad", "Azijn", "Crème fraîche"], bereiding: "Aardappelen, wortel en ui snijden. Bouillon aanlengen tot 1 liter met bouillonblokje en laurierblad. Ui bakken, hete bouillon toevoegen, aardappelen, koolgroenten, wortel en paprikapoeder 15 min. zacht koken. Tomatenblokjes en vlees toevoegen, daarna bietjes en worst, doorwarmen. Op smaak brengen met zout, peper en azijn, serveren met crème fraîche." },
-  { id: "r37", name: "Broccoli-perziktaart", cat: "vlees", ingredients: ["Broccoli", "Perzik", "Bladerdeeg", "Boursin", "Cashewnoten", "Spekjes"], bereiding: "" },
+  { id: "r36", name: "Borsjt", cat: "vlees", timeCat: "lang", ingredients: ["Pot runderbouillon met vlees", "Bouillonblokje", "200 g aardappelen", "400 g groenten met kool", "200 g winterpeen", "1 ui", "Pot rode bietjes", "Blik tomatenblokjes", "Blik knakworstjes", "Peper", "Paprikapoeder", "Laurierblad", "Azijn", "Crème fraîche"], bereiding: "Aardappelen, wortel en ui snijden. Bouillon aanlengen tot 1 liter met bouillonblokje en laurierblad. Ui bakken, hete bouillon toevoegen, aardappelen, koolgroenten, wortel en paprikapoeder 15 min. zacht koken. Tomatenblokjes en vlees toevoegen, daarna bietjes en worst, doorwarmen. Op smaak brengen met zout, peper en azijn, serveren met crème fraîche." },
+  { id: "r37", name: "Broccoli-perziktaart", cat: "vlees", timeCat: "lang", ingredients: ["Broccoli", "Perzik", "Bladerdeeg", "Boursin", "Cashewnoten", "Spekjes"], bereiding: "" },
   { id: "r38", name: "Chili con carne", cat: "vlees", ingredients: ["Aardappels", "Zak chilischotelmix (Stijl Lidl)", "1 ui", "1 paprika", "1 blik maïs", "1 blik bruine bonen", "3 tomaten", "Gehakt", "Komijn"], bereiding: "" },
   { id: "r39", name: "Hutspot", cat: "vlees", ingredients: [], bereiding: "" },
   { id: "r40", name: "Kip pilav", cat: "vlees", ingredients: ["300 g rijst", "300 g kip", "70 g tomatenpuree", "1 blik halve perziken op siroop", "2 teentjes knoflook", "1 ui", "1 el chilisaus", "1 el sojasaus", "1 tl paprikapoeder", "½ tl kaneel"], bereiding: "Rijst koken. Ui en knoflook fruiten, kruiden en tomatenpuree meebakken, kipblokjes toevoegen tot gaar. Perziksap, chilisaus en sojasaus toevoegen, daarna de perziken." },
-  { id: "r41", name: "Kip Siam (Knorr wereldgerecht)", cat: "vlees", ingredients: [], bereiding: "" },
-  { id: "r42", name: "Kofta (Knorr wereldgerecht)", cat: "vlees", ingredients: [], bereiding: "" },
+  { id: "r41", name: "Kip Siam (Knorr wereldgerecht)", cat: "vlees", timeCat: "kort", ingredients: [], bereiding: "" },
+  { id: "r42", name: "Kofta (Knorr wereldgerecht)", cat: "vlees", timeCat: "lang", ingredients: [], bereiding: "" },
   { id: "r43", name: "Krieltjes à la mama", cat: "vlees", ingredients: ["Gehakt", "Krieltjes", "400 g macaroni/spaghettigroenten", "Rivolitomaatjes"], bereiding: "" },
   { id: "r44", name: "Lasagne", cat: "vlees", ingredients: ["(Vega-)gehakt", "1 prei", "Volkoren bladen (pompoenschijven)", "Honig lasagnesaus", "Blanke rozijnen", "800 g spinazie à la crème"], bereiding: "" },
-  { id: "r45", name: "Mexicaanse ovenschotel à la Joris", cat: "vlees", ingredients: ["1 zak tortillachips", "300 g gehakt", "1 zak groentemix (of 2 tomaten, 1-2 paprika's, mais, ui)", "1 zak rauwe andijvie", "250 g crème fraîche", "1 zakje geraspte kaas"], bereiding: "Helft van de chips op de bodem, gehakt met groenten erover, vullen met andijvie. Crème fraîche, kaas en rest chips erop. 15 min. in de oven op 200°C." },
+  { id: "r45", name: "Mexicaanse ovenschotel à la Joris", cat: "vlees", timeCat: "lang", ingredients: ["1 zak tortillachips", "300 g gehakt", "1 zak groentemix (of 2 tomaten, 1-2 paprika's, mais, ui)", "1 zak rauwe andijvie", "250 g crème fraîche", "1 zakje geraspte kaas"], bereiding: "Helft van de chips op de bodem, gehakt met groenten erover, vullen met andijvie. Crème fraîche, kaas en rest chips erop. 15 min. in de oven op 200°C." },
   { id: "r46", name: "Pannekoeken", cat: "vlees", ingredients: [], bereiding: "" },
   { id: "r47", name: "Roti (Knorr wereldgerecht)", cat: "vlees", ingredients: [], bereiding: "" },
   { id: "r48", name: "Spaghetti à la Yara", cat: "vlees", ingredients: ["Volkoren spaghetti", "Spinazie à la crème", "Kip", "Champignonschijfjes", "Rivolitomaatjes", "Boursin", "Pecannoten"], bereiding: "" },
   { id: "r49", name: "Spinazietaart", cat: "vlees", ingredients: ["1 pak pizzadeeg", "200 g volkoren meel", "Spinazie à la crème", "5 tomaten", "Zonnebloempitten", "Gewone rozijnen", "Gehakt", "Boursin"], bereiding: "" },
   { id: "r50", name: "Witlofschotel (Honig recept)", cat: "vlees", ingredients: [], bereiding: "" },
-  { id: "r51", name: "Zuurkool met stoofpeertjes", cat: "vlees", ingredients: ["800 g aardappelen", "2 uien", "200 g kipfilet", "1 el kerriepoeder", "500 g zuurkool", "350 g halve stoofpeertjes", "150 g geraspte kaas"], bereiding: "Oven voor op 190°C. Aardappelen in plakken 10 min. koken. Ui bakken, kip met kerriepoder 4 min. meebakken. Kip en ui in ovenschaal, zuurkool erover, peer in plakjes erover, aardappelen dakpansgewijs erop, kaas erover. 30 min. in de oven." },
+  { id: "r51", name: "Zuurkool met stoofpeertjes", cat: "vlees", timeCat: "lang", ingredients: ["800 g aardappelen", "2 uien", "200 g kipfilet", "1 el kerriepoeder", "500 g zuurkool", "350 g halve stoofpeertjes", "150 g geraspte kaas"], bereiding: "Oven voor op 190°C. Aardappelen in plakken 10 min. koken. Ui bakken, kip met kerriepoder 4 min. meebakken. Kip en ui in ovenschaal, zuurkool erover, peer in plakjes erover, aardappelen dakpansgewijs erop, kaas erover. 30 min. in de oven." },
   // ---------- EXTRA ----------
   { id: "r52", name: "Speelklei", cat: "extra", ingredients: ["5 dl bloem", "2 dl zout", "2 el aluin in poedervorm", "5 dl water", "2 el olie", "1-2 tabletten eierverf"], bereiding: "Meng bloem, zout en aluin. Water, olie en eierverf aan de kook brengen en bij het bloemmengsel gieten. Roeren, af laten koelen en goed kneden. Bewaren in een goed afgesloten bak." },
 ];
@@ -317,9 +343,9 @@ function migrateStored(stored) {
 function loadRecipes(stored) {
   const edits = (stored && stored.edits) || {};
   if (stored && Array.isArray(stored.recipes) && stored.recipes.length > 0) {
-    return stored.recipes.map((r) => ({ ...r, ...(edits[r.id] || {}) }));
+    return stored.recipes.map((r) => normalizeRecipe({ ...r, ...(edits[r.id] || {}) }));
   }
-  return BASE_RECIPES.map((r) => ({ ...r, ...(edits[r.id] || {}) }));
+  return BASE_RECIPES.map((r) => normalizeRecipe({ ...r, ...(edits[r.id] || {}) }));
 }
 
 function shuffle(arr) {
@@ -337,7 +363,7 @@ export default function App() {
   const [menuByDate, setMenuByDate] = useState((stored && stored.menuByDate) || {}); // per datum (YYYY-MM-DD): {id, locked}
   const [weekOffset, setWeekOffset] = useState(0); // 0 = week van vandaag; bij openen start de app automatisch in de huidige week
   const [recipes, setRecipes] = useState(() => loadRecipes(stored)); // bewerkbare receptenpool (ADR-006)
-  const [newRecipe, setNewRecipe] = useState({ name: "", cat: "vega", ingredients: "", bereiding: "" });
+  const [newRecipe, setNewRecipe] = useState({ name: "", cat: "vega", timeCat: "normaal", tags: [], tagDraft: "", ingredients: "", bereiding: "" });
   const [checked, setChecked] = useState((stored && stored.checked) || {});
   const [extraItems, setExtraItems] = useState((stored && stored.extraItems) || []);
   const [newItem, setNewItem] = useState("");
@@ -359,6 +385,17 @@ export default function App() {
   const [drafts, setDrafts] = useState({}); // datum-sleutel -> getypte tekst in het gerechtveld
   const [openSuggest, setOpenSuggest] = useState(null); // datum-sleutel met open suggestielijst
   const [activeSuggest, setActiveSuggest] = useState(0);
+  // recepten-tab: zoeken/filteren/tags + bereidingstijd-categorie (ADR-013)
+  const [recipeQuery, setRecipeQuery] = useState("");
+  const [timeFilter, setTimeFilter] = useState("alle");
+  const [ingFilter, setIngFilter] = useState("");
+  const [tagFilters, setTagFilters] = useState([]);
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
+  const [addSheetOpen, setAddSheetOpen] = useState(false);
+  const [recipeInfoOpen, setRecipeInfoOpen] = useState(false);
+  const [tagDraft, setTagDraft] = useState(""); // tag-invoer bij het openstaande bewerkte recept
+  const [daySheetRecipe, setDaySheetRecipe] = useState(null); // recept waarvoor de dagkiezer (deze week) open is
+  const [weekToast, setWeekToast] = useState(""); // melding na toevoegen aan het weekmenu
 
   useEffect(() => {
     saveState({ menuByDate, recipes, checked, extraItems, settings, stock, prices });
@@ -549,15 +586,38 @@ export default function App() {
     const id = "r" + Date.now().toString(36) + Math.floor(Math.random() * 1e4);
     setRecipes((rs) => [
       ...rs,
-      {
+      normalizeRecipe({
         id,
         name,
         cat: newRecipe.cat,
+        timeCat: newRecipe.timeCat || "normaal",
+        tags: newRecipe.tags || [],
         ingredients: newRecipe.ingredients.split("\n").map((s) => s.trim()).filter(Boolean),
         bereiding: newRecipe.bereiding.trim(),
-      },
+      }),
     ]);
-    setNewRecipe({ name: "", cat: "vega", ingredients: "", bereiding: "" });
+    setNewRecipe({ name: "", cat: "vega", timeCat: "normaal", tags: [], tagDraft: "", ingredients: "", bereiding: "" });
+    setAddSheetOpen(false);
+  }
+
+  function addNewTag() {
+    const t = (newRecipe.tagDraft || "").trim().toLowerCase();
+    if (!t) return;
+    if (!newRecipe.tags.includes(t)) setNewRecipe({ ...newRecipe, tags: [...newRecipe.tags, t], tagDraft: "" });
+    else setNewRecipe({ ...newRecipe, tagDraft: "" });
+  }
+
+  function addRecipeTag(id) {
+    const t = tagDraft.trim().toLowerCase();
+    if (!t) return;
+    setRecipes((rs) =>
+      rs.map((r) => (r.id === id && !(r.tags || []).includes(t) ? { ...r, tags: [...(r.tags || []), t] } : r))
+    );
+    setTagDraft("");
+  }
+
+  function removeRecipeTag(id, t) {
+    setRecipes((rs) => rs.map((r) => (r.id === id ? { ...r, tags: (r.tags || []).filter((x) => x !== t) } : r)));
   }
 
   function deleteRecipe(id) {
@@ -588,7 +648,7 @@ export default function App() {
       try {
         const arr = JSON.parse(reader.result);
         if (Array.isArray(arr) && arr.length > 0 && arr.every((r) => r && r.id && r.name)) {
-          setRecipes(arr.map((r) => ({ ingredients: [], bereiding: "", ...r })));
+          setRecipes(arr.map((r) => normalizeRecipe({ ingredients: [], bereiding: "", ...r })));
         }
       } catch (e) {}
     };
@@ -597,7 +657,7 @@ export default function App() {
 
   function resetRecipes() {
     if (window.confirm("Alle receptwijzigingen terugzetten naar de oorspronkelijke lijst?")) {
-      setRecipes(BASE_RECIPES.map((r) => ({ ...r })));
+      setRecipes(BASE_RECIPES.map((r) => normalizeRecipe({ ...r })));
     }
   }
 
@@ -615,6 +675,155 @@ export default function App() {
   }, [menuByDate, weekKeys, byId]);
 
   const activeMenuIds = weekEntries.filter(Boolean).map((d) => d.id);
+  // recepten-tab: zoeken/filteren (ADR-013) — alle filters combineren met AND
+  const rq = recipeQuery.trim().toLowerCase();
+  const ingQ = ingFilter.trim().toLowerCase();
+  const hasRecipeFilters = !!rq || timeFilter !== "alle" || !!ingQ || tagFilters.length > 0;
+  const filteredRecipes = recipes.filter((r) => {
+    if (rq && !r.name.toLowerCase().includes(rq)) return false;
+    if (timeFilter !== "alle" && (r.timeCat || "normaal") !== timeFilter) return false;
+    if (ingQ && !(r.ingredients || []).some((x) => String(x).toLowerCase().includes(ingQ))) return false;
+    if (tagFilters.length && !tagFilters.every((t) => (r.tags || []).includes(t))) return false;
+    return true;
+  });
+  const tagCounts = {};
+  recipes.forEach((r) => (r.tags || []).forEach((t) => { tagCounts[t] = (tagCounts[t] || 0) + 1; }));
+  const allTags = Object.keys(tagCounts).sort((a, b) => tagCounts[b] - tagCounts[a] || a.localeCompare(b, "nl"));
+  const topTags = allTags.slice(0, 5); // maximaal 5 tags direct zichtbaar in de filterrij
+  const toggleTagFilter = (t) => setTagFilters((fs) => (fs.includes(t) ? fs.filter((x) => x !== t) : [...fs, t]));
+  const clearRecipeFilters = () => { setRecipeQuery(""); setTimeFilter("alle"); setIngFilter(""); setTagFilters([]); };
+  // Weekmenu-koppeling vanuit de receptenlijst (ADR-013, ronde 2): kies een onvergrendelde dag van DEZE week (offset 0).
+  const curWeekKeys = weekDateKeys(settings.weekStartDay, 0);
+  const curWeekStart = weekStartFor(settings.weekStartDay, 0);
+  const curWeekEnd = addDays(curWeekStart, 6);
+  const curWeekLabel = `${fmtShort(curWeekStart)} \u2013 ${fmtShort(curWeekEnd)} ${curWeekEnd.getFullYear()}`;
+  function addRecipeToWeek(recipe, key) {
+    const prev = menuByDate[key];
+    if (prev && prev.locked) return; // vergrendelde dag nooit overschrijven
+    setMenuByDate((m) => ({ ...m, [key]: { ...(prev && prev.eaters != null ? { eaters: prev.eaters } : {}), id: recipe.id } }));
+    const i = curWeekKeys.indexOf(key);
+    setWeekToast(`\u2705 ${recipe.name} toegevoegd aan ${days[i]} ${fmtDay(key)}`);
+    setDaySheetRecipe(null);
+    if (typeof setTimeout === "function") setTimeout(() => setWeekToast(""), 3500);
+  }
+
+  // Rij in de receptenlijst (ADR-013): naam + badges + meta (categorie, tijd, tags); klik opent bewerkte form.
+  const renderRecipeRow = (r) => {
+    const inMenu = activeMenuIds.includes(r.id);
+    const isOpen = openRecipe === r.id;
+    return (
+      <div key={r.id} className="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div className="flex items-center gap-1 px-3 py-2.5">
+          <button
+            onClick={() => { setOpenRecipe(isOpen ? null : r.id); setTagDraft(""); }}
+            className="flex-1 text-left min-w-0"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-medium text-sm">
+                {r.name}
+                {inMenu && <span className="ml-2 text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full">deze week</span>}
+                {(r.ingredients || []).filter(Boolean).length === 0 && (
+                  <span className="ml-1.5 text-[10px] bg-stone-100 text-stone-500 px-1.5 py-0.5 rounded-full">geen ingredienten bekend</span>
+                )}
+              </span>
+              <span className="text-stone-400 text-xs shrink-0">{isOpen ? "▴" : "▾"}</span>
+            </div>
+            <div className="metarow">
+              <span className={`text-[10px] px-1.5 rounded ${CAT_STYLE[r.cat]}`}>{CAT_LABEL[r.cat]}</span>
+              <span className={`tb tb-${r.timeCat || "normaal"}`}>{TIME_LABEL[r.timeCat || "normaal"]}</span>
+              {(r.tags || []).map((t) => (
+                <span key={t} className="tag">{t}</span>
+              ))}
+            </div>
+          </button>
+          <button className="iconbtn" title="Toevoegen aan een onvergrendelde dag van deze week" onClick={() => setDaySheetRecipe(r)}>📅</button>
+        </div>
+        {isOpen && (
+          <div className="px-3 pb-3 border-t border-stone-100">
+            <div className="grid grid-cols-2 gap-2 mt-3">
+              <label className="text-xs">
+                <span className="text-stone-500">Naam</span>
+                <input
+                  value={r.name}
+                  onChange={(e) => updateRecipe(r.id, { name: e.target.value })}
+                  className="w-full border rounded-lg px-2 py-1.5 mt-0.5"
+                />
+              </label>
+              <label className="text-xs">
+                <span className="text-stone-500">Categorie</span>
+                <select
+                  value={r.cat}
+                  onChange={(e) => updateRecipe(r.id, { cat: e.target.value })}
+                  className="w-full border rounded-lg px-2 py-1.5 mt-0.5"
+                >
+                  {["vega", "vis", "vlees", "extra"].map((c) => (
+                    <option key={c} value={c}>{CAT_LABEL[c]}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="mt-3 text-xs">
+              <span className="text-stone-500">Bereidingstijd</span>
+              <div className="segl mt-0.5">
+                {TIME_CATS.map((t) => (
+                  <button
+                    key={t}
+                    className={(r.timeCat || "normaal") === t ? "on" : ""}
+                    onClick={() => updateRecipe(r.id, { timeCat: t })}
+                  >
+                    {timeLabelCap(t)}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="mt-3 text-xs">
+              <span className="text-stone-500">Tags</span>
+              <div className="flex flex-wrap gap-1 mt-0.5">
+                {(r.tags || []).map((t) => (
+                  <span key={t} className="tag">
+                    {t} <button className="tagx" onClick={() => removeRecipeTag(r.id, t)}>×</button>
+                  </span>
+                ))}
+              </div>
+              <div className="tagadd">
+                <input
+                  value={tagDraft}
+                  placeholder="＋ tag toevoegen…"
+                  onChange={(e) => setTagDraft(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addRecipeTag(r.id); } }}
+                />
+                <button onClick={() => addRecipeTag(r.id)}>+</button>
+              </div>
+            </div>
+            <div className="mt-3 text-xs">
+              <span className="text-stone-500">Ingrediënten (één per regel)</span>
+              <textarea
+                rows={Math.max((r.ingredients || []).filter(Boolean).length, 1) + 1}
+                value={(r.ingredients || []).join("\n")}
+                onChange={(e) => updateRecipe(r.id, { ingredients: e.target.value.split("\n") })}
+                className="w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm"
+              />
+            </div>
+            <div className="mt-3 text-xs">
+              <span className="text-stone-500">Bereiding</span>
+              <textarea
+                rows={4}
+                value={r.bereiding ?? ""}
+                onChange={(e) => updateRecipe(r.id, { bereiding: e.target.value })}
+                className="w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm"
+              />
+            </div>
+            <button
+              onClick={() => deleteRecipe(r.id)}
+              className="mt-2 text-xs text-red-500 hover:underline"
+            >
+              Recept verwijderen
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
   const stockShort = stock.filter((s) => s.have < s.want);
   const totalItems = shoppingRows.length + extraItems.length + stockShort.length;
   const doneItems =
@@ -755,8 +964,7 @@ export default function App() {
                         {!isCustom && r && (
                           <div className="text-xs text-stone-400 mt-0.5">
                             <span className={`inline-block px-1.5 rounded ${CAT_STYLE[r.cat]}`}>{CAT_LABEL[r.cat]}</span>
-                            {r.time ? ` · ${r.time} min` : " · tijd onbekend"}
-                            {r.cook ? ` · ${r.cook}` : ""}
+                            <span className={`inline-block px-1.5 rounded ${TIME_STYLE[r.timeCat || "normaal"]}`}>{TIME_LABEL[r.timeCat || "normaal"]}</span>
                           </div>
                         )}
                         {suggestions.length > 0 && (
@@ -827,162 +1035,274 @@ export default function App() {
         )}
         {tab === "recipes" && (
           <div>
-            <div className="mb-2 text-xs text-stone-500">
-              Tik op een recept om het te bekijken en te bewerken: naam, categorie, ingredienten, bereiding, tijd en kok kun je zelf aanpassen. Alles wordt opgeslagen op je toestel; met exporteren/importeren deel je de lijst als JSON.
-            </div>
-            <div className="bg-white rounded-xl shadow-sm p-3 mb-4">
-              <div className="text-sm font-medium mb-2">Nieuw recept toevoegen</div>
-              <div className="grid grid-cols-3 gap-2 mb-2">
-                <input
-                  value={newRecipe.name}
-                  onChange={(e) => setNewRecipe({ ...newRecipe, name: e.target.value })}
-                  placeholder="Naam…"
-                  className="col-span-2 border rounded-lg px-2 py-1.5 text-sm"
-                  onKeyDown={(e) => { if (e.key === "Enter") addRecipe(); }}
-                />
-                <select
-                  value={newRecipe.cat}
-                  onChange={(e) => setNewRecipe({ ...newRecipe, cat: e.target.value })}
-                  className="border rounded-lg px-2 py-1.5 text-sm text-stone-600"
-                >
-                  {["vega", "vis", "vlees", "extra"].map((c) => (
-                    <option key={c} value={c}>{CAT_LABEL[c]}</option>
-                  ))}
-                </select>
+            {recipeInfoOpen && (
+              <div className="mb-2 text-xs text-stone-500">
+                Zoek op receptnaam en filter op bereidingstijd, ingrediënt of tag(s). Tik op een recept om naam, categorie, bereidingstijd, tags, ingrediënten en bereiding te bewerken. Alles wordt lokaal op je toestel opgeslagen; met exporteren/importeren deel je de lijst als JSON.
               </div>
-              <textarea
-                rows={2}
-                value={newRecipe.ingredients}
-                onChange={(e) => setNewRecipe({ ...newRecipe, ingredients: e.target.value })}
-                placeholder="Ingredienten, één per regel…"
-                className="w-full border rounded-lg px-2 py-1.5 text-sm mb-2"
-              />
+            )}
+            <div className="searchbar">
+              <span className="sicon">🔍</span>
               <input
-                value={newRecipe.bereiding}
-                onChange={(e) => setNewRecipe({ ...newRecipe, bereiding: e.target.value })}
-                placeholder="Bereiding (optioneel)…"
-                className="w-full border rounded-lg px-2 py-1.5 text-sm mb-2"
+                className="recipe-search"
+                value={recipeQuery}
+                placeholder="Zoek op receptnaam…"
+                onChange={(e) => setRecipeQuery(e.target.value)}
               />
-              <div className="flex gap-2">
-                <button onClick={addRecipe} className="flex-1 bg-stone-800 text-white rounded-lg text-sm font-medium py-2">
-                  Toevoegen
-                </button>
-                <button onClick={exportRecipes} className="px-3 border rounded-lg text-sm text-stone-500">Exporteren</button>
-                <label className="px-3 border rounded-lg text-sm text-stone-500 flex items-center cursor-pointer">
-                  Importeren
-                  <input
-                    type="file"
-                    accept="application/json,.json"
-                    className="hidden"
-                    onChange={(e) => { if (e.target.files[0]) importRecipes(e.target.files[0]); e.target.value = ""; }}
-                  />
-                </label>
-                <button onClick={resetRecipes} className="px-3 border rounded-lg text-sm text-stone-500">Standaardlijst terug</button>
-              </div>
+              {recipeQuery !== "" && (
+                <button className="sicon" title="Zoekopdracht wissen" onClick={() => setRecipeQuery("")}>✕</button>
+              )}
+              <button className="iconbtn" title="Hoe werkt zoeken en filteren?" onClick={() => setRecipeInfoOpen((v) => !v)}>ℹ️</button>
+              <button className="iconbtn" title="Recept toevoegen" onClick={() => setAddSheetOpen(true)}>＋</button>
             </div>
-            {["vega", "vis", "vlees", "extra"].map((c) => (
-              <div key={c} className="mb-4">
-                <div className={`inline-block px-2 py-0.5 rounded-full text-sm font-semibold mb-2 ${CAT_STYLE[c]}`}>
-                  {CAT_LABEL[c]}
+            <div className="filterrow">
+              {["alle", ...TIME_CATS].map((t) => (
+                <button
+                  key={t}
+                  className={`chip${t !== "alle" ? " " + t : ""}${timeFilter === t ? " on" : ""}`}
+                  onClick={() => setTimeFilter(t)}
+                >
+                  {t === "alle" ? "Alle" : timeLabelCap(t)}
+                </button>
+              ))}
+              {topTags.map((t) => (
+                <button
+                  key={t}
+                  className={`chip${tagFilters.includes(t) ? " on" : ""}`}
+                  onClick={() => toggleTagFilter(t)}
+                >
+                  {`🏷 ${t}`}
+                </button>
+              ))}
+              {allTags.length > topTags.length && (
+                <button className="chip" onClick={() => setFilterSheetOpen(true)}>{`＋${allTags.length - topTags.length} meer ▾`}</button>
+              )}
+              <button className="chip" style={{ marginLeft: "auto" }} onClick={() => setFilterSheetOpen(true)}>⚙ Filters ▾</button>
+            </div>
+            {hasRecipeFilters && (
+              <div className="afilterrow">
+                {rq !== "" && (
+                  <span className="afilter">{`🔍 “${recipeQuery.trim()}” `}<button className="x" onClick={() => setRecipeQuery("")}>×</button></span>
+                )}
+                {timeFilter !== "alle" && (
+                  <span className="afilter">{`⏱ ${TIME_LABEL[timeFilter]} `}<button className="x" onClick={() => setTimeFilter("alle")}>×</button></span>
+                )}
+                {ingQ !== "" && (
+                  <span className="afilter">{`🥘 ${ingFilter.trim()} `}<button className="x" onClick={() => setIngFilter("")}>×</button></span>
+                )}
+                {tagFilters.map((t) => (
+                  <span key={t} className="afilter">{`🏷 ${t} `}<button className="x" onClick={() => toggleTagFilter(t)}>×</button></span>
+                ))}
+                <button className="clearall" onClick={clearRecipeFilters}>Alles wissen</button>
+                <span className="count">{`${filteredRecipes.length} van ${recipes.length} recepten`}</span>
+              </div>
+            )}
+            {!hasRecipeFilters && ["vega", "vis", "vlees", "extra"].map((c) => {
+              const list = recipes.filter((r) => r.cat === c).sort((a, b) => a.name.localeCompare(b.name, "nl"));
+              if (!list.length) return null;
+              return (
+                <div key={c} className="mb-4">
+                  <div className={`inline-block px-2 py-0.5 rounded-full text-sm font-semibold mb-2 ${CAT_STYLE[c]}`}>
+                    {CAT_LABEL[c]}
+                  </div>
+                  <div className="space-y-1.5">{list.map((r) => renderRecipeRow(r))}</div>
                 </div>
-                <div className="space-y-1.5">
-                  {recipes
-                    .filter((r) => r.cat === c)
-                    .sort((a, b) => a.name.localeCompare(b.name, "nl"))
-                    .map((r) => {
-                      const inMenu = activeMenuIds.includes(r.id);
-                      const isOpen = openRecipe === r.id;
-                      return (
-                        <div key={r.id} className="bg-white rounded-xl shadow-sm overflow-hidden">
-                          <button
-                            onClick={() => setOpenRecipe(isOpen ? null : r.id)}
-                            className="w-full text-left px-3 py-2.5 flex items-center justify-between"
-                          >
-                            <span className="font-medium text-sm">
-                              {r.name}
-                              {inMenu && <span className="ml-2 text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full">deze week</span>}
-                              {(r.ingredients || []).filter(Boolean).length === 0 && (
-                                <span className="ml-1.5 text-[10px] bg-stone-100 text-stone-500 px-1.5 py-0.5 rounded-full">geen ingredienten bekend</span>
-                              )}
-                            </span>
-                            <span className="text-stone-400 text-xs">{isOpen ? "▲" : "▼"}</span>
+              );
+            })}
+            {hasRecipeFilters && (
+              <div className="space-y-1.5">
+                {[...filteredRecipes].sort((a, b) => a.name.localeCompare(b.name, "nl")).map((r) => renderRecipeRow(r))}
+              </div>
+            )}
+            <div className="mutedrow">
+              <button className="linkbtn" onClick={exportRecipes}>Exporteren</button>
+              <label className="linkbtn cursor-pointer">
+                Importeren
+                <input
+                  type="file"
+                  accept="application/json,.json"
+                  className="hidden"
+                  onChange={(e) => { if (e.target.files[0]) importRecipes(e.target.files[0]); e.target.value = ""; }}
+                />
+              </label>
+              <button className="linkbtn" onClick={resetRecipes}>Standaardlijst terug</button>
+            </div>
+            {filterSheetOpen && (
+              <div>
+                <div className="backdrop" onClick={() => setFilterSheetOpen(false)}></div>
+                <div className="sheet">
+                  <div className="handle"></div>
+                  <div className="px-4 pb-4">
+                    <div className="flex items-center mb-3">
+                      <span className="text-lg font-bold">Filters</span>
+                      <button className="ml-auto text-stone-400" onClick={() => setFilterSheetOpen(false)}>✕</button>
+                    </div>
+                    <div className="text-xs mb-1">
+                      <span className="text-stone-500">Bereidingstijd</span>
+                      <div className="segl mt-0.5">
+                        {["alle", ...TIME_CATS].map((t) => (
+                          <button key={t} className={timeFilter === t ? "on" : ""} onClick={() => setTimeFilter(t)}>
+                            {t === "alle" ? "Alles" : timeLabelCap(t)}
                           </button>
-                          {isOpen && (
-                            <div className="px-3 pb-3 border-t border-stone-100">
-                              <div className="grid grid-cols-2 gap-2 mt-3">
-                                <label className="text-xs">
-                                  <span className="text-stone-500">Naam</span>
-                                  <input
-                                    value={r.name}
-                                    onChange={(e) => updateRecipe(r.id, { name: e.target.value })}
-                                    className="w-full border rounded-lg px-2 py-1.5 mt-0.5"
-                                  />
-                                </label>
-                                <label className="text-xs">
-                                  <span className="text-stone-500">Categorie</span>
-                                  <select
-                                    value={r.cat}
-                                    onChange={(e) => updateRecipe(r.id, { cat: e.target.value })}
-                                    className="w-full border rounded-lg px-2 py-1.5 mt-0.5"
-                                  >
-                                    {["vega", "vis", "vlees", "extra"].map((c) => (
-                                      <option key={c} value={c}>{CAT_LABEL[c]}</option>
-                                    ))}
-                                  </select>
-                                </label>
-                                <label className="text-xs">
-                                  <span className="text-stone-500">Bereidingstijd (min)</span>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    value={r.time ?? ""}
-                                    onChange={(e) => updateRecipe(r.id, { time: e.target.value })}
-                                    placeholder="bijv. 30"
-                                    className="w-full border rounded-lg px-2 py-1.5 mt-0.5"
-                                  />
-                                </label>
-                                <label className="text-xs">
-                                  <span className="text-stone-500">Wie kan dit koken?</span>
-                                  <input
-                                    value={r.cook ?? ""}
-                                    onChange={(e) => updateRecipe(r.id, { cook: e.target.value })}
-                                    placeholder="bijv. Marco"
-                                    className="w-full border rounded-lg px-2 py-1.5 mt-0.5"
-                                  />
-                                </label>
-                              </div>
-                              <div className="mt-3 text-xs">
-                                <span className="text-stone-500">Ingredienten (één per regel)</span>
-                                <textarea
-                                  rows={Math.max((r.ingredients || []).filter(Boolean).length, 1) + 1}
-                                  value={(r.ingredients || []).join("\n")}
-                                  onChange={(e) => updateRecipe(r.id, { ingredients: e.target.value.split("\n") })}
-                                  className="w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm"
-                                />
-                              </div>
-                              <div className="mt-3 text-xs">
-                                <span className="text-stone-500">Bereiding</span>
-                                <textarea
-                                  rows={4}
-                                  value={r.bereiding ?? ""}
-                                  onChange={(e) => updateRecipe(r.id, { bereiding: e.target.value })}
-                                  className="w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm"
-                                />
-                              </div>
-                              <button
-                                onClick={() => deleteRecipe(r.id)}
-                                className="mt-2 text-xs text-red-500 hover:underline"
-                              >
-                                Recept verwijderen
-                              </button>
-                            </div>
-                          )}
-                        </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="text-xs mt-3 mb-1">
+                      <span className="text-stone-500">Ingrediënt bevat</span>
+                      <input
+                        className="w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm"
+                        value={ingFilter}
+                        placeholder="bijv. zalm, ui, kaas…"
+                        onChange={(e) => setIngFilter(e.target.value)}
+                      />
+                    </div>
+                    <div className="text-xs mt-3 mb-1">
+                      <span className="text-stone-500">Tags (alle geselecteerde moeten erop — AND)</span>
+                      <div className="filterrow" style={{ marginTop: ".25rem" }}>
+                        {allTags.length === 0 && <span className="text-stone-400 text-xs">nog geen tags in de pool</span>}
+                        {allTags.map((t) => (
+                          <button key={t} className={`chip${tagFilters.includes(t) ? " on" : ""}`} onClick={() => toggleTagFilter(t)}>
+                            {`🏷 ${t}`}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 mt-4">
+                      <button className="text-xs font-semibold text-stone-500 px-1 py-2" onClick={clearRecipeFilters}>Wis filters</button>
+                      <button
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl text-sm"
+                        onClick={() => setFilterSheetOpen(false)}
+                      >
+                        {`Toon ${filteredRecipes.length} recepten`}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            {addSheetOpen && (
+              <div>
+                <div className="backdrop" onClick={() => setAddSheetOpen(false)}></div>
+                <div className="sheet">
+                  <div className="handle"></div>
+                  <div className="px-4 pb-4">
+                    <div className="flex items-center mb-3">
+                      <span className="text-lg font-bold">Nieuw recept</span>
+                      <button className="ml-auto text-stone-400" onClick={() => setAddSheetOpen(false)}>✕</button>
+                    </div>
+                    <div className="text-xs mb-3">
+                      <span className="text-stone-500">Naam</span>
+                      <input
+                        className="w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm"
+                        value={newRecipe.name}
+                        placeholder="Naam…"
+                        onChange={(e) => setNewRecipe({ ...newRecipe, name: e.target.value })}
+                        onKeyDown={(e) => { if (e.key === "Enter") addRecipe(); }}
+                      />
+                    </div>
+                    <div className="text-xs mb-3">
+                      <span className="text-stone-500">Categorie</span>
+                      <div className="filterrow" style={{ marginTop: ".25rem" }}>
+                        {["vega", "vis", "vlees", "extra"].map((c) => (
+                          <button key={c} className={`chip${newRecipe.cat === c ? " on" : ""}`} onClick={() => setNewRecipe({ ...newRecipe, cat: c })}>
+                            {CAT_LABEL[c]}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="text-xs mb-3">
+                      <span className="text-stone-500">Bereidingstijd</span>
+                      <div className="segl mt-0.5">
+                        {TIME_CATS.map((t) => (
+                          <button key={t} className={newRecipe.timeCat === t ? "on" : ""} onClick={() => setNewRecipe({ ...newRecipe, timeCat: t })}>
+                            {timeLabelCap(t)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="text-xs mb-3">
+                      <span className="text-stone-500">Tags</span>
+                      <div className="flex flex-wrap gap-1 mt-0.5">
+                        {newRecipe.tags.map((t) => (
+                          <span key={t} className="tag">
+                            {t} <button className="tagx" onClick={() => setNewRecipe({ ...newRecipe, tags: newRecipe.tags.filter((x) => x !== t) })}>×</button>
+                          </span>
+                        ))}
+                      </div>
+                      <div className="tagadd">
+                        <input
+                          value={newRecipe.tagDraft}
+                          placeholder="＋ tag toevoegen…"
+                          onChange={(e) => setNewRecipe({ ...newRecipe, tagDraft: e.target.value })}
+                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addNewTag(); } }}
+                        />
+                        <button onClick={addNewTag}>+</button>
+                      </div>
+                    </div>
+                    <div className="text-xs mb-3">
+                      <span className="text-stone-500">Ingrediënten (één per regel)</span>
+                      <textarea
+                        rows={3}
+                        className="w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm"
+                        value={newRecipe.ingredients}
+                        placeholder="Ingrediënten, één per regel…"
+                        onChange={(e) => setNewRecipe({ ...newRecipe, ingredients: e.target.value })}
+                      />
+                    </div>
+                    <div className="text-xs mb-3">
+                      <span className="text-stone-500">Bereiding (optioneel)</span>
+                      <textarea
+                        rows={2}
+                        className="w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm"
+                        value={newRecipe.bereiding}
+                        placeholder="Bereiding…"
+                        onChange={(e) => setNewRecipe({ ...newRecipe, bereiding: e.target.value })}
+                      />
+                    </div>
+                    <button
+                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl text-sm"
+                      onClick={addRecipe}
+                    >
+                      Toevoegen
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            {daySheetRecipe && (
+              <div>
+                <div className="backdrop" onClick={() => setDaySheetRecipe(null)}></div>
+                <div className="sheet">
+                  <div className="handle"></div>
+                  <div className="px-4 pb-4">
+                    <div className="flex items-center mb-1">
+                      <span className="text-lg font-bold">Kies een dag deze week</span>
+                      <button className="ml-auto text-stone-400" onClick={() => setDaySheetRecipe(null)}>✕</button>
+                    </div>
+                    <div className="text-xs text-stone-500 mb-2">Week van {curWeekLabel} · alleen onvergrendelde dagen kiesbaar (🔒 = vastgezet)</div>
+                    {curWeekKeys.map((k, i) => {
+                      const entry = menuByDate[k];
+                      const locked = !!(entry && entry.locked);
+                      const cur = entry && entry.id ? byId[entry.id] : null;
+                      const isToday = k === todayKey;
+                      return (
+                        <button
+                          key={k}
+                          className={`dayrow${locked ? " locked" : ""}${isToday ? " today" : ""}`}
+                          disabled={locked}
+                          onClick={() => addRecipeToWeek(daySheetRecipe, k)}
+                        >
+                          <span className="dname">{days[i]}</span>
+                          <span className="ddate">{fmtDay(k)}{isToday ? " · vandaag" : ""}</span>
+                          <span className="ddish">{locked ? "🔒 " : ""}{entry && entry.custom ? entry.custom : cur ? cur.name : "leeg"}</span>
+                        </button>
                       );
                     })}
+                    <div className="text-xs text-stone-400 mt-3">{daySheetRecipe.name} wordt aan de gekozen dag toegewezen (een onvergrendeld gerecht aldaar wordt overschreven).</div>
+                  </div>
                 </div>
               </div>
-            ))}
+            )}
+            {weekToast !== "" && <div className="toast">{weekToast}</div>}
           </div>
         )}
 

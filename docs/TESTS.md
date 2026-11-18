@@ -32,6 +32,8 @@
 ### Recepten / data
 - Pool start met `BASE_RECIPES`; recept bewerken en verwijderen (verdwijnt ook uit een lopend menu); import/export als JSON; reset naar startpool.
 - Oudere state zonder `recipes` / `settings` / `prices` wordt genormaliseerd/geseed bij laden.
+- Recepten-tab (ADR-013, `tools/test-recepten-ux.cjs`): seed `timeCat` (lang: r2/r24/r36/r37/r42/r45/r51, kort: r17/r41, rest normaal) en geen `time`/`cook` in het model; migratie van oude `time` (≤ 25 min → kort, ≥ 45 min → lang, anders normaal) met `cook` gewist en `tags`/`timeCat` aangevuld; zoekbalk op naam met teller "n van N recepten" en actieve filterchips + "Alles wissen"; filter op tijd (chips + segmented in het filter-sheet); ingrediënt-filter "bevat"; tag-filters AND; maximaal 5 tagchips direct zichtbaar + "meer"; zonder filters gegroepeerd per categorie, mét filters platte lijst; info-tekst pas na ℹ️; toevoegen pas na ＋-icoon (bottom sheet) met `timeCat` + `tags`; bewerken met segmented tijd en tags toevoegen/verwijderen, zonder "kok"-veld; weekmenu-dagregel toont de tijd-badge (geen "X min" meer).
+- Weekmenu-koppeling vanuit de receptenlijst (ADR-013 ronde 2): elke rij heeft een 📅-knop → dagkiezer "Kies een dag deze week" (7 dagen, 🔒 vergrendeld = disabled, vandaag gemarkeerd); kiezen wijst het recept toe aan die dag in `menuByDate` (onvergrendeld gerecht wordt overschreven, `eaters` blijft, vergrendeld NOOIT), sheet sluit + toast "✅ … toegevoegd aan …".
 
 ### Prijzen
 - Zonder prijzen: geen totalen en geen "goedkoopste"-badge, wel de lijst.
