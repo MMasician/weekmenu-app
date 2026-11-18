@@ -256,5 +256,50 @@ function make(seed) {
   check("weekmenu toont geen '<n> min'-tijd meer", !/[0-9] min"/.test(h));
 }
 
+// 10. Weekmenu-koppeling (ADR-013 ronde 2, approved versie 12): 📅 per rij -> dagkiezer "deze week";
+// onvergrendelde dag (ook met gerecht) overschrijven mag; vergrendelde dag (🔒) is disabled en wordt nooit overschreven.
+{
+  const keys = weekKeysFor(0, 0);
+  const t = make({ menuByDate: { [keys[3]]: { id: "r25", locked: true }, [keys[0]]: { id: "r46" } } });
+  const menuByDateState = () => m => m; // placeholder, hieronder direct
+  t.goRecipes();
+  const calBtnFor = (name) => {
+    let card = null;
+    t.walk(t.render(), (n) => {
+      if (n && n.props && String(n.props.className || "") === "bg-white rounded-xl shadow-sm overflow-hidden" && JSON.stringify(n.children || []).indexOf(name) !== -1) card = n;
+    });
+    if (!card) return null;
+    let btn = null;
+    t.walk(card, (n) => { if (n && n.type === "button" && n.props.title === "Toevoegen aan een onvergrendelde dag van deze week") btn = n; });
+    return btn;
+  };
+  check("elke receptenrij heeft een 📅-knop (Borsjt gevonden)", !!calBtnFor("Borsjt"));
+  calBtnFor("Borsjt").props.onClick();
+  let h = t.html();
+  check("dagkiezer opent: 'Kies een dag deze week'", h.indexOf("Kies een dag deze week") !== -1);
+  const dayrows = () => t.nodesWithClass("dayrow");
+  check("dagkiezer toont 7 dagen van deze week", dayrows().length === 7);
+  const lockedRow = dayrows().find((n) => n.props.disabled === true);
+  check("vergrendelde dag (di, r25) is disabled met 🔒 + gerechtnaam", !!lockedRow && JSON.stringify(lockedRow.children).indexOf("🔒") !== -1 && JSON.stringify(lockedRow.children).indexOf("Thaise viscurry") !== -1);
+  check("vandaag is gemarkeerd (today)", dayrows().some((n) => String(n.props.className).indexOf("today") !== -1));
+  // klik op lege onvergrendelde dag keys[1]
+  dayrows()[1].props.onClick();
+  let mbd = t.m.hooks.state[1];
+  check("Borsjt (r36) toegewezen aan lege dag keys[1]", mbd[keys[1]] && mbd[keys[1]].id === "r36");
+  check("dagkiezer gesloten na keuze", t.html().indexOf("Kies een dag deze week") === -1);
+  check("toast melding '✅ Borsjt toegevoegd aan …'", t.html().indexOf("Borsjt toegevoegd aan") !== -1);
+  // overschrijven van onvergrendelde dag met gerecht (keys[0] = r46 Pannekoeken)
+  calBtnFor("Kofta").props.onClick();
+  t.nodesWithClass("dayrow")[0].props.onClick();
+  mbd = t.m.hooks.state[1];
+  check("onvergrendelde dag met gerecht (r46) overschreven door Kofta (r42)", mbd[keys[0]].id === "r42" && !mbd[keys[0]].locked);
+  // vergrendelde dag wordt NOOIT overschreven (guard in addRecipeToWeek)
+  calBtnFor("Lasagne").props.onClick();
+  const locked = t.nodesWithClass("dayrow").find((n) => n.props.disabled === true);
+  locked.props.onClick();
+  mbd = t.m.hooks.state[1];
+  check("vergrendelde dag keys[3] blijft r25 locked", mbd[keys[3]].id === "r25" && mbd[keys[3]].locked === true);
+}
+
 console.log(fails === 0 ? "ALLE TESTS GESLAAGD" : fails + " TEST(S) GEFAALD");
 process.exit(fails === 0 ? 0 : 1);

@@ -17,7 +17,7 @@ UX-voorstel met mocks per scherm (2 versies): `docs/ux/recepten-tab-zoeken-filte
 (PR #8). Goedgekeurd: scherm 1 = versie B (maximaal 5 tags direct zichtbaar, uitleg
 achter een ℹ️-icoon, toevoegen via een klein ＋-icoon), scherm 2 = versie A (filter-sheet
 als bottom sheet), scherm 3 = versie B (platte resultaatlijst met teller), scherm 4 =
-versie A (toevoegen in bottom sheet), scherm 5 = versie A (bewerken met chips/segmented).
+versie A (toevoegen in bottom sheet), scherm 5 = versie A (bewerken met chips/segmented). Ronde 2 (weekmenu-koppeling): goedgekeurd = versie 12 (dagkiezer als bottom sheet); onvergrendelde dagen met een bestaand gerecht mogen worden overschreven, vergrendelde (🔒) niet.
 Tag-filters zijn AND; ingrediënt-filter is een vrij tekstveld ("bevat"); migratiedrempels
 ≤ 25 min = kort, ≥ 45 min = lang; export/import/reset blijven onderaan de tab.
 
@@ -39,6 +39,7 @@ Tag-filters zijn AND; ingrediënt-filter is een vrij tekstveld ("bevat"); migrat
   met × + "＋ tag toevoegen"; geen "kok"-veld meer. Exporteren/Importeren/"Standaardlijst
   terug" als stille rij onderaan de tab. Uitlegtekst achter ℹ️-icoon.
 - In de weekmenu-dagregel: tijd-badge (kort/normaal/lang) in plaats van "X min"; geen kok.
+- **Weekmenu-koppeling (ronde 2)**: rechts op elke receptenrij een 📅-knop → bottom sheet "Kies een dag deze week" (7 dagen van offset 0, 🔒 vergrendeld = niet klikbaar, vandaag gemarkeerd). Kiezen zet `{ id }` op die datum in `menuByDate` (onvergrendeld gerecht wordt overschreven, `eaters` blijft behouden, vergrendeld nooit) + toast-melding.
 
 ## Gevolgen
 + Zoeken/filteren direct bovenaan de tab; de tab start rustig (geen formulier, geen uitleg).
@@ -49,6 +50,6 @@ Tag-filters zijn AND; ingrediënt-filter is een vrij tekstveld ("bevat"); migrat
 - Bestaande opslag met `time`/`cook` migreert automatisch bij het laden (drempels ≤ 25/≥ 45).
 - Export/import carry `timeCat`/`tags` mee; oude exports zonder die velden worden bij
   import genormaliseerd.
-- Nieuwe statische klassen in `styles.css` (searchbar, chips, segl, tag, tb-*, afilter…);
+- Nieuwe statische klassen in `styles.css` (searchbar, chips, segl, tag, tb-*, afilter, dayrow, toast…);
   tests in `tools/test-recepten-ux.cjs` dekken model, migratie, zoeken/filteren, toevoegen
   en bewerken.

@@ -70,6 +70,8 @@ In beide versies: filters combineren (AND): zoekterm op naam + tijdcategorie + i
 
 ## 6. Nieuw verzoek (ronde 2): per recept een knop om toe te voegen aan het weekmenu van deze week
 
+**Status: goedgekeurd (versie 12) en verwerkt (ADR-013).** Onvergrendelde dagen met een bestaand gerecht mogen worden overschreven; vergrendelde (🔒) niet. Verwerkt in `docs/SPECS.md`, `docs/adr/ADR-013-*.md`, `tools/test-recepten-ux.cjs` (test 10) en `src/App.jsx` (+ build).
+
 Wens: in de receptenlijst rechts per recept een knop om het recept toe te voegen aan een **onvergrendelde dag** van het weekmenu van **deze week** (week van za 14 – vr 20 nov 2026 in de mocks).
 
 - `11-rij-weekmenu-knop-versie-A-direct.png` — icoonknop 📅 rechts op de rij (naast de ▾). Klik voegt direct toe aan de **eerste onvergrendelde dag zonder gerecht** van deze week; melding onderaan (toast): "✅ <recept> toegevoegd aan <dag> <datum>". Als alle onvergrendelde dagen al een gerecht hebben: knop gedimd/uit.

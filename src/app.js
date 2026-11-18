@@ -394,6 +394,8 @@ function App() {
   const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [recipeInfoOpen, setRecipeInfoOpen] = useState(false);
   const [tagDraft, setTagDraft] = useState(""); // tag-invoer bij het openstaande bewerkte recept
+  const [daySheetRecipe, setDaySheetRecipe] = useState(null); // recept waarvoor de dagkiezer (deze week) open is
+  const [weekToast, setWeekToast] = useState(""); // melding na toevoegen aan het weekmenu
 
   useEffect(() => {
     saveState({ menuByDate, recipes, checked, extraItems, settings, stock, prices });
@@ -690,16 +692,31 @@ function App() {
   const topTags = allTags.slice(0, 5); // maximaal 5 tags direct zichtbaar in de filterrij
   const toggleTagFilter = (t) => setTagFilters((fs) => (fs.includes(t) ? fs.filter((x) => x !== t) : [...fs, t]));
   const clearRecipeFilters = () => { setRecipeQuery(""); setTimeFilter("alle"); setIngFilter(""); setTagFilters([]); };
+  // Weekmenu-koppeling vanuit de receptenlijst (ADR-013, ronde 2): kies een onvergrendelde dag van DEZE week (offset 0).
+  const curWeekKeys = weekDateKeys(settings.weekStartDay, 0);
+  const curWeekStart = weekStartFor(settings.weekStartDay, 0);
+  const curWeekEnd = addDays(curWeekStart, 6);
+  const curWeekLabel = `${fmtShort(curWeekStart)} \u2013 ${fmtShort(curWeekEnd)} ${curWeekEnd.getFullYear()}`;
+  function addRecipeToWeek(recipe, key) {
+    const prev = menuByDate[key];
+    if (prev && prev.locked) return; // vergrendelde dag nooit overschrijven
+    setMenuByDate((m) => ({ ...m, [key]: { ...(prev && prev.eaters != null ? { eaters: prev.eaters } : {}), id: recipe.id } }));
+    const i = curWeekKeys.indexOf(key);
+    setWeekToast(`\u2705 ${recipe.name} toegevoegd aan ${days[i]} ${fmtDay(key)}`);
+    setDaySheetRecipe(null);
+    if (typeof setTimeout === "function") setTimeout(() => setWeekToast(""), 3500);
+  }
+
   // Rij in de receptenlijst (ADR-013): naam + badges + meta (categorie, tijd, tags); klik opent bewerkte form.
   const renderRecipeRow = (r) => {
     const inMenu = activeMenuIds.includes(r.id);
     const isOpen = openRecipe === r.id;
     return (
-      /*#__PURE__*/React.createElement("div", { "key": r.id, "className": "bg-white rounded-xl shadow-sm overflow-hidden" }, /*#__PURE__*/React.createElement("button", { "onClick": () => { setOpenRecipe(isOpen ? null : r.id); setTagDraft(""); }, "className": "w-full text-left px-3 py-2.5" }, /*#__PURE__*/React.createElement("div", { "className": "flex items-center justify-between gap-2" }, /*#__PURE__*/React.createElement("span", { "className": "font-medium text-sm" }, r.name, inMenu && /*#__PURE__*/React.createElement("span", { "className": "ml-2 text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full" }, "deze week"), (r.ingredients || []).filter(Boolean).length === 0 && (
-                /*#__PURE__*/React.createElement("span", { "className": "ml-1.5 text-[10px] bg-stone-100 text-stone-500 px-1.5 py-0.5 rounded-full" }, "geen ingredienten bekend")
-              )), /*#__PURE__*/React.createElement("span", { "className": "text-stone-400 text-xs shrink-0" }, isOpen ? "▴" : "▾")), /*#__PURE__*/React.createElement("div", { "className": "metarow" }, /*#__PURE__*/React.createElement("span", { "className": `text-[10px] px-1.5 rounded ${CAT_STYLE[r.cat]}` }, CAT_LABEL[r.cat]), /*#__PURE__*/React.createElement("span", { "className": `tb tb-${r.timeCat || "normaal"}` }, TIME_LABEL[r.timeCat || "normaal"]), (r.tags || []).map((t) => (
-              /*#__PURE__*/React.createElement("span", { "key": t, "className": "tag" }, t)
-            )))), isOpen && (
+      /*#__PURE__*/React.createElement("div", { "key": r.id, "className": "bg-white rounded-xl shadow-sm overflow-hidden" }, /*#__PURE__*/React.createElement("div", { "className": "flex items-center gap-1 px-3 py-2.5" }, /*#__PURE__*/React.createElement("button", { "onClick": () => { setOpenRecipe(isOpen ? null : r.id); setTagDraft(""); }, "className": "flex-1 text-left min-w-0" }, /*#__PURE__*/React.createElement("div", { "className": "flex items-center justify-between gap-2" }, /*#__PURE__*/React.createElement("span", { "className": "font-medium text-sm" }, r.name, inMenu && /*#__PURE__*/React.createElement("span", { "className": "ml-2 text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full" }, "deze week"), (r.ingredients || []).filter(Boolean).length === 0 && (
+                  /*#__PURE__*/React.createElement("span", { "className": "ml-1.5 text-[10px] bg-stone-100 text-stone-500 px-1.5 py-0.5 rounded-full" }, "geen ingredienten bekend")
+                )), /*#__PURE__*/React.createElement("span", { "className": "text-stone-400 text-xs shrink-0" }, isOpen ? "▴" : "▾")), /*#__PURE__*/React.createElement("div", { "className": "metarow" }, /*#__PURE__*/React.createElement("span", { "className": `text-[10px] px-1.5 rounded ${CAT_STYLE[r.cat]}` }, CAT_LABEL[r.cat]), /*#__PURE__*/React.createElement("span", { "className": `tb tb-${r.timeCat || "normaal"}` }, TIME_LABEL[r.timeCat || "normaal"]), (r.tags || []).map((t) => (
+                /*#__PURE__*/React.createElement("span", { "key": t, "className": "tag" }, t)
+              )))), /*#__PURE__*/React.createElement("button", { "className": "iconbtn", "title": "Toevoegen aan een onvergrendelde dag van deze week", "onClick": () => setDaySheetRecipe(r) }, "📅")), isOpen && (
           /*#__PURE__*/React.createElement("div", { "className": "px-3 pb-3 border-t border-stone-100" }, /*#__PURE__*/React.createElement("div", { "className": "grid grid-cols-2 gap-2 mt-3" }, /*#__PURE__*/React.createElement("label", { "className": "text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, "Naam"), /*#__PURE__*/React.createElement("input", { "value": r.name, "onChange": (e) => updateRecipe(r.id, { name: e.target.value }), "className": "w-full border rounded-lg px-2 py-1.5 mt-0.5" })), /*#__PURE__*/React.createElement("label", { "className": "text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, "Categorie"), /*#__PURE__*/React.createElement("select", { "value": r.cat, "onChange": (e) => updateRecipe(r.id, { cat: e.target.value }), "className": "w-full border rounded-lg px-2 py-1.5 mt-0.5" }, ["vega", "vis", "vlees", "extra"].map((c) => (
                     /*#__PURE__*/React.createElement("option", { "key": c, "value": c }, CAT_LABEL[c])
                   ))))), /*#__PURE__*/React.createElement("div", { "className": "mt-3 text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, "Bereidingstijd"), /*#__PURE__*/React.createElement("div", { "className": "segl mt-0.5" }, TIME_CATS.map((t) => (
@@ -847,7 +864,17 @@ function App() {
                         )))), /*#__PURE__*/React.createElement("div", { "className": "text-xs mb-3" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, "Tags"), /*#__PURE__*/React.createElement("div", { "className": "flex flex-wrap gap-1 mt-0.5" }, newRecipe.tags.map((t) => (
                           /*#__PURE__*/React.createElement("span", { "key": t, "className": "tag" }, t, " ", /*#__PURE__*/React.createElement("button", { "className": "tagx", "onClick": () => setNewRecipe({ ...newRecipe, tags: newRecipe.tags.filter((x) => x !== t) }) }, "×"))
                         ))), /*#__PURE__*/React.createElement("div", { "className": "tagadd" }, /*#__PURE__*/React.createElement("input", { "value": newRecipe.tagDraft, "placeholder": "＋ tag toevoegen…", "onChange": (e) => setNewRecipe({ ...newRecipe, tagDraft: e.target.value }), "onKeyDown": (e) => { if (e.key === "Enter") { e.preventDefault(); addNewTag(); } } }), /*#__PURE__*/React.createElement("button", { "onClick": addNewTag }, "+"))), /*#__PURE__*/React.createElement("div", { "className": "text-xs mb-3" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, "Ingrediënten (één per regel)"), /*#__PURE__*/React.createElement("textarea", { "rows": 3, "className": "w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm", "value": newRecipe.ingredients, "placeholder": "Ingrediënten, één per regel…", "onChange": (e) => setNewRecipe({ ...newRecipe, ingredients: e.target.value }) })), /*#__PURE__*/React.createElement("div", { "className": "text-xs mb-3" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, "Bereiding (optioneel)"), /*#__PURE__*/React.createElement("textarea", { "rows": 2, "className": "w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm", "value": newRecipe.bereiding, "placeholder": "Bereiding…", "onChange": (e) => setNewRecipe({ ...newRecipe, bereiding: e.target.value }) })), /*#__PURE__*/React.createElement("button", { "className": "w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl text-sm", "onClick": addRecipe }, "Toevoegen"))))
-            ))
+            ), daySheetRecipe && (
+              /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", { "className": "backdrop", "onClick": () => setDaySheetRecipe(null) }), /*#__PURE__*/React.createElement("div", { "className": "sheet" }, /*#__PURE__*/React.createElement("div", { "className": "handle" }), /*#__PURE__*/React.createElement("div", { "className": "px-4 pb-4" }, /*#__PURE__*/React.createElement("div", { "className": "flex items-center mb-1" }, /*#__PURE__*/React.createElement("span", { "className": "text-lg font-bold" }, "Kies een dag deze week"), /*#__PURE__*/React.createElement("button", { "className": "ml-auto text-stone-400", "onClick": () => setDaySheetRecipe(null) }, "✕")), /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-500 mb-2" }, "Week van ", curWeekLabel, " · alleen onvergrendelde dagen kiesbaar (🔒 = vastgezet)"), curWeekKeys.map((k, i) => {
+                      const entry = menuByDate[k];
+                      const locked = !!(entry && entry.locked);
+                      const cur = entry && entry.id ? byId[entry.id] : null;
+                      const isToday = k === todayKey;
+                      return (
+                        /*#__PURE__*/React.createElement("button", { "key": k, "className": `dayrow${locked ? " locked" : ""}${isToday ? " today" : ""}`, "disabled": locked, "onClick": () => addRecipeToWeek(daySheetRecipe, k) }, /*#__PURE__*/React.createElement("span", { "className": "dname" }, days[i]), /*#__PURE__*/React.createElement("span", { "className": "ddate" }, fmtDay(k), isToday ? " · vandaag" : ""), /*#__PURE__*/React.createElement("span", { "className": "ddish" }, locked ? "🔒 " : "", entry && entry.custom ? entry.custom : cur ? cur.name : "leeg"))
+                      );
+                    }), /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-400 mt-3" }, daySheetRecipe.name, " wordt aan de gekozen dag toegewezen (een onvergrendeld gerecht aldaar wordt overschreven)."))))
+            ), weekToast !== "" && /*#__PURE__*/React.createElement("div", { "className": "toast" }, weekToast))
         ), tab === "stock" && (
           /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", { "className": "mb-2 text-xs text-stone-500" }, "Naast elk product zie je jouw huidige voorraad en de gewenste voorraad (bewaarlijst) die je zelf kunt instellen. Als de huidige voorraad lager is dan de gewenste, staat het product automatisch op de boodschappenlijst. Na het boodschappen doen: \"Alles aangevuld\"."), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm p-3 mb-4 flex gap-2" }, /*#__PURE__*/React.createElement("input", { "value": newStock, "onChange": (e) => setNewStock(e.target.value), "placeholder": "Nieuw product…", "className": "flex-1 border rounded-lg px-3 py-2 text-sm", "onKeyDown": (e) => {
                   if (e.key === "Enter" && newStock.trim()) {

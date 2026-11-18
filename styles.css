@@ -212,3 +212,15 @@ input, select, textarea { font: inherit; }
   color: var(--stone-500); background: var(--white); }
 .mutedrow { display: flex; gap: .75rem; margin-top: 1rem; }
 .linkbtn { font-size: .75rem; color: var(--stone-500); background: none; border: none; padding: 0; }
+
+/* --- receptenlijst: dagkiezer "deze week" + toast (ADR-013 ronde 2) --- */
+.dayrow { display: flex; align-items: center; gap: .5rem; width: 100%; text-align: left; padding: .55rem .75rem;
+  border: 1px solid var(--stone-100); border-radius: .5rem; background: var(--white); font-size: .875rem; }
+.dayrow + .dayrow { margin-top: .375rem; }
+.dayrow.locked { opacity: .45; }
+.dayrow.today { border-color: var(--emerald-400); background: var(--emerald-50); }
+.dayrow .dname { font-weight: 600; width: 2.25rem; flex-shrink: 0; }
+.dayrow .ddate { color: var(--stone-400); font-size: .75rem; }
+.dayrow .ddish { margin-left: auto; color: var(--stone-500); font-size: .75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.toast { position: fixed; left: 50%; bottom: 1rem; transform: translateX(-50%); background: var(--stone-800); color: var(--white);
+  font-size: .75rem; padding: .5rem .75rem; border-radius: .75rem; box-shadow: 0 8px 20px rgba(0,0,0,.25); z-index: 50; max-width: 92%; }

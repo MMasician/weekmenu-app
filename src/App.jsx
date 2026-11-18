@@ -394,6 +394,8 @@ export default function App() {
   const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [recipeInfoOpen, setRecipeInfoOpen] = useState(false);
   const [tagDraft, setTagDraft] = useState(""); // tag-invoer bij het openstaande bewerkte recept
+  const [daySheetRecipe, setDaySheetRecipe] = useState(null); // recept waarvoor de dagkiezer (deze week) open is
+  const [weekToast, setWeekToast] = useState(""); // melding na toevoegen aan het weekmenu
 
   useEffect(() => {
     saveState({ menuByDate, recipes, checked, extraItems, settings, stock, prices });
@@ -690,34 +692,52 @@ export default function App() {
   const topTags = allTags.slice(0, 5); // maximaal 5 tags direct zichtbaar in de filterrij
   const toggleTagFilter = (t) => setTagFilters((fs) => (fs.includes(t) ? fs.filter((x) => x !== t) : [...fs, t]));
   const clearRecipeFilters = () => { setRecipeQuery(""); setTimeFilter("alle"); setIngFilter(""); setTagFilters([]); };
+  // Weekmenu-koppeling vanuit de receptenlijst (ADR-013, ronde 2): kies een onvergrendelde dag van DEZE week (offset 0).
+  const curWeekKeys = weekDateKeys(settings.weekStartDay, 0);
+  const curWeekStart = weekStartFor(settings.weekStartDay, 0);
+  const curWeekEnd = addDays(curWeekStart, 6);
+  const curWeekLabel = `${fmtShort(curWeekStart)} \u2013 ${fmtShort(curWeekEnd)} ${curWeekEnd.getFullYear()}`;
+  function addRecipeToWeek(recipe, key) {
+    const prev = menuByDate[key];
+    if (prev && prev.locked) return; // vergrendelde dag nooit overschrijven
+    setMenuByDate((m) => ({ ...m, [key]: { ...(prev && prev.eaters != null ? { eaters: prev.eaters } : {}), id: recipe.id } }));
+    const i = curWeekKeys.indexOf(key);
+    setWeekToast(`\u2705 ${recipe.name} toegevoegd aan ${days[i]} ${fmtDay(key)}`);
+    setDaySheetRecipe(null);
+    if (typeof setTimeout === "function") setTimeout(() => setWeekToast(""), 3500);
+  }
+
   // Rij in de receptenlijst (ADR-013): naam + badges + meta (categorie, tijd, tags); klik opent bewerkte form.
   const renderRecipeRow = (r) => {
     const inMenu = activeMenuIds.includes(r.id);
     const isOpen = openRecipe === r.id;
     return (
       <div key={r.id} className="bg-white rounded-xl shadow-sm overflow-hidden">
-        <button
-          onClick={() => { setOpenRecipe(isOpen ? null : r.id); setTagDraft(""); }}
-          className="w-full text-left px-3 py-2.5"
-        >
-          <div className="flex items-center justify-between gap-2">
-            <span className="font-medium text-sm">
-              {r.name}
-              {inMenu && <span className="ml-2 text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full">deze week</span>}
-              {(r.ingredients || []).filter(Boolean).length === 0 && (
-                <span className="ml-1.5 text-[10px] bg-stone-100 text-stone-500 px-1.5 py-0.5 rounded-full">geen ingredienten bekend</span>
-              )}
-            </span>
-            <span className="text-stone-400 text-xs shrink-0">{isOpen ? "▴" : "▾"}</span>
-          </div>
-          <div className="metarow">
-            <span className={`text-[10px] px-1.5 rounded ${CAT_STYLE[r.cat]}`}>{CAT_LABEL[r.cat]}</span>
-            <span className={`tb tb-${r.timeCat || "normaal"}`}>{TIME_LABEL[r.timeCat || "normaal"]}</span>
-            {(r.tags || []).map((t) => (
-              <span key={t} className="tag">{t}</span>
-            ))}
-          </div>
-        </button>
+        <div className="flex items-center gap-1 px-3 py-2.5">
+          <button
+            onClick={() => { setOpenRecipe(isOpen ? null : r.id); setTagDraft(""); }}
+            className="flex-1 text-left min-w-0"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-medium text-sm">
+                {r.name}
+                {inMenu && <span className="ml-2 text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full">deze week</span>}
+                {(r.ingredients || []).filter(Boolean).length === 0 && (
+                  <span className="ml-1.5 text-[10px] bg-stone-100 text-stone-500 px-1.5 py-0.5 rounded-full">geen ingredienten bekend</span>
+                )}
+              </span>
+              <span className="text-stone-400 text-xs shrink-0">{isOpen ? "▴" : "▾"}</span>
+            </div>
+            <div className="metarow">
+              <span className={`text-[10px] px-1.5 rounded ${CAT_STYLE[r.cat]}`}>{CAT_LABEL[r.cat]}</span>
+              <span className={`tb tb-${r.timeCat || "normaal"}`}>{TIME_LABEL[r.timeCat || "normaal"]}</span>
+              {(r.tags || []).map((t) => (
+                <span key={t} className="tag">{t}</span>
+              ))}
+            </div>
+          </button>
+          <button className="iconbtn" title="Toevoegen aan een onvergrendelde dag van deze week" onClick={() => setDaySheetRecipe(r)}>📅</button>
+        </div>
         {isOpen && (
           <div className="px-3 pb-3 border-t border-stone-100">
             <div className="grid grid-cols-2 gap-2 mt-3">
@@ -1248,6 +1268,41 @@ export default function App() {
                 </div>
               </div>
             )}
+            {daySheetRecipe && (
+              <div>
+                <div className="backdrop" onClick={() => setDaySheetRecipe(null)}></div>
+                <div className="sheet">
+                  <div className="handle"></div>
+                  <div className="px-4 pb-4">
+                    <div className="flex items-center mb-1">
+                      <span className="text-lg font-bold">Kies een dag deze week</span>
+                      <button className="ml-auto text-stone-400" onClick={() => setDaySheetRecipe(null)}>✕</button>
+                    </div>
+                    <div className="text-xs text-stone-500 mb-2">Week van {curWeekLabel} · alleen onvergrendelde dagen kiesbaar (🔒 = vastgezet)</div>
+                    {curWeekKeys.map((k, i) => {
+                      const entry = menuByDate[k];
+                      const locked = !!(entry && entry.locked);
+                      const cur = entry && entry.id ? byId[entry.id] : null;
+                      const isToday = k === todayKey;
+                      return (
+                        <button
+                          key={k}
+                          className={`dayrow${locked ? " locked" : ""}${isToday ? " today" : ""}`}
+                          disabled={locked}
+                          onClick={() => addRecipeToWeek(daySheetRecipe, k)}
+                        >
+                          <span className="dname">{days[i]}</span>
+                          <span className="ddate">{fmtDay(k)}{isToday ? " · vandaag" : ""}</span>
+                          <span className="ddish">{locked ? "🔒 " : ""}{entry && entry.custom ? entry.custom : cur ? cur.name : "leeg"}</span>
+                        </button>
+                      );
+                    })}
+                    <div className="text-xs text-stone-400 mt-3">{daySheetRecipe.name} wordt aan de gekozen dag toegewezen (een onvergrendeld gerecht aldaar wordt overschreven).</div>
+                  </div>
+                </div>
+              </div>
+            )}
+            {weekToast !== "" && <div className="toast">{weekToast}</div>}
           </div>
         )}
 
