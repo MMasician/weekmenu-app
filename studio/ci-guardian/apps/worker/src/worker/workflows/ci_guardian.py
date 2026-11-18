@@ -5,12 +5,14 @@ post hij een comment op de PR (eenmalig, via marker); bij een gefaalde run op
 main maakt hij een issue aan (eveneens eenmalig). Met dry_run=True rapporteert
 hij alleen, zonder naar GitHub te schrijven.
 
-Authenticatie: de activity leest de GitHub PAT uit de workspace secret die als
-omgevingsvariabele WEEKMENU_GITHUB_TOKEN aan de deployment is gebonden.
+Authenticatie: de activity leest de GitHub PAT uit env-var WEEKMENU_GITHUB_TOKEN
+(als die aan de deployment is gebonden) of uit de workspace secret
+'weekmenu_github_token' via de Mistral secrets-API.
 """
 
 import json
 import os
+import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import timedelta
@@ -65,11 +67,11 @@ class CiGuardianOutput(BaseModel):
     main: MainReport
 
 
-def _workspace_secret(name: str) -> str:
-    """Leest een workspace secret via de Mistral API (service-account key van de deployment)."""
+def _workspace_secret(name: str) -> tuple[str, str]:
+    """Leest een workspace secret via de Mistral API; geeft (waarde, reden) terug."""
     api_key = os.environ.get("MISTRAL_API_KEY", "").strip()
     if not api_key:
-        return ""
+        return "", "MISTRAL_API_KEY is niet gezet in de worker-omgeving"
     base = (os.environ.get("MISTRAL_BASE_URL") or "https://api.mistral.ai").rstrip("/")
 
     def _get(path: str, query: dict[str, str] | None = None) -> Any:
@@ -88,30 +90,44 @@ def _workspace_secret(name: str) -> str:
         with urllib.request.urlopen(req, timeout=10) as resp:
             return json.load(resp)
 
-    workspace_id = _get("/v1/users/me")["workspace"]["id"]
-    page = _get(
-        f"/v1/secrets/workspaces/{urllib.parse.quote(workspace_id, safe='')}",
-        {"limit": "100"},
-    )
+    try:
+        workspace_id = _get("/v1/users/me")["workspace"]["id"]
+        page = _get(
+            f"/v1/secrets/workspaces/{urllib.parse.quote(workspace_id, safe='')}",
+            {"limit": "100"},
+        )
+    except urllib.error.HTTPError as err:
+        return "", f"Mistral secrets-API gaf HTTP {err.code} bij het listen"
     names = {item["name"].lower() for item in page.get("items", [])}
     if name.lower() not in names:
-        return ""
+        return (
+            "",
+            f"secret '{name}' niet gevonden tussen {len(names)} workspace secrets",
+        )
     ref = f"secret:workspace:{name.lower()}"
-    for secret in _get("/v1/secrets/values", {"names": ref}):
+    try:
+        values = _get("/v1/secrets/values", {"names": ref})
+    except urllib.error.HTTPError as err:
+        return (
+            "",
+            f"Mistral secrets-API gaf HTTP {err.code} bij het lezen van de waarde",
+        )
+    for secret in values:
         if secret["name"].lower() == ref:
-            return str(secret["value"])
-    return ""
+            return str(secret["value"]), ""
+    return "", "secret gevonden maar waarde leeg"
 
 
 def _github_token() -> str:
     token = os.environ.get(TOKEN_ENV_VAR, "").strip()
-    if not token:
-        token = _workspace_secret(TOKEN_ENV_VAR.lower())
-    if not token:
-        raise RuntimeError(
-            f"geen GitHub PAT gevonden: zet env-var {TOKEN_ENV_VAR} of maak workspace secret '{TOKEN_ENV_VAR.lower()}' aan"
-        )
-    return token
+    if token:
+        return token
+    token, reason = _workspace_secret(TOKEN_ENV_VAR.lower())
+    if token:
+        return token
+    raise RuntimeError(
+        f"geen GitHub PAT gevonden ({reason}); maak workspace secret '{TOKEN_ENV_VAR.lower()}' aan in Mistral Studio"
+    )
 
 
 async def _gh(method: str, path: str, body: dict[str, Any] | None = None) -> Any:
