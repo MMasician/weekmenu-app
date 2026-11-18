@@ -80,8 +80,12 @@ function make(seed) {
     });
     return out;
   };
+  const openDateSheet = () => {
+    const b = findButton("Kies een datum");
+    if (b) b.props.onClick();
+  };
   render();
-  return { m, render, walk, findTab, findButton, settingsState, menuByDateState, weekEntries, weekStartDay, dayDates, calCells, lockButtons, html: () => JSON.stringify(serialize(render())) };
+  return { m, render, walk, findTab, findButton, openDateSheet, settingsState, menuByDateState, weekEntries, weekStartDay, dayDates, calCells, lockButtons, html: () => JSON.stringify(serialize(render())) };
 }
 
 // 1. Bij openen start het weekmenu in de huidige week; vandaag is gehighlight.
@@ -93,19 +97,27 @@ function make(seed) {
   const dates = t.dayDates();
   check("bij openen toont de week de 7 datums van de huidige week", dates.length === 7 && dates.every((d, i) => d.slice(0, 5) === dayShort(keys[i])));
   check("vandaag gemarkeerd in de daglijst", dates[keys.indexOf(today)].indexOf("vandaag") !== -1);
+  check("weekmenu-tab toont alleen vandaag + knop 'Kies een datum'", !!t.findButton("Kies een datum"));
+  check("zonder sheet geen kalendercellen op de tab", t.calCells().length === 0);
+  t.openDateSheet();
   const cells = t.calCells();
   const inWeekCells = cells.filter((c) => keys.indexOf(c.props["data-date"]) !== -1);
   const todayCell = cells.find((c) => c.props["data-date"] === today);
   check("alle 7 dagen van de week in de kalender gemarkeerd", inWeekCells.length === 7);
   check("vandaag gehighlight in de kalender (bg-emerald-600)", !!todayCell && String(todayCell.props.className).indexOf("bg-emerald-600") !== -1);
-  check("weekknoppen aanwezig (vorige/volgende week)", !!t.findButton("Vorige week") && !!t.findButton("Volgende week"));
+  check("weekknoppen aanwezig in de datum-sheet (vorige/volgende week)", !!t.findButton("Vorige week") && !!t.findButton("Volgende week"));
   check("bij offset 0 geen 'Naar deze week'-knop", !t.findButton("Naar deze week"));
+  let backdrop = null;
+  t.walk(t.render(), (n) => { if (n && n.type === "div" && n.props.className === "backdrop") backdrop = n; });
+  backdrop.props.onClick();
+  check("backdrop sluit de datum-sheet (geen kalender meer op de tab)", t.calCells().length === 0);
 }
 
 // 2. Weeknavigatie: 1 of meer weken vooruit en terug.
 {
   const t = make({});
   const w = t.weekStartDay();
+  t.openDateSheet();
   t.findButton("Volgende week").props.onClick();
   t.findButton("Volgende week").props.onClick();
   let keys = weekKeysFor(w, 2);
@@ -130,6 +142,7 @@ function make(seed) {
   const t = make({});
   const w = t.weekStartDay();
   const start = startOfWeek(new Date(), w);
+  t.openDateSheet();
   const calMonth = addDays(start, 3).getMonth();
   const target = [addDays(start, 7), addDays(start, -7)].find((d) => d.getMonth() === calMonth);
   const cell = t.calCells().find((c) => c.props["data-date"] === dateKey(target));
@@ -146,6 +159,7 @@ function make(seed) {
   const w = t.weekStartDay();
   const keys = weekKeysFor(w, 0);
   t.findButton("Genereer weekmenu").props.onClick();
+  t.openDateSheet();
   const locks = t.lockButtons();
   check("7 vergrendelknoppen na genereren", locks.length === 7);
   locks[2].props.onClick();
@@ -169,6 +183,7 @@ function make(seed) {
   const pastKeys = weekKeysFor(w, -3);
   const pastDate = pastKeys[4];
   const t = make({ menuByDate: { [pastDate]: { id: "r25", locked: true } } });
+  t.openDateSheet();
   t.findButton("Vorige week").props.onClick();
   t.findButton("Vorige week").props.onClick();
   t.findButton("Vorige week").props.onClick();
@@ -203,7 +218,7 @@ function make(seed) {
   check("oude menu-array gemigreerd naar de datum van de huidige week", !!mbd[keys[1]] && mbd[keys[1]].id === "r21" && mbd[keys[1]].locked === true);
   const checkedState = t.m.hooks.state.find((x) => x && !Array.isArray(x) && typeof x === "object" && "extra-Chips" in x);
   check("vinkjes gemigreerd naar datum-sleutel", !!checkedState && checkedState[`${keys[1]}-r21-Gerookte makreel`] === true && checkedState["extra-Chips"] === true);
-  check("gemigreerd gerecht zichtbaar in de daglijst", t.html().indexOf("Makreelsalade") !== -1);
+  check("gemigreerd gerecht zichtbaar in de daglijst (r21 in het invoerveld)", t.html().indexOf("Burritobowl met tonijn") !== -1);
 }
 
 // 8. De boodschappenlijst volgt de getoonde week.
@@ -215,6 +230,7 @@ function make(seed) {
   let h = t.html();
   check("huidige week: boodschappenlijst toont het gerecht van die datum", h.indexOf("Boodschappenlijst zaterdag") !== -1 && h.indexOf("Thaise viscurry") !== -1);
   t.findTab("Weekmenu").props.onClick();
+  t.openDateSheet();
   t.findButton("Volgende week").props.onClick();
   t.findTab("Boodschappen").props.onClick();
   h = t.html();

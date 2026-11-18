@@ -234,6 +234,45 @@ function marketTotals(items, prices, markets) {
   return totals;
 }
 
+// ---- gerecht-invoer met autocomplete (ADR-012) ----
+// Suggesties na >= 2 letters; exacte (hoofdletterongevoelige) match wint.
+function matchRecipes(recipes, q) {
+  const list = recipes.filter((r) => r.cat !== "extra" && r.name.toLowerCase().includes(q));
+  list.sort((a, b) => {
+    const as = a.name.toLowerCase().startsWith(q) ? 0 : 1;
+    const bs = b.name.toLowerCase().startsWith(q) ? 0 : 1;
+    return as - bs || a.name.localeCompare(b.name);
+  });
+  return list.slice(0, 6);
+}
+function highlightMatch(name, q) {
+  const i = name.toLowerCase().indexOf(q);
+  if (i < 0) return name;
+  return React.createElement(
+    React.Fragment,
+    null,
+    name.slice(0, i),
+    React.createElement("span", { className: "mark" }, name.slice(i, i + q.length)),
+    name.slice(i + q.length)
+  );
+}
+
+// ---- schalen van hoeveelheden per dag (ADR-012) ----
+// factor = eters die dag / householdSize. Alleen "<getal> <eenheid>..." schaalt mee;
+// vaste verpakkingen (blik/pak/zak/...) en tekst zonder getal blijven gelijk.
+const NO_SCALE_UNITS = ["blik", "pak", "pakje", "zak", "doos", "fles"];
+function scaleIngredient(label, factor) {
+  if (!Number.isFinite(factor) || factor === 1) return null;
+  const m = /^\s*(\d+(?:[.,]\d+)?)\s+([A-Za-z\u00e0-\u00ff]+)(.*)$/.exec(label);
+  if (!m) return null;
+  if (NO_SCALE_UNITS.includes(m[2].toLowerCase())) return null;
+  const num = Number(m[1].replace(",", "."));
+  const scaled = Math.max(1, Math.round(num * factor));
+  const out = `${scaled} ${m[2]}${m[3]}`;
+  return out === label ? null : out;
+}
+const fmtFactor = (f) => (Math.round(f * 10) / 10).toString().replace(".", ",");
+
 function loadState() {
   try {
     const raw = localStorage.getItem(LS_KEY);
@@ -313,6 +352,13 @@ function App() {
   const [prices, setPrices] = useState((stored && stored.prices) || {}); // prijzendatabase per artikel (ADR-008)
   const [newPriceItem, setNewPriceItem] = useState("");
   const [openRecipe, setOpenRecipe] = useState(null);
+  // weekmenu-tab v2 (ADR-012): datum-sheet, regels-sheet, eters per dag, getypte invoer
+  const [dateSheetOpen, setDateSheetOpen] = useState(false);
+  const [rulesSheetOpen, setRulesSheetOpen] = useState(false);
+  const [eatersOpen, setEatersOpen] = useState(null); // datum-sleutel waarvan de eters-regel open is
+  const [drafts, setDrafts] = useState({}); // datum-sleutel -> getypte tekst in het gerechtveld
+  const [openSuggest, setOpenSuggest] = useState(null); // datum-sleutel met open suggestielijst
+  const [activeSuggest, setActiveSuggest] = useState(0);
 
   useEffect(() => {
     saveState({ menuByDate, recipes, checked, extraItems, settings, stock, prices });
@@ -335,6 +381,8 @@ function App() {
   const weekEnd = addDays(weekStart, 6);
   const weekLabel = `${fmtShort(weekStart)} – ${fmtShort(weekEnd)} ${weekEnd.getFullYear()}`;
   const calAnchor = addDays(weekStart, 3); // kalender toont de maand rond het midden van de getoonde week
+  const todayDayIdx = (new Date().getDay() + 1) % 7; // DAY_NAMES-index van vandaag (0 = zaterdag)
+  const todayLabel = `${DAY_NAMES[todayDayIdx].slice(0, 2).toLowerCase()} ${fmtDay(todayKey)}`;
   const calWeeks = monthGrid(calAnchor.getFullYear(), calAnchor.getMonth(), settings.weekStartDay);
 
   function updateSettings(patch) {
@@ -421,6 +469,8 @@ function App() {
       });
       return out;
     });
+    setDrafts({});
+    setOpenSuggest(null);
   }
 
   function setDay(day, entry) {
@@ -429,6 +479,62 @@ function App() {
       const out = { ...m };
       if (entry) out[key] = entry;
       else delete out[key];
+      return out;
+    });
+  }
+
+  function goTab(t) {
+    setTab(t);
+    setDateSheetOpen(false);
+    setRulesSheetOpen(false);
+  }
+
+  // gerechtveld: suggestie kiezen (behoudt vergrendeling/eaters)
+  function selectRecipe(day, id) {
+    const entry = weekEntries[day];
+    const patch = { id, locked: !!(entry && entry.locked) };
+    if (entry && entry.eaters != null) patch.eaters = entry.eaters;
+    setDay(day, patch);
+    setDrafts((d) => { const o = { ...d }; delete o[weekKeys[day]]; return o; });
+    setOpenSuggest(null);
+  }
+
+  // gerechtveld committen (blur/Enter): leeg = wissen; exacte match = recept; anders vrije tekst
+  function commitDay(day) {
+    const key = weekKeys[day];
+    const entry = weekEntries[day];
+    const cur =
+      drafts[key] !== undefined
+        ? drafts[key]
+        : entry && entry.custom
+          ? entry.custom
+          : entry && entry.id && byId[entry.id]
+            ? byId[entry.id].name
+            : "";
+    const text = String(cur).trim();
+    if (!text) {
+      setDay(day, null);
+    } else {
+      const exact = recipes.find((x) => x.cat !== "extra" && x.name.toLowerCase() === text.toLowerCase());
+      if (exact) {
+        selectRecipe(day, exact.id);
+        return;
+      }
+      setDay(day, { custom: text, locked: !!(entry && entry.locked) });
+    }
+    setDrafts((d) => { const o = { ...d }; delete o[key]; return o; });
+    setOpenSuggest(null);
+  }
+
+  // afwijkend aantal eters per dag (absoluut; null = standaard uit instellingen)
+  function setEaters(day, n) {
+    const key = weekKeys[day];
+    const entry = weekEntries[day];
+    if (!entry || entry.custom || !entry.id) return;
+    setMenuByDate((m) => {
+      const out = { ...m };
+      if (n == null || n === settings.householdSize) out[key] = { id: entry.id, locked: !!entry.locked };
+      else out[key] = { ...entry, eaters: n };
       return out;
     });
   }
@@ -544,47 +650,65 @@ function App() {
 
   return (
     /*#__PURE__*/React.createElement("div", { "className": "min-h-screen bg-stone-50 text-stone-800" }, /*#__PURE__*/React.createElement("div", { "className": "mx-auto max-w-2xl px-4 pb-16" }, /*#__PURE__*/React.createElement("header", { "className": "pt-6 pb-3 flex items-center justify-between" }, /*#__PURE__*/React.createElement("h1", { "className": "text-2xl font-bold" }, "Weekmenu & Boodschappen"), /*#__PURE__*/React.createElement("span", { "className": "text-xs text-stone-400" }, settings.householdSize + " eters")), /*#__PURE__*/React.createElement("nav", { "className": "flex gap-1 bg-white rounded-xl p-1 shadow-sm mb-4 sticky top-2 z-10" }, tabs.map((t) => (
-            /*#__PURE__*/React.createElement("button", { "key": t.key, "onClick": () => setTab(t.key), "className": `flex-1 py-2 rounded-lg text-sm font-medium transition ${
+            /*#__PURE__*/React.createElement("button", { "key": t.key, "onClick": () => goTab(t.key), "className": `flex-1 py-2 rounded-lg text-sm font-medium transition ${
                 tab === t.key ? "bg-stone-800 text-white" : "text-stone-500 hover:bg-stone-100"
               }` }, t.label)
           ))), tab === "menu" && (
-          /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm p-4 mb-4" }, /*#__PURE__*/React.createElement("div", { "className": "flex items-center justify-between gap-2" }, /*#__PURE__*/React.createElement("button", { "onClick": () => setWeekOffset((o) => o - 1), "className": "px-3 py-2 border rounded-lg text-sm text-stone-600" }, "◀ Vorige week"), /*#__PURE__*/React.createElement("div", { "className": "text-sm font-semibold text-center" }, weekLabel), /*#__PURE__*/React.createElement("button", { "onClick": () => setWeekOffset((o) => o + 1), "className": "px-3 py-2 border rounded-lg text-sm text-stone-600" }, "Volgende week ▶")), weekOffset !== 0 && (
-                /*#__PURE__*/React.createElement("button", { "onClick": () => setWeekOffset(0), "className": "w-full mt-2 py-1.5 border rounded-lg text-xs text-stone-500" }, "Naar deze week")
-              ), /*#__PURE__*/React.createElement("div", { "className": "text-sm font-medium mt-3 mb-1" }, MONTH_NAMES[calAnchor.getMonth()], " ", calAnchor.getFullYear()), /*#__PURE__*/React.createElement("div", { "className": "grid grid-cols-7 gap-0.5 mb-0.5" }, days.map((d) => (
-                  /*#__PURE__*/React.createElement("div", { "key": d, "className": "text-[10px] text-stone-400 text-center font-medium" }, d.slice(0, 2))
-                ))), calWeeks.map((row, wi) => (
-                /*#__PURE__*/React.createElement("div", { "key": wi, "className": "grid grid-cols-7 gap-0.5" }, row.map((cell) => {
-                    const entry = menuByDate[cell.key];
-                    const r = entry ? byId[entry.id] : null;
-                    const locked = !!(entry && entry.locked);
-                    const isToday = cell.key === todayKey;
-                    const inWeek = weekKeys.includes(cell.key);
-                    return (
-                      /*#__PURE__*/React.createElement("button", { "key": cell.key, "data-date": cell.key, "title": r ? r.name : "", "onClick": () => setWeekOffset(weeksBetween(new Date(), cell.date, settings.weekStartDay)), "className": `flex flex-col items-center justify-center py-1 rounded-lg text-xs ${
-                          isToday
-                            ? "bg-emerald-600 text-white font-bold"
-                            : inWeek
-                              ? "bg-stone-100 font-semibold " + (cell.inMonth ? "text-stone-700" : "text-stone-300")
-                              : cell.inMonth
-                                ? "text-stone-700"
-                                : "text-stone-300"
-                        }` }, cell.date.getDate(), locked && /*#__PURE__*/React.createElement("span", { "className": "text-[10px]" }, "🔒"))
-                    );
-                  }))
-              )), /*#__PURE__*/React.createElement("p", { "className": "text-xs text-stone-400 mt-2" }, "Klik op een dag om naar de week van die dag te springen. Vergrendelde gerechten (🔒) worden per datum bewaard en zijn op die datum later terug te vinden.")), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm p-4 mb-4" }, /*#__PURE__*/React.createElement("div", { "className": "text-sm font-medium mb-2" }, "Verdeling voor de week"), /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-500 mb-3" }, "Vis op", fishDays.length ? fishDays.map((d) => days[d]).join(", ") : "geen dag", " (", fishDays.length, " ", fishDays.length === 1 ? "dag" : "dagen", "). Overige ", otherDays.length, " dagen: ", vegaCount, " vega / ", otherDays.length - vegaCount, " vlees."), /*#__PURE__*/React.createElement("button", { "onClick": generateMenu, "className": "w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl" }, "Genereer weekmenu"), /*#__PURE__*/React.createElement("p", { "className": "text-xs text-stone-400 mt-2" }, "Vergrendelde dagen blijven staan en worden per datum opgeslagen. Vis-dagen en de vega/vlees-verdeling stel je in bij Instellingen. Recepten zonder ingredientenlijst worden nog niet automatisch ingepland, maar kun je wel handmatig kiezen.")), /*#__PURE__*/React.createElement("div", { "className": "space-y-2" }, days.map((day, i) => {
+          /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm p-4 mb-4" }, /*#__PURE__*/React.createElement("div", { "className": "flex items-center justify-between gap-2" }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", { "className": "text-[10px] text-stone-400 font-medium tracking-wide" }, "VANDAAG"), /*#__PURE__*/React.createElement("div", { "className": "text-2xl font-bold" }, todayLabel)), /*#__PURE__*/React.createElement("button", { "onClick": () => setDateSheetOpen(true), "className": "shrink-0 px-3 py-2 border rounded-lg text-sm text-stone-600 bg-white" }, "📅 Kies een datum ▾")), /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-400 mt-1" }, "Week van ", weekLabel), /*#__PURE__*/React.createElement("button", { "onClick": generateMenu, "className": "w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl mt-3" }, "Genereer weekmenu")), /*#__PURE__*/React.createElement("div", { "className": "space-y-2" }, days.map((day, i) => {
+                const key = weekKeys[i];
                 const entry = weekEntries[i];
-                const r = entry ? byId[entry.id] : null;
-                const isToday = weekKeys[i] === todayKey;
+                const r = entry && entry.id ? byId[entry.id] : null;
+                const isToday = key === todayKey;
+                const draft = drafts[key];
+                const text = draft !== undefined ? draft : entry && entry.custom ? entry.custom : r ? r.name : "";
+                const q = text.trim().toLowerCase();
+                const exactMatch = q.length >= 2 ? recipes.find((x) => x.cat !== "extra" && x.name.toLowerCase() === q) : null;
+                const suggestions = openSuggest === key && q.length >= 2 && !exactMatch ? matchRecipes(recipes, q) : [];
+                const isCustom = !!(entry && entry.custom);
+                const eatersOverride = entry && entry.eaters != null && entry.eaters !== settings.householdSize ? entry.eaters : null;
+                const effectiveEaters = entry && entry.eaters != null ? entry.eaters : settings.householdSize;
+                const factor = settings.householdSize > 0 ? effectiveEaters / settings.householdSize : 1;
                 return (
-                  /*#__PURE__*/React.createElement("div", { "key": weekKeys[i], "className": `rounded-xl shadow-sm p-3 flex items-center gap-3 ${isToday ? "bg-emerald-100" : "bg-white"}` }, /*#__PURE__*/React.createElement("div", { "className": "w-20 shrink-0" }, /*#__PURE__*/React.createElement("div", { "className": `text-sm font-semibold ${isToday ? "text-emerald-700" : ""}` }, day), /*#__PURE__*/React.createElement("div", { "className": "text-[10px] text-stone-400" }, fmtDay(weekKeys[i]), isToday ? " · vandaag" : "")), r ? (
-                      /*#__PURE__*/React.createElement("div", { "className": "flex-1 min-w-0" }, /*#__PURE__*/React.createElement("button", { "className": "font-medium text-left truncate hover:underline", "onClick": () => { setOpenRecipe(r.id); setTab("recipes"); } }, r.name), /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-400" }, /*#__PURE__*/React.createElement("span", { "className": `inline-block px-1.5 rounded ${CAT_STYLE[r.cat]}` }, CAT_LABEL[r.cat]), r.time ? ` · ${r.time} min` : " · tijd onbekend", r.cook ? ` · ${r.cook}` : ""))
-                    ) : (
-                      /*#__PURE__*/React.createElement("div", { "className": "flex-1 text-sm text-stone-400" }, "Nog niets gekozen")
-                    ), /*#__PURE__*/React.createElement("select", { "value": entry ? entry.id : "", "onChange": (e) => setDay(i, e.target.value ? { id: e.target.value, locked: false } : null), "className": "shrink-0 border rounded-lg text-xs px-1 py-1 max-w-[90px]" }, /*#__PURE__*/React.createElement("option", { "value": "" }, "—"), recipes.filter((x) => x.cat !== "extra").map((x) => (
-                        /*#__PURE__*/React.createElement("option", { "key": x.id, "value": x.id }, x.name)
-                      ))), /*#__PURE__*/React.createElement("button", { "title": entry && entry.locked ? "Ontgrendelen" : "Vergrendelen", "onClick": () => entry && setDay(i, { ...entry, locked: !entry.locked }), "className": `shrink-0 w-8 h-8 rounded-lg text-sm ${entry && entry.locked ? "bg-amber-100 text-amber-700" : "bg-stone-100 text-stone-400"}` }, entry && entry.locked ? "🔒" : "🔓"))
+                  /*#__PURE__*/React.createElement("div", { "key": key, "className": `rounded-xl shadow-sm p-3 ${isToday ? "bg-emerald-100" : "bg-white"}` }, /*#__PURE__*/React.createElement("div", { "className": "flex items-center gap-3" }, /*#__PURE__*/React.createElement("div", { "className": "w-20 shrink-0" }, /*#__PURE__*/React.createElement("div", { "className": `text-sm font-semibold ${isToday ? "text-emerald-700" : ""}` }, day), /*#__PURE__*/React.createElement("div", { "className": "text-[10px] text-stone-400" }, fmtDay(key), isToday ? " · vandaag" : "")), /*#__PURE__*/React.createElement("div", { "className": "flex-1 min-w-0 suggest-wrap" }, /*#__PURE__*/React.createElement("input", { "className": "dish-input", "value": text, "placeholder": "Typ een gerecht…", "onChange": (e) => {
+                            const v = e.target.value;
+                            setDrafts((d) => ({ ...d, [key]: v }));
+                            setOpenSuggest(v.trim().length >= 2 ? key : null);
+                            setActiveSuggest(0);
+                          }, "onBlur": () => commitDay(i), "onKeyDown": (e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              if (suggestions.length && suggestions[activeSuggest]) selectRecipe(i, suggestions[activeSuggest].id);
+                              else commitDay(i);
+                            } else if (e.key === "Escape") {
+                              setOpenSuggest(null);
+                            } else if (e.key === "ArrowDown" && suggestions.length) {
+                              e.preventDefault();
+                              setActiveSuggest((s) => Math.min(s + 1, suggestions.length - 1));
+                            } else if (e.key === "ArrowUp" && suggestions.length) {
+                              e.preventDefault();
+                              setActiveSuggest((s) => Math.max(s - 1, 0));
+                            }
+                          } }), isCustom && (
+                          /*#__PURE__*/React.createElement("div", { "className": "mt-0.5" }, /*#__PURE__*/React.createElement("span", { "className": "tag-free" }, "📍 geen boodschappen"))
+                        ), !isCustom && r && (
+                          /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-400 mt-0.5" }, /*#__PURE__*/React.createElement("span", { "className": `inline-block px-1.5 rounded ${CAT_STYLE[r.cat]}` }, CAT_LABEL[r.cat]), r.time ? ` · ${r.time} min` : " · tijd onbekend", r.cook ? ` · ${r.cook}` : "")
+                        ), suggestions.length > 0 && (
+                          /*#__PURE__*/React.createElement("div", { "className": "suggest-list" }, suggestions.map((s, si) => (
+                              /*#__PURE__*/React.createElement("div", { "key": s.id, "className": `suggest-item${si === activeSuggest ? " active" : ""}`, "onMouseDown": (e) => {
+                                  e.preventDefault();
+                                  selectRecipe(i, s.id);
+                                } }, /*#__PURE__*/React.createElement("span", null, highlightMatch(s.name, q)), /*#__PURE__*/React.createElement("span", { "className": `text-[10px] shrink-0 inline-block px-1.5 rounded ${CAT_STYLE[s.cat]}` }, CAT_LABEL[s.cat]))
+                            )), /*#__PURE__*/React.createElement("div", { "className": "suggest-foot" }, "↵ Enter — “", text.trim(), "” als eigen tekst opslaan (geen boodschappen)"))
+                        )), /*#__PURE__*/React.createElement("button", { "className": `eatersbtn${eatersOverride != null ? " over" : ""}${isCustom ? " opacity-40" : ""}`, "title": isCustom ? "Geen boodschappen voor deze dag" : "Aantal eters deze dag", "onClick": () => {
+                          if (isCustom || !entry) return;
+                          setEatersOpen(eatersOpen === key ? null : key);
+                        } }, "👥", eatersOverride != null && /*#__PURE__*/React.createElement("span", { "className": "ebadge" }, eatersOverride)), /*#__PURE__*/React.createElement("button", { "title": entry && entry.locked ? "Ontgrendelen" : "Vergrendelen", "onClick": () => entry && setDay(i, { ...entry, locked: !entry.locked }), "className": `shrink-0 w-8 h-8 rounded-lg text-sm flex items-center justify-center ${entry && entry.locked ? "bg-amber-100 text-amber-700" : "bg-stone-100 text-stone-400"}` }, entry && entry.locked ? "🔒" : "🔓")), eatersOpen === key && entry && !isCustom && (
+                      /*#__PURE__*/React.createElement("div", { "className": "mt-2 pt-2 border-t flex items-center gap-2 flex-wrap" }, /*#__PURE__*/React.createElement("div", { "className": "stepper" }, /*#__PURE__*/React.createElement("button", { "onClick": () => setEaters(i, Math.max(1, effectiveEaters - 1)) }, "−"), /*#__PURE__*/React.createElement("span", null, effectiveEaters), /*#__PURE__*/React.createElement("button", { "onClick": () => setEaters(i, Math.min(99, effectiveEaters + 1)) }, "+")), /*#__PURE__*/React.createElement("span", { "className": "text-xs text-stone-500" }, "standaard: ", settings.householdSize, " eters"), /*#__PURE__*/React.createElement("button", { "className": "text-xs text-emerald-700 font-semibold", "onClick": () => setEaters(i, null) }, "Standaard herstellen"), factor !== 1 && (
+                          /*#__PURE__*/React.createElement("span", { "className": "text-[10px] text-stone-400 ml-auto" }, "boodschappenlijst ×", fmtFactor(factor), " voor deze dag")
+                        ))
+                    ))
                 );
-              })))
+              })), /*#__PURE__*/React.createElement("button", { "onClick": () => setRulesSheetOpen(true), "className": "w-full mt-4 py-2.5 border rounded-xl text-sm font-medium text-stone-600 bg-white shadow-sm" }, "⚙️ Regels voor het weekmenu"))
         ), tab === "recipes" && (
           /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", { "className": "mb-2 text-xs text-stone-500" }, "Tik op een recept om het te bekijken en te bewerken: naam, categorie, ingredienten, bereiding, tijd en kok kun je zelf aanpassen. Alles wordt opgeslagen op je toestel; met exporteren/importeren deel je de lijst als JSON."), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm p-3 mb-4" }, /*#__PURE__*/React.createElement("div", { "className": "text-sm font-medium mb-2" }, "Nieuw recept toevoegen"), /*#__PURE__*/React.createElement("div", { "className": "grid grid-cols-3 gap-2 mb-2" }, /*#__PURE__*/React.createElement("input", { "value": newRecipe.name, "onChange": (e) => setNewRecipe({ ...newRecipe, name: e.target.value }), "placeholder": "Naam…", "className": "col-span-2 border rounded-lg px-2 py-1.5 text-sm", "onKeyDown": (e) => { if (e.key === "Enter") addRecipe(); } }), /*#__PURE__*/React.createElement("select", { "value": newRecipe.cat, "onChange": (e) => setNewRecipe({ ...newRecipe, cat: e.target.value }), "className": "border rounded-lg px-2 py-1.5 text-sm text-stone-600" }, ["vega", "vis", "vlees", "extra"].map((c) => (
                     /*#__PURE__*/React.createElement("option", { "key": c, "value": c }, CAT_LABEL[c])
@@ -672,16 +796,30 @@ function App() {
                     )), run.days.map((i) => {
                     const rows = shoppingRows.filter((r) => r.day === i);
                     if (!rows.length) return null;
-                    const rec = byId[weekEntries[i].id];
+                    const entry = weekEntries[i];
+                    const rec = entry && entry.id ? byId[entry.id] : null;
+                    if (!rec) return null;
+                    const factor = entry && entry.eaters != null && settings.householdSize > 0 ? entry.eaters / settings.householdSize : 1;
+                    const scaled = factor !== 1;
+                    const eatersChip = entry && entry.eaters != null && entry.eaters !== settings.householdSize ? entry.eaters : null;
                     return (
-                      /*#__PURE__*/React.createElement("div", { "key": i, "className": "mb-3" }, /*#__PURE__*/React.createElement("div", { "className": "text-xs font-semibold text-stone-500 mb-1" }, days[i], " ", fmtDay(weekKeys[i]), " · ", rec.name), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm divide-y divide-stone-100" }, rows.map((r) => (
-                            /*#__PURE__*/React.createElement("label", { "key": r.key, "className": "flex items-center gap-3 px-3 py-2 cursor-pointer" }, /*#__PURE__*/React.createElement("input", { "type": "checkbox", "checked": !!checked[r.key], "onChange": (e) => setChecked({ ...checked, [r.key]: e.target.checked }), "className": "w-4 h-4 accent-emerald-600" }), /*#__PURE__*/React.createElement("span", { "className": `text-sm ${checked[r.key] ? "line-through text-stone-300" : ""}` }, r.label), (() => {
-                                const best = bestPrice(r.label, prices, markets);
-                                return best ? (
-                                  /*#__PURE__*/React.createElement("span", { "className": "ml-auto text-xs text-stone-400 whitespace-nowrap" }, best.market.label.split(" ")[0], " ", fmtEuro(best.price))
-                                ) : null;
-                              })())
-                          ))))
+                      /*#__PURE__*/React.createElement("div", { "key": i, "className": "mb-3" }, /*#__PURE__*/React.createElement("div", { "className": "text-xs font-semibold text-stone-500 mb-1" }, days[i], " ", fmtDay(weekKeys[i]), " · ", rec.name, eatersChip != null && /*#__PURE__*/React.createElement("span", { "className": "tag-eaters" }, "👥 ", eatersChip, " eters")), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm divide-y divide-stone-100" }, rows.map((r) => {
+                            const sc = scaled ? scaleIngredient(r.label, factor) : null;
+                            return (
+                              /*#__PURE__*/React.createElement("label", { "key": r.key, "className": "flex items-center gap-3 px-3 py-2 cursor-pointer" }, /*#__PURE__*/React.createElement("input", { "type": "checkbox", "checked": !!checked[r.key], "onChange": (e) => setChecked({ ...checked, [r.key]: e.target.checked }), "className": "w-4 h-4 accent-emerald-600" }), /*#__PURE__*/React.createElement("span", { "className": `text-sm ${checked[r.key] ? "line-through text-stone-300" : ""}` }, sc ? (
+                                    /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("span", { "className": "line-through text-stone-300" }, r.label), " → ", /*#__PURE__*/React.createElement("span", { "className": "font-semibold" }, sc))
+                                  ) : (
+                                    r.label
+                                  )), (() => {
+                                  const best = bestPrice(r.label, prices, markets);
+                                  return best ? (
+                                    /*#__PURE__*/React.createElement("span", { "className": "ml-auto text-xs text-stone-400 whitespace-nowrap" }, best.market.label.split(" ")[0], " ", fmtEuro(best.price))
+                                  ) : null;
+                                })())
+                            );
+                          })), scaled && (
+                          /*#__PURE__*/React.createElement("p", { "className": "text-[10px] text-stone-400 mt-1" }, "Hoeveelheden geschaald voor", entry.eaters, " eters (×", fmtFactor(factor), " t.o.v. standaard ", settings.householdSize, "); regels zonder getal blijven gelijk.")
+                        ))
                     );
                   }))
               );
@@ -740,6 +878,47 @@ function App() {
               )), /*#__PURE__*/React.createElement("button", { "onClick": () => updateSettings({ shopRuns: [...settings.shopRuns, { label: "Nieuwe run", days: [] }] }), "className": "w-full py-2 border rounded-xl text-sm text-stone-500 hover:bg-white" }, "+ Boodschappenmoment toevoegen")), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm p-4 mb-4" }, /*#__PURE__*/React.createElement("div", { "className": "text-sm font-medium mb-2" }, "Winkels (voor prijzen)"), markets.map((m, mi) => (
                 /*#__PURE__*/React.createElement("div", { "key": mi, "className": "flex gap-2 mb-2" }, /*#__PURE__*/React.createElement("input", { "value": m.key, "onChange": (e) => updateMarket(mi, { key: e.target.value }), "placeholder": "sleutel…", "className": "w-20 border rounded-lg px-2 py-1.5 text-sm" }), /*#__PURE__*/React.createElement("input", { "value": m.label, "onChange": (e) => updateMarket(mi, { label: e.target.value }), "placeholder": "Naam…", "className": "flex-1 border rounded-lg px-2 py-1.5 text-sm" }), /*#__PURE__*/React.createElement("button", { "onClick": () => updateSettings({ markets: markets.filter((_, j) => j !== mi) }), "className": "text-stone-300 hover:text-red-500 text-sm px-1" }, "✕"))
               )), /*#__PURE__*/React.createElement("button", { "onClick": () => updateSettings({ markets: [...markets, { key: "winkel" + (markets.length + 1), label: "Nieuwe winkel" }] }), "className": "w-full py-2 border rounded-xl text-sm text-stone-500 hover:bg-white" }, "+ Winkel toevoegen")))
+        ), tab === "menu" && dateSheetOpen && (
+          /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", { "className": "backdrop", "onClick": () => setDateSheetOpen(false) }), /*#__PURE__*/React.createElement("div", { "className": "sheet" }, /*#__PURE__*/React.createElement("div", { "className": "handle" }), /*#__PURE__*/React.createElement("div", { "className": "px-4 pb-4" }, /*#__PURE__*/React.createElement("div", { "className": "flex items-center justify-between mb-2" }, /*#__PURE__*/React.createElement("div", { "className": "text-sm font-semibold" }, "Kies een datum"), /*#__PURE__*/React.createElement("button", { "onClick": () => setDateSheetOpen(false), "className": "text-stone-400 px-1 text-lg leading-none" }, "✕")), /*#__PURE__*/React.createElement("div", { "className": "grid grid-cols-7 gap-0.5 mb-0.5" }, days.map((d) => (
+                    /*#__PURE__*/React.createElement("div", { "key": d, "className": "text-[10px] text-stone-400 text-center font-medium" }, d.slice(0, 2))
+                  ))), /*#__PURE__*/React.createElement("div", { "className": "grid grid-cols-7 gap-0.5 mb-3" }, weekKeys.map((k) => (
+                    /*#__PURE__*/React.createElement("div", { "key": k, "className": `flex flex-col items-center justify-center py-1.5 rounded-lg text-xs ${
+                        k === todayKey ? "bg-emerald-600 text-white font-bold" : "bg-stone-100 text-stone-700 font-semibold"
+                      }` }, Number(k.slice(8, 10)))
+                  ))), /*#__PURE__*/React.createElement("div", { "className": "flex items-center justify-between gap-2 mb-2" }, /*#__PURE__*/React.createElement("button", { "onClick": () => setWeekOffset((o) => o - 1), "className": "px-2 py-1.5 border rounded-lg text-xs text-stone-600 bg-white" }, "◀ Vorige week"), /*#__PURE__*/React.createElement("div", { "className": "text-xs font-semibold text-stone-600" }, weekLabel), /*#__PURE__*/React.createElement("button", { "onClick": () => setWeekOffset((o) => o + 1), "className": "px-2 py-1.5 border rounded-lg text-xs text-stone-600 bg-white" }, "Volgende week ▶")), weekOffset !== 0 && (
+                  /*#__PURE__*/React.createElement("button", { "onClick": () => setWeekOffset(0), "className": "w-full mb-2 py-1.5 border rounded-lg text-xs text-stone-500 bg-white" }, "Naar deze week")
+                ), /*#__PURE__*/React.createElement("div", { "className": "text-sm font-medium mb-1" }, MONTH_NAMES[calAnchor.getMonth()], " ", calAnchor.getFullYear()), /*#__PURE__*/React.createElement("div", { "className": "grid grid-cols-7 gap-0.5 mb-0.5" }, days.map((d) => (
+                    /*#__PURE__*/React.createElement("div", { "key": d, "className": "text-[10px] text-stone-400 text-center font-medium" }, d.slice(0, 2))
+                  ))), calWeeks.map((row, wi) => (
+                  /*#__PURE__*/React.createElement("div", { "key": wi, "className": "grid grid-cols-7 gap-0.5" }, row.map((cell) => {
+                      const entry = menuByDate[cell.key];
+                      const r = entry && entry.id ? byId[entry.id] : null;
+                      const locked = !!(entry && entry.locked);
+                      const isToday = cell.key === todayKey;
+                      const inWeek = weekKeys.includes(cell.key);
+                      return (
+                        /*#__PURE__*/React.createElement("button", { "key": cell.key, "data-date": cell.key, "title": r ? r.name : "", "onClick": () => setWeekOffset(weeksBetween(new Date(), cell.date, settings.weekStartDay)), "className": `flex flex-col items-center justify-center py-1 rounded-lg text-xs ${
+                            isToday
+                              ? "bg-emerald-600 text-white font-bold"
+                              : inWeek
+                                ? "bg-stone-100 font-semibold " + (cell.inMonth ? "text-stone-700" : "text-stone-300")
+                                : cell.inMonth
+                                  ? "text-stone-700"
+                                  : "text-stone-300"
+                          }` }, cell.date.getDate(), locked && /*#__PURE__*/React.createElement("span", { "className": "text-[10px]" }, "🔒"))
+                      );
+                    }))
+                )), /*#__PURE__*/React.createElement("p", { "className": "text-xs text-stone-400 mt-2" }, "Klik op een dag om naar de week van die dag te springen. 🔒 = vergrendeld gerecht, blijft per datum bewaard."))))
+        ), tab === "menu" && rulesSheetOpen && (
+          /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", { "className": "backdrop", "onClick": () => setRulesSheetOpen(false) }), /*#__PURE__*/React.createElement("div", { "className": "sheet" }, /*#__PURE__*/React.createElement("div", { "className": "handle" }), /*#__PURE__*/React.createElement("div", { "className": "px-4 pb-4" }, /*#__PURE__*/React.createElement("div", { "className": "flex items-center justify-between mb-3" }, /*#__PURE__*/React.createElement("div", { "className": "text-sm font-semibold" }, "Regels voor het weekmenu"), /*#__PURE__*/React.createElement("button", { "onClick": () => setRulesSheetOpen(false), "className": "text-stone-400 px-1 text-lg leading-none" }, "✕")), /*#__PURE__*/React.createElement("div", { "className": "mb-3" }, /*#__PURE__*/React.createElement("div", { "className": "text-xs font-medium text-stone-500 mb-1" }, "Weekstart"), /*#__PURE__*/React.createElement("div", { "className": "flex flex-wrap gap-1" }, DAY_NAMES.map((d, i) => (
+                      /*#__PURE__*/React.createElement("button", { "key": d, "onClick": () => updateSettings({ weekStartDay: i }), "className": `chip${settings.weekStartDay === i ? " on" : ""}` }, d.slice(0, 2))
+                    )))), /*#__PURE__*/React.createElement("div", { "className": "mb-3" }, /*#__PURE__*/React.createElement("div", { "className": "text-xs font-medium text-stone-500 mb-1" }, "Visdagen"), /*#__PURE__*/React.createElement("div", { "className": "flex flex-wrap gap-1" }, days.map((d, i) => (
+                      /*#__PURE__*/React.createElement("button", { "key": d, "onClick": () =>
+                          updateSettings({
+                            fishDays: fishDays.includes(i) ? fishDays.filter((x) => x !== i) : [...fishDays, i].sort((a, b) => a - b),
+                          })
+                        , "className": `chip fish${fishDays.includes(i) ? " on" : ""}` }, d.slice(0, 2))
+                    )))), /*#__PURE__*/React.createElement("div", { "className": "mb-3" }, /*#__PURE__*/React.createElement("div", { "className": "text-xs font-medium text-stone-500 mb-1" }, "Vega-dagen op de overige ", otherDays.length, " dagen"), /*#__PURE__*/React.createElement("div", { "className": "flex items-center gap-3" }, /*#__PURE__*/React.createElement("div", { "className": "stepper" }, /*#__PURE__*/React.createElement("button", { "onClick": () => updateSettings({ vegaTarget: Math.max(0, vegaCount - 1) }) }, "−"), /*#__PURE__*/React.createElement("span", null, vegaCount), /*#__PURE__*/React.createElement("button", { "onClick": () => updateSettings({ vegaTarget: Math.min(otherDays.length, vegaCount + 1) }) }, "+")), /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-600" }, vegaCount, " vega · ", otherDays.length - vegaCount, " vlees"))), /*#__PURE__*/React.createElement("button", { "onClick": () => { setRulesSheetOpen(false); setTab("settings"); }, "className": "block text-xs text-emerald-700 font-medium mb-3" }, "Boodschappenmomenten, eters & winkels → Instellingen"), /*#__PURE__*/React.createElement("button", { "onClick": () => setRulesSheetOpen(false), "className": "w-full bg-stone-800 text-white rounded-xl py-2.5 text-sm font-medium" }, "Klaar"))))
         )))
   );
 }
