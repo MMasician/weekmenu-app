@@ -12,6 +12,14 @@ const MARKETS = [
   { key: "lidl", label: "Lidl" },
 ];
 
+// Categorieën van boodschappenartikelen (ADR-015): een categorie zegt waar een artikel in de
+// supermarkt ligt (tortilla/kroepoek horen bij "(maaltijd)saus"). De volgorde is de volgorde
+// waarop artikelen op de boodschappenlijst staan.
+const SHOP_CATS_DEFAULT = [
+  "fruit", "groente", "vlees/vis", "kruiden", "conserven", "(maaltijd)saus",
+  "broodbeleg", "zuivel", "diepvries", "lekkers", "brood",
+];
+
 // Per-huishouden instellingen (ADR-009). De oude constanten zijn de standaardwaarden.
 const DEFAULT_SETTINGS = {
   householdSize: 4,
@@ -20,6 +28,7 @@ const DEFAULT_SETTINGS = {
   fishDays: [...FISH_DAYS],
   vegaTarget: 2,
   markets: MARKETS.map((m) => ({ ...m })),
+  shopCats: [...SHOP_CATS_DEFAULT],
 };
 
 function normalizeDayList(arr, fallback) {
@@ -49,44 +58,72 @@ function normalizeSettings(s) {
     .filter((m) => m.key)
     .filter((m, i, arr) => arr.findIndex((x) => x.key === m.key) === i);
   if (!out.markets.length) out.markets = d.markets.map((m) => ({ ...m }));
+  const cats = Array.isArray(out.shopCats) && out.shopCats.length ? out.shopCats : d.shopCats;
+  out.shopCats = [...new Set(cats.map((c) => String(c == null ? "" : c).trim()).filter(Boolean))];
+  if (!out.shopCats.length) out.shopCats = [...d.shopCats];
   return out;
 }
-const STOCK_CATS = [
-  { key: "kast", label: "Voorraadkast" },
-  { key: "koel", label: "Koelkast" },
-  { key: "fruit", label: "Fruitmand" },
-  { key: "kruiden", label: "Kruidenla" },
+// Voorraad (ADR-015): per-huishouden locaties; per product een locatie, categorie (shopCats),
+// optionele winkelvoorkeur (marketKey uit settings.markets) en have/want.
+const DEFAULT_LOCATIONS = [
+  { id: "loc-kast", name: "Voorraadkast" },
+  { id: "loc-koel", name: "Koelkast" },
+  { id: "loc-vriezer", name: "Vriezer" },
+  { id: "loc-kruiden", name: "Kruidenla" },
+  { id: "loc-fruit", name: "Fruitschaal" },
 ];
+// Migratie van het oude model, waarin `cat` de locatie was (kast/koel/fruit/kruiden).
+const OLD_LOC_BY_CAT = { kast: "loc-kast", koel: "loc-koel", fruit: "loc-fruit", kruiden: "loc-kruiden" };
+const OLD_CAT_BY_CAT = { kast: "conserven", koel: "zuivel", fruit: "fruit", kruiden: "kruiden" };
 const STOCK_DEFAULT = [
-  { name: "Hagelslag", cat: "kast", qty: 1 },
-  { name: "Jam", cat: "kast", qty: 1 },
-  { name: "Pindakaas", cat: "kast", qty: 1 },
-  { name: "Appelstroop", cat: "kast", qty: 1 },
-  { name: "Koffie", cat: "kast", qty: 1 },
-  { name: "Thee", cat: "kast", qty: 1 },
-  { name: "Suiker", cat: "kast", qty: 1 },
-  { name: "Olijfolie", cat: "kast", qty: 1 },
-  { name: "Toiletpapier", cat: "kast", qty: 2 },
-  { name: "Melk", cat: "koel", qty: 2 },
-  { name: "Boter", cat: "koel", qty: 1 },
-  { name: "Kaas", cat: "koel", qty: 1 },
-  { name: "Eieren", cat: "koel", qty: 1 },
-  { name: "Brood", cat: "koel", qty: 1 },
-  { name: "Appels", cat: "fruit", qty: 4 },
-  { name: "Bananen", cat: "fruit", qty: 3 },
-  { name: "Zout", cat: "kruiden", qty: 1 },
-  { name: "Peper", cat: "kruiden", qty: 1 },
+  { name: "Hagelslag", loc: "loc-kast", cat: "broodbeleg", qty: 1 },
+  { name: "Pindakaas", loc: "loc-kast", cat: "broodbeleg", qty: 1 },
+  { name: "Jam", loc: "loc-kast", cat: "broodbeleg", qty: 1 },
+  { name: "Koffie", loc: "loc-kast", cat: "lekkers", qty: 1 },
+  { name: "Thee", loc: "loc-kast", cat: "lekkers", qty: 1 },
+  { name: "Olijfolie", loc: "loc-kast", cat: "conserven", qty: 1 },
+  { name: "Rijst", loc: "loc-kast", cat: "conserven", qty: 1 },
+  { name: "Melk", loc: "loc-koel", cat: "zuivel", qty: 2 },
+  { name: "Boter", loc: "loc-koel", cat: "zuivel", qty: 1 },
+  { name: "Kaas", loc: "loc-koel", cat: "zuivel", qty: 1 },
+  { name: "Eieren", loc: "loc-koel", cat: "zuivel", qty: 1 },
+  { name: "Yoghurt", loc: "loc-koel", cat: "zuivel", qty: 2 },
+  { name: "Diepvrieserwten", loc: "loc-vriezer", cat: "diepvries", qty: 1 },
+  { name: "Zout", loc: "loc-kruiden", cat: "kruiden", qty: 1 },
+  { name: "Peper", loc: "loc-kruiden", cat: "kruiden", qty: 1 },
+  { name: "Appels", loc: "loc-fruit", cat: "fruit", qty: 4 },
+  { name: "Bananen", loc: "loc-fruit", cat: "fruit", qty: 3 },
 ];
 function defaultStock() {
-  return STOCK_DEFAULT.map((d) => ({ name: d.name, cat: d.cat, want: d.qty, have: d.qty }));
+  return STOCK_DEFAULT.map((d) => ({ name: d.name, loc: d.loc, cat: d.cat, market: null, want: d.qty, have: d.qty }));
 }
-function normalizeStock(arr) {
-  return arr.map((s) => ({
-    name: s.name,
-    cat: s.cat,
-    want: s.want ?? s.defaultQty ?? s.qty ?? 1,
-    have: s.have ?? (s.qty === 0 ? 0 : s.want ?? s.defaultQty ?? s.qty ?? 1),
-  }));
+function normalizeLocations(arr) {
+  const out = (Array.isArray(arr) ? arr : [])
+    .filter((l) => l && l.id && String(l.name).trim())
+    .map((l) => ({ id: String(l.id), name: String(l.name) }));
+  return out.length ? out : DEFAULT_LOCATIONS.map((l) => ({ ...l }));
+}
+function normalizeStock(arr, locs) {
+  const locIds = new Set((locs || DEFAULT_LOCATIONS).map((l) => l.id));
+  return (arr || [])
+    .filter((s) => s && s.name)
+    .map((s) => {
+      const loc = locIds.has(s.loc) ? s.loc : OLD_LOC_BY_CAT[s.cat] || "loc-kast";
+      const cat = locIds.has(s.loc) ? (typeof s.cat === "string" && s.cat ? s.cat : "conserven") : OLD_CAT_BY_CAT[s.cat] || "conserven";
+      return {
+        name: String(s.name),
+        loc,
+        cat,
+        market: s.market != null && String(s.market) !== "" ? String(s.market) : null,
+        want: Math.max(0, Math.floor(Number(s.want ?? s.qty ?? 1) || 0)),
+        have: Math.max(0, Math.floor(Number(s.have ?? (s.qty === 0 ? 0 : s.want ?? s.qty ?? 1)) || 0)),
+      };
+    });
+}
+function normalizeExtras(arr) {
+  return (arr || [])
+    .map((x) => (typeof x === "string" ? { name: x, cat: "" } : { name: String((x && x.name) || ""), cat: (x && x.cat) || "" }))
+    .filter((x) => x.name);
 }
 const CAT_LABEL = { vega: "Vega", vis: "Vis", vlees: "Vlees", extra: "Extra" };
 const CAT_STYLE = {
@@ -364,15 +401,27 @@ function App() {
   const [recipes, setRecipes] = useState(() => loadRecipes(stored)); // bewerkbare receptenpool (ADR-006)
   const [newRecipe, setNewRecipe] = useState({ name: "", cat: "vega", timeCat: "normaal", tags: [], tagDraft: "", ingredients: "", bereiding: "" });
   const [checked, setChecked] = useState((stored && stored.checked) || {});
-  const [extraItems, setExtraItems] = useState((stored && stored.extraItems) || []);
+  const [extraItems, setExtraItems] = useState(() => normalizeExtras(stored && stored.extraItems));
   const [newItem, setNewItem] = useState("");
-  const [stock, setStock] = useState(
-    stored && Array.isArray(stored.stock) && stored.stock.length > 0 && stored.stock[0].cat
-      ? normalizeStock(stored.stock)
+  const [newItemCat, setNewItemCat] = useState("");
+  const [stockLocations, setStockLocations] = useState(() => normalizeLocations(stored && stored.stockLocations));
+  const [stock, setStock] = useState(() =>
+    stored && Array.isArray(stored.stock) && stored.stock.length > 0
+      ? normalizeStock(stored.stock, normalizeLocations(stored && stored.stockLocations))
       : defaultStock()
   );
-  const [newStock, setNewStock] = useState("");
-  const [newStockCat, setNewStockCat] = useState("koel");
+  // voorraad-tab (ADR-015): uitklapbare locaties, edit-modus, formulieren, info-popover
+  const [openLocs, setOpenLocs] = useState({}); // locatie-id -> true; start altijd ingeklapt
+  const [editLoc, setEditLoc] = useState(null); // locatie-id in edit-modus (gewenst aanpasbaar)
+  const [addLocOpen, setAddLocOpen] = useState(false);
+  const [newLocName, setNewLocName] = useState("");
+  const [addProdLoc, setAddProdLoc] = useState(null); // locatie-id met open product-formulier
+  const [newProd, setNewProd] = useState({ name: "", cat: "", market: "", want: 1 });
+  const [stockInfoOpen, setStockInfoOpen] = useState(false);
+  // boodschappen-tab (ADR-015): categorie-volgorde, categorieën beheren, info-popover
+  const [shopInfoOpen, setShopInfoOpen] = useState(false);
+  const [catsOpen, setCatsOpen] = useState(false);
+  const [newCat, setNewCat] = useState("");
   const [settings, setSettings] = useState(() => normalizeSettings(stored && stored.settings)); // per huishouden, lokaal bewaard (ADR-009)
   const [prices, setPrices] = useState((stored && stored.prices) || {}); // prijzendatabase per artikel (ADR-008)
   const [newPriceItem, setNewPriceItem] = useState("");
@@ -397,8 +446,8 @@ function App() {
   const [weekToast, setWeekToast] = useState(""); // melding na toevoegen aan het weekmenu
 
   useEffect(() => {
-    saveState({ menuByDate, recipes, checked, extraItems, settings, stock, prices });
-  }, [menuByDate, recipes, checked, extraItems, settings, stock, prices]);
+    saveState({ menuByDate, recipes, checked, extraItems, settings, stock, stockLocations, prices });
+  }, [menuByDate, recipes, checked, extraItems, settings, stock, stockLocations, prices]);
 
   const markets = settings.markets;
   const days = useMemo(
@@ -458,6 +507,102 @@ function App() {
       }
       return { ...ps, [key]: next };
     });
+  }
+
+  // ---- voorraad-locaties, categorieën en winkelvoorkeur (ADR-015) ----
+  const shopCats = settings.shopCats;
+  const catRank = (cat) => {
+    const i = shopCats.indexOf(cat);
+    return i < 0 ? shopCats.length : i; // Onbekend/geen categorie: helemaal achteraan
+  };
+  // priceKey -> { cat, market } uit voorraadproducten en extra artikelen; receptingrediënten
+  // erven zo de categorie/winkel van een bekend product met dezelfde naam.
+  const catMap = useMemo(() => {
+    const m = new Map();
+    stock.forEach((s) => {
+      const k = priceKey(s.name);
+      if (k && !m.has(k)) m.set(k, { cat: s.cat, market: s.market });
+    });
+    extraItems.forEach((x) => {
+      const k = priceKey(x.name);
+      if (k && x.cat && !m.has(k)) m.set(k, { cat: x.cat, market: null });
+    });
+    return m;
+  }, [stock, extraItems]);
+  const catOf = (label) => {
+    const e = catMap.get(priceKey(label));
+    return e ? e.cat : null;
+  };
+  const marketOf = (label) => {
+    const e = catMap.get(priceKey(label));
+    return e && e.market ? e.market : null;
+  };
+  const marketChip = (key) => {
+    const m = markets.find((x) => x.key === key);
+    return m ? m.label.split(" ")[0] : key;
+  };
+  const sortRowsByCat = (rows, labelOf) =>
+    [...rows].sort((a, b) => catRank(catOf(labelOf(a))) - catRank(catOf(labelOf(b))) || String(labelOf(a)).localeCompare(String(labelOf(b)), "nl"));
+  function addLocation() {
+    const name = newLocName.trim();
+    if (!name) return;
+    const id = "loc-" + Date.now().toString(36) + Math.floor(Math.random() * 1e4);
+    setStockLocations([...stockLocations, { id, name }]);
+    setNewLocName("");
+    setAddLocOpen(false);
+  }
+  function deleteLocation(id) {
+    if (stock.some((s) => s.loc === id)) return; // alleen leeg te verwijderen
+    setStockLocations(stockLocations.filter((l) => l.id !== id));
+    if (editLoc === id) setEditLoc(null);
+  }
+  function toggleLoc(id) {
+    setOpenLocs((o) => ({ ...o, [id]: !o[id] }));
+  }
+  function productsOf(locId) {
+    return stock.map((s, i) => ({ ...s, i })).filter((s) => s.loc === locId);
+  }
+  function addProduct(locId) {
+    const name = newProd.name.trim();
+    if (!name || !newProd.cat) return;
+    setStock([...stock, { name, loc: locId, cat: newProd.cat, market: newProd.market || null, want: newProd.want, have: newProd.want }]);
+    setNewProd({ name: "", cat: "", market: "", want: 1 });
+    setAddProdLoc(null);
+  }
+  function deleteProduct(i) {
+    setStock(stock.filter((_, j) => j !== i));
+  }
+  function bumpHave(i, d) {
+    setStock(stock.map((x, j) => (j === i ? { ...x, have: Math.max(0, x.have + d) } : x)));
+  }
+  function bumpWant(i, d) {
+    setStock(stock.map((x, j) => (j === i ? { ...x, want: Math.max(0, x.want + d) } : x)));
+  }
+  function addExtra() {
+    const name = newItem.trim();
+    if (!name) return;
+    setExtraItems([...extraItems, { name, cat: newItemCat }]);
+    setNewItem("");
+    setNewItemCat("");
+  }
+  function addCat() {
+    const c = newCat.trim();
+    if (!c) return;
+    if (!settings.shopCats.includes(c)) updateSettings({ shopCats: [...settings.shopCats, c] });
+    setNewCat("");
+  }
+  function removeCat(c) {
+    if (stock.some((s) => s.cat === c) || extraItems.some((x) => x.cat === c)) return; // in gebruik
+    updateSettings({ shopCats: settings.shopCats.filter((x) => x !== c) });
+  }
+  function moveCat(i, dir) {
+    const arr = [...settings.shopCats];
+    const j = i + dir;
+    if (j < 0 || j >= arr.length) return;
+    const t = arr[i];
+    arr[i] = arr[j];
+    arr[j] = t;
+    updateSettings({ shopCats: arr });
   }
 
   const byId = useMemo(() => Object.fromEntries(recipes.map((r) => [r.id, r])), [recipes]);
@@ -730,7 +875,7 @@ function App() {
   const totalItems = shoppingRows.length + extraItems.length + stockShort.length;
   const doneItems =
     shoppingRows.filter((r) => checked[r.key]).length +
-    extraItems.filter((i) => checked["extra-" + i]).length +
+    extraItems.filter((i) => checked["extra-" + i.name]).length +
     stockShort.filter((s) => checked["stock-" + s.name]).length;
 
   // Artikelen voor de Prijzen-tab: alles op de huidige lijst plus alle bekende prijzen
@@ -745,7 +890,7 @@ function App() {
     };
     shoppingRows.forEach((r) => add(r.label, true));
     stockShort.forEach((s) => add(s.name, true));
-    extraItems.forEach((i) => add(i, true));
+    extraItems.forEach((i) => add(i.name, true));
     Object.keys(prices).forEach((k) => add(k, false));
     return [...seen.entries()].map(([k, label]) => ({ key: k, label, onList: onList.has(k) }));
   }, [shoppingRows, stockShort, extraItems, prices]);
@@ -875,106 +1020,142 @@ function App() {
                     }), /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-400 mt-3" }, daySheetRecipe.name, " wordt aan de gekozen dag toegewezen (een onvergrendeld gerecht aldaar wordt overschreven)."))))
             ), weekToast !== "" && /*#__PURE__*/React.createElement("div", { "className": "toast" }, weekToast))
         ), tab === "stock" && (
-          /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", { "className": "mb-2 text-xs text-stone-500" }, "Naast elk product zie je jouw huidige voorraad en de gewenste voorraad (bewaarlijst) die je zelf kunt instellen. Als de huidige voorraad lager is dan de gewenste, staat het product automatisch op de boodschappenlijst. Na het boodschappen doen: \"Alles aangevuld\"."), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm p-3 mb-4 flex gap-2" }, /*#__PURE__*/React.createElement("input", { "value": newStock, "onChange": (e) => setNewStock(e.target.value), "placeholder": "Nieuw product…", "className": "flex-1 border rounded-lg px-3 py-2 text-sm", "onKeyDown": (e) => {
-                  if (e.key === "Enter" && newStock.trim()) {
-                    setStock([...stock, { name: newStock.trim(), cat: newStockCat, want: 1, have: 1 }]);
-                    setNewStock("");
-                  }
-                } }), /*#__PURE__*/React.createElement("select", { "value": newStockCat, "onChange": (e) => setNewStockCat(e.target.value), "className": "border rounded-lg px-2 py-2 text-sm text-stone-600" }, STOCK_CATS.map((c) => (
-                  /*#__PURE__*/React.createElement("option", { "key": c.key, "value": c.key }, c.label)
-                ))), /*#__PURE__*/React.createElement("button", { "onClick": () => {
-                  if (newStock.trim()) {
-                    setStock([...stock, { name: newStock.trim(), cat: newStockCat, want: 1, have: 1 }]);
-                    setNewStock("");
-                  }
-                }, "className": "bg-stone-800 text-white px-4 rounded-lg text-sm font-medium" }, "Toevoegen")), STOCK_CATS.map((c) => {
-              const items = stock.map((s, i) => ({ ...s, i })).filter((s) => s.cat === c.key);
+          /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", { "className": "flex items-center justify-between mb-2" }, /*#__PURE__*/React.createElement("span", { "className": "text-sm font-semibold text-stone-700" }, "Locaties"), /*#__PURE__*/React.createElement("span", { "className": "relative" }, /*#__PURE__*/React.createElement("button", { "className": `iconbtn${stockInfoOpen ? " on" : ""}`, "title": "Hoe werkt de voorraad?", "onClick": () => setStockInfoOpen((v) => !v) }, "ℹ️"), stockInfoOpen && (
+                  /*#__PURE__*/React.createElement("div", { "className": "pop" }, /*#__PURE__*/React.createElement("b", null, "Hoe werkt de voorraad?"), /*#__PURE__*/React.createElement("ul", null, /*#__PURE__*/React.createElement("li", null, "Locaties (voorraadkast, koelkast…) zijn per huishouden: voeg toe met ＋ onderaan, verwijder met 🗑️ — pas als er geen producten meer aan hangen."), /*#__PURE__*/React.createElement("li", null, "Klik op een locatie om de producten te zien; ＋ onderaan een locatie voegt een product toe (altijd te verwijderen met ✕)."), /*#__PURE__*/React.createElement("li", null, "Per product stel je de huidige voorraad in met −/+; de gewenste voorraad staat grijs erachter (“gewenst n”). Met ✏️ achter de locatie pas je de gewenste hoeveelheden aan."), /*#__PURE__*/React.createElement("li", null, "Is de huidige voorraad lager dan gewenst? Dan staat het product automatisch op de boodschappenlijst."), /*#__PURE__*/React.createElement("li", null, "De categorie zegt waar het product in de supermarkt ligt (bewerkbaar bij Boodschappen). Een getagde winkel betekent: daar wordt het bij voorkeur gehaald; prijsvergelijking heeft dan geen zin.")))
+                ))), stockLocations.map((loc) => {
+              const items = productsOf(loc.id);
+              const open = !!openLocs[loc.id];
+              const editing = editLoc === loc.id;
               return (
-                /*#__PURE__*/React.createElement("div", { "key": c.key, "className": "mb-4" }, /*#__PURE__*/React.createElement("div", { "className": "text-xs font-semibold text-stone-500 mb-1" }, c.label), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm divide-y divide-stone-100" }, items.map((s) => {
-                      const tekort = s.have < s.want;
-                      return (
-                        /*#__PURE__*/React.createElement("div", { "key": s.name, "className": "flex items-center gap-2 px-3 py-2" }, c.key === "kruiden" ? (
-                            /*#__PURE__*/React.createElement("button", { "onClick": () => setStock(stock.map((x, j) => (j === s.i ? { ...x, have: x.have < x.want ? x.want : 0 } : x))), "className": `px-2 py-1 rounded-full text-xs font-medium ${
-                                tekort ? "bg-orange-100 text-orange-700" : "bg-emerald-100 text-emerald-700"
-                              }` }, tekort ? "Tekort" : "In huis")
-                          ) : (
-                            /*#__PURE__*/React.createElement("div", { "className": "flex items-center gap-1" }, /*#__PURE__*/React.createElement("button", { "onClick": () => setStock(stock.map((x, j) => (j === s.i ? { ...x, have: Math.max(0, x.have - 1) } : x))), "className": "w-7 h-7 rounded-lg bg-stone-100 font-bold text-stone-600" }, "−"), /*#__PURE__*/React.createElement("span", { "className": `w-6 text-center text-sm font-medium ${tekort ? "text-orange-600" : "text-stone-700"}` }, s.have), /*#__PURE__*/React.createElement("button", { "onClick": () => setStock(stock.map((x, j) => (j === s.i ? { ...x, have: x.have + 1 } : x))), "className": "w-7 h-7 rounded-lg bg-stone-100 font-bold text-stone-600" }, "+"))
-                          ), /*#__PURE__*/React.createElement("span", { "className": `flex-1 text-sm ${tekort ? "font-medium text-orange-700" : ""}` }, s.name), /*#__PURE__*/React.createElement("span", { "className": "text-xs text-stone-400 whitespace-nowrap" }, "/ gewenst"), /*#__PURE__*/React.createElement("input", { "type": "number", "min": "0", "value": s.want, "onChange": (e) =>
-                              setStock(stock.map((x, j) => (j === s.i ? { ...x, want: Math.max(0, Number(e.target.value) || 0) } : x)))
-                            , "className": "w-12 border rounded-lg px-1 py-1 text-sm text-center" }), tekort && (
-                            /*#__PURE__*/React.createElement("span", { "className": "text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full whitespace-nowrap" }, "op lijst")
-                          ), /*#__PURE__*/React.createElement("button", { "onClick": () => setStock(stock.filter((_, j) => j !== s.i)), "className": "text-stone-300 hover:text-red-500 text-sm" }, "✕"))
-                      );
-                    }), items.length === 0 && (
-                      /*#__PURE__*/React.createElement("div", { "className": "px-3 py-3 text-sm text-stone-400 text-center" }, "Nog niets in deze categorie.")
-                    )))
+                /*#__PURE__*/React.createElement("div", { "key": loc.id, "className": "bg-white rounded-xl shadow-sm mb-3 overflow-hidden" }, /*#__PURE__*/React.createElement("div", { "className": "flex items-center gap-2 px-3 py-2.5" }, /*#__PURE__*/React.createElement("button", { "className": "text-stone-400 text-xs w-4 shrink-0", "title": open ? "Inklappen" : "Uitklappen", "onClick": () => toggleLoc(loc.id) }, open ? "▾" : "▸"), /*#__PURE__*/React.createElement("button", { "className": "flex-1 text-left min-w-0 font-medium text-sm truncate", "onClick": () => toggleLoc(loc.id) }, loc.name), /*#__PURE__*/React.createElement("span", { "className": "text-xs text-stone-400 shrink-0", "title": `${items.length} ${items.length === 1 ? "product" : "producten"}` }, items.length), /*#__PURE__*/React.createElement("button", { "className": `iconbtn${editing ? " on" : ""}`, "title": editing ? "Gewenste hoeveelheden niet meer bewerken" : "Gewenste hoeveelheden in deze locatie bewerken", "onClick": () => setEditLoc(editing ? null : loc.id) }, "✏️"), /*#__PURE__*/React.createElement("button", { "className": `delbtn${items.length ? " dis" : ""}`, "disabled": items.length > 0, "title": items.length ? "Verwijderen kan pas als er geen producten meer aan deze locatie hangen" : "Locatie verwijderen", "onClick": () => deleteLocation(loc.id) }, "🗑️")), open && (
+                    /*#__PURE__*/React.createElement("div", { "className": "border-t border-stone-100" }, addProdLoc === loc.id && (
+                        /*#__PURE__*/React.createElement("div", { "className": "p-3 border-b border-stone-100 bg-stone-50" }, /*#__PURE__*/React.createElement("div", { "className": "text-xs mb-2" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, "Naam"), /*#__PURE__*/React.createElement("input", { "className": "w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm", "value": newProd.name, "placeholder": "Bijv. hagelslag…", "onChange": (e) => setNewProd({ ...newProd, name: e.target.value }) })), /*#__PURE__*/React.createElement("div", { "className": "grid grid-cols-2 gap-2 mb-2" }, /*#__PURE__*/React.createElement("label", { "className": "text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, "Categorie"), /*#__PURE__*/React.createElement("select", { "className": "w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm text-stone-600", "value": newProd.cat, "onChange": (e) => setNewProd({ ...newProd, cat: e.target.value }) }, /*#__PURE__*/React.createElement("option", { "value": "" }, "Kies categorie…"), shopCats.map((c) => (
+                                  /*#__PURE__*/React.createElement("option", { "key": c, "value": c }, c)
+                                )))), /*#__PURE__*/React.createElement("label", { "className": "text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, "Supermarkt (optioneel)"), /*#__PURE__*/React.createElement("select", { "className": "w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm text-stone-600", "value": newProd.market, "onChange": (e) => setNewProd({ ...newProd, market: e.target.value }) }, /*#__PURE__*/React.createElement("option", { "value": "" }, "geen voorkeur"), markets.map((m) => (
+                                  /*#__PURE__*/React.createElement("option", { "key": m.key, "value": m.key }, m.label)
+                                ))))), /*#__PURE__*/React.createElement("div", { "className": "text-xs mb-2" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, "Gewenste voorraad"), /*#__PURE__*/React.createElement("div", { "className": "stepper mt-0.5" }, /*#__PURE__*/React.createElement("button", { "onClick": () => setNewProd({ ...newProd, want: Math.max(0, newProd.want - 1) }) }, "−"), /*#__PURE__*/React.createElement("span", null, newProd.want), /*#__PURE__*/React.createElement("button", { "onClick": () => setNewProd({ ...newProd, want: newProd.want + 1 }) }, "+"))), /*#__PURE__*/React.createElement("button", { "className": `w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 rounded-xl text-sm${newProd.name.trim() && newProd.cat ? "" : " opacity-40"}`, "disabled": !newProd.name.trim() || !newProd.cat, "onClick": () => addProduct(loc.id) }, "Toevoegen"))
+                      ), /*#__PURE__*/React.createElement("div", { "className": "divide-y divide-stone-100" }, items.map((s) => {
+                          const tekort = s.have < s.want;
+                          return (
+                            /*#__PURE__*/React.createElement("div", { "key": s.i, "className": "flex items-center gap-2 px-3 py-2 flex-wrap" }, /*#__PURE__*/React.createElement("span", { "className": "flex-1 min-w-0 text-sm" }, s.name, /*#__PURE__*/React.createElement("span", { "className": "block text-[10px] text-stone-400" }, `categorie: ${s.cat}`)), /*#__PURE__*/React.createElement("span", { "className": "flex items-center gap-1", "title": "Huidige voorraad" }, /*#__PURE__*/React.createElement("button", { "className": "w-7 h-7 rounded-lg bg-stone-100 font-bold text-stone-600", "onClick": () => bumpHave(s.i, -1) }, "−"), /*#__PURE__*/React.createElement("span", { "className": `w-6 text-center text-sm font-medium ${tekort ? "text-orange-600" : "text-stone-700"}` }, s.have), /*#__PURE__*/React.createElement("button", { "className": "w-7 h-7 rounded-lg bg-stone-100 font-bold text-stone-600", "onClick": () => bumpHave(s.i, 1) }, "+")), editing ? (
+                                /*#__PURE__*/React.createElement("span", { "className": "flex items-center gap-1", "title": "Gewenste voorraad aanpassen" }, /*#__PURE__*/React.createElement("button", { "className": "w-7 h-7 rounded-lg bg-stone-100 font-bold text-stone-600", "onClick": () => bumpWant(s.i, -1) }, "−"), /*#__PURE__*/React.createElement("span", { "className": "w-6 text-center text-sm font-medium text-stone-700" }, s.want), /*#__PURE__*/React.createElement("button", { "className": "w-7 h-7 rounded-lg bg-stone-100 font-bold text-stone-600", "onClick": () => bumpWant(s.i, 1) }, "+"))
+                              ) : (
+                                /*#__PURE__*/React.createElement("span", { "className": "text-xs text-stone-400 whitespace-nowrap" }, `gewenst ${s.want}`)
+                              ), s.market && /*#__PURE__*/React.createElement("span", { "className": "chip mkt", "title": "Winkelvoorkeur" }, marketChip(s.market)), tekort && /*#__PURE__*/React.createElement("span", { "className": "text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full whitespace-nowrap" }, "op lijst"), /*#__PURE__*/React.createElement("button", { "className": "text-stone-300 hover:text-red-500 text-sm", "title": "Product verwijderen", "onClick": () => deleteProduct(s.i) }, "✕"))
+                          );
+                        }), items.length === 0 && (
+                          /*#__PURE__*/React.createElement("div", { "className": "px-3 py-3 text-sm text-stone-400 text-center" }, "Nog geen producten in deze locatie.")
+                        )), /*#__PURE__*/React.createElement("button", { "className": "addrow", "onClick": () => setAddProdLoc(addProdLoc === loc.id ? null : loc.id) }, "＋ Product toevoegen"))
+                  ))
               );
-            }), /*#__PURE__*/React.createElement("div", { "className": "flex gap-2" }, /*#__PURE__*/React.createElement("button", { "onClick": () => setStock(stock.map((s) => ({ ...s, have: s.want }))), "className": "flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-medium" }, "✓ Alles aangevuld"), /*#__PURE__*/React.createElement("button", { "onClick": () => setStock(defaultStock()), "className": "py-2.5 px-4 border rounded-xl text-sm text-stone-500 hover:bg-white" }, "Standaardlijst terug")))
+            }), addLocOpen && (
+              /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm mb-3 p-3 flex gap-2 items-center" }, /*#__PURE__*/React.createElement("input", { "value": newLocName, "onChange": (e) => setNewLocName(e.target.value), "placeholder": "Naam van de locatie…", "className": "flex-1 border rounded-lg px-3 py-2 text-sm", "onKeyDown": (e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addLocation();
+                    }
+                  } }), /*#__PURE__*/React.createElement("button", { "className": "iconbtn on", "title": "Locatie toevoegen", "onClick": addLocation }, "✓"), /*#__PURE__*/React.createElement("button", { "className": "delbtn", "title": "Annuleren", "onClick": () => {
+                    setAddLocOpen(false);
+                    setNewLocName("");
+                  } }, "✕"))
+            ), /*#__PURE__*/React.createElement("button", { "className": "addcard", "onClick": () => setAddLocOpen((v) => !v) }, "＋ Locatie toevoegen"), /*#__PURE__*/React.createElement("div", { "className": "flex gap-2 mt-4" }, /*#__PURE__*/React.createElement("button", { "onClick": () => setStock(stock.map((s) => ({ ...s, have: s.want }))), "className": "flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-medium" }, "✓ Alles aangevuld"), /*#__PURE__*/React.createElement("button", { "onClick": () => {
+                  setStock(defaultStock());
+                  setStockLocations(DEFAULT_LOCATIONS.map((l) => ({ ...l })));
+                }, "className": "py-2.5 px-4 border rounded-xl text-sm text-stone-500 hover:bg-white" }, "Standaardlijst terug")))
         ), tab === "shopping" && (
-          /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm p-3 mb-4 flex gap-2" }, /*#__PURE__*/React.createElement("input", { "value": newItem, "onChange": (e) => setNewItem(e.target.value), "placeholder": "Extra artikel toevoegen…", "className": "flex-1 border rounded-lg px-3 py-2 text-sm", "onKeyDown": (e) => {
-                  if (e.key === "Enter" && newItem.trim()) {
-                    setExtraItems([...extraItems, newItem.trim()]);
-                    setNewItem("");
+          /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", { "className": "flex items-center justify-between mb-2" }, /*#__PURE__*/React.createElement("span", { "className": "text-sm font-semibold text-stone-700" }, "Boodschappenlijst"), /*#__PURE__*/React.createElement("span", { "className": "flex gap-1.5 relative" }, /*#__PURE__*/React.createElement("button", { "className": `iconbtn${shopInfoOpen ? " on" : ""}`, "title": "Hoe werkt de boodschappenlijst?", "onClick": () => setShopInfoOpen((v) => !v) }, "ℹ️"), /*#__PURE__*/React.createElement("button", { "className": `iconbtn${catsOpen ? " on" : ""}`, "title": "Categorieën beheren", "onClick": () => setCatsOpen((v) => !v) }, "⚙️"), shopInfoOpen && (
+                  /*#__PURE__*/React.createElement("div", { "className": "pop" }, /*#__PURE__*/React.createElement("b", null, "Hoe werkt de boodschappenlijst?"), /*#__PURE__*/React.createElement("ul", null, /*#__PURE__*/React.createElement("li", null, "Artikelen staan per boodschappenmoment in één lijst, gesorteerd op categorie (zie ⚙️); de categorie zelf zie je niet."), /*#__PURE__*/React.createElement("li", null, "Afvinken maar. “Vinkjes wissen” zet alles terug."), /*#__PURE__*/React.createElement("li", null, "Rechts zie je de beste bekende prijs per artikel. Bij een winkelvoorkeur (chip) wordt het artikel daar gehaald; het telt dan niet mee in de prijsvergelijking."), /*#__PURE__*/React.createElement("li", null, "Tekorten uit de voorraad (“n van want”) staan automatisch in de lijst.")))
+                ))), catsOpen && (
+              /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm p-3 mb-4" }, /*#__PURE__*/React.createElement("div", { "className": "text-sm font-semibold mb-1" }, "Categorieën"), /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-500 mb-2" }, "De volgorde is de volgorde op de boodschappenlijst. Een categorie zegt waar een artikel in de supermarkt ligt — tortilla en kroepoek horen daarom bij “(maaltijd)saus”."), /*#__PURE__*/React.createElement("div", { "className": "divide-y divide-stone-100 border border-stone-100 rounded-xl" }, shopCats.map((c, i) => {
+                    const used = stock.some((s) => s.cat === c) || extraItems.some((x) => x.cat === c);
+                    return (
+                      /*#__PURE__*/React.createElement("div", { "key": c, "className": "flex items-center gap-2 px-2 py-1.5" }, /*#__PURE__*/React.createElement("span", { "className": "flex flex-col leading-none shrink-0" }, /*#__PURE__*/React.createElement("button", { "className": "text-[9px] text-stone-400 hover:text-stone-700", "disabled": i === 0, "onClick": () => moveCat(i, -1) }, "▲"), /*#__PURE__*/React.createElement("button", { "className": "text-[9px] text-stone-400 hover:text-stone-700", "disabled": i === shopCats.length - 1, "onClick": () => moveCat(i, 1) }, "▼")), /*#__PURE__*/React.createElement("span", { "className": "flex-1 text-sm min-w-0 truncate" }, c), /*#__PURE__*/React.createElement("button", { "className": `text-sm ${used ? "text-stone-300" : "text-stone-300 hover:text-red-500"}`, "disabled": used, "title": used ? "Verwijderen kan pas als er geen producten/artikelen meer in deze categorie zitten" : "Categorie verwijderen", "onClick": () => removeCat(c) }, "✕"))
+                    );
+                  })), /*#__PURE__*/React.createElement("div", { "className": "flex gap-2 mt-2" }, /*#__PURE__*/React.createElement("input", { "value": newCat, "onChange": (e) => setNewCat(e.target.value), "placeholder": "Nieuwe categorie…", "className": "flex-1 border rounded-lg px-2 py-1.5 text-sm", "onKeyDown": (e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addCat();
+                      }
+                    } }), /*#__PURE__*/React.createElement("button", { "className": "px-3 border rounded-lg text-sm text-stone-600 bg-white", "onClick": addCat }, "＋")))
+            ), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm p-3 mb-4 flex gap-2" }, /*#__PURE__*/React.createElement("input", { "value": newItem, "onChange": (e) => setNewItem(e.target.value), "placeholder": "Extra artikel toevoegen…", "className": "flex-1 border rounded-lg px-3 py-2 text-sm min-w-0", "onKeyDown": (e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addExtra();
                   }
-                } }), /*#__PURE__*/React.createElement("button", { "onClick": () => {
-                  if (newItem.trim()) {
-                    setExtraItems([...extraItems, newItem.trim()]);
-                    setNewItem("");
-                  }
-                }, "className": "bg-stone-800 text-white px-4 rounded-lg text-sm font-medium" }, "Toevoegen")), shoppingRows.length === 0 && extraItems.length === 0 && (
-              /*#__PURE__*/React.createElement("div", { "className": "text-center text-stone-400 text-sm py-10" }, "Stel eerst een weekmenu samen; de ingredienten verschijnen dan hier automatisch.")
+                } }), /*#__PURE__*/React.createElement("select", { "value": newItemCat, "onChange": (e) => setNewItemCat(e.target.value), "className": "border rounded-lg px-2 py-2 text-sm text-stone-600", "title": "Categorie (bepaalt de plek in de lijst)" }, /*#__PURE__*/React.createElement("option", { "value": "" }, "geen categorie"), shopCats.map((c) => (
+                  /*#__PURE__*/React.createElement("option", { "key": c, "value": c }, c)
+                ))), /*#__PURE__*/React.createElement("button", { "onClick": addExtra, "className": "bg-stone-800 text-white px-4 rounded-lg text-sm font-medium shrink-0" }, "Toevoegen")), shoppingRows.length === 0 && extraItems.length === 0 && stockShort.length === 0 && (
+              /*#__PURE__*/React.createElement("div", { "className": "text-center text-stone-400 text-sm py-10" }, "Stel eerst een weekmenu samen; de ingrediënten verschijnen dan hier automatisch.")
             ), settings.shopRuns.map((run, ri) => {
-              const runRows = shoppingRows.filter((r) => run.days.includes(r.day));
-              if (!runRows.length) return null;
-              const totals = marketTotals(runRows.map((r) => r.label), prices, markets);
-              const full = totals.filter((t) => t.count === runRows.length && runRows.length > 0);
+              const rows = shoppingRows.filter((r) => run.days.includes(r.day));
+              if (!rows.length) return null;
+              const sorted = sortRowsByCat(rows, (r) => r.label);
+              const cmpRows = sorted.filter((r) => !marketOf(r.label)); // winkelvoorkeur telt niet mee in de prijsvergelijking
+              const totals = marketTotals(cmpRows.map((r) => r.label), prices, markets);
+              const full = totals.filter((t) => t.count === cmpRows.length && cmpRows.length > 0);
               const cheapest = full.length ? full.reduce((a, b) => (a.total <= b.total ? a : b)) : null;
               const anyPrice = totals.some((t) => t.count > 0);
+              const scaledFactors = [
+                ...new Set(
+                  sorted
+                    .map((r) => weekEntries[r.day])
+                    .filter((e) => e && e.eaters != null && e.eaters !== settings.householdSize)
+                    .map((e) => fmtFactor(e.eaters / settings.householdSize))
+                ),
+              ];
+              const anyScaled = scaledFactors.length > 0;
               return (
                 /*#__PURE__*/React.createElement("div", { "key": ri, "className": "mb-6" }, /*#__PURE__*/React.createElement("div", { "className": "bg-stone-800 text-white rounded-xl px-3 py-2.5 mb-2" }, /*#__PURE__*/React.createElement("div", { "className": "font-semibold text-sm" }, run.label), /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-300" }, [...run.days].sort((a, b) => a - b).map((d) => days[d]).join(", ")), anyPrice && (
                       /*#__PURE__*/React.createElement("div", { "className": "text-xs mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5" }, totals.map((t) => (
-                          /*#__PURE__*/React.createElement("span", { "key": t.market.key, "className": "bg-white/10 rounded px-1.5 py-0.5" }, t.market.label.split(" ")[0], " ", t.count > 0 ? fmtEuro(t.total) : "—", /*#__PURE__*/React.createElement("span", { "className": "opacity-60" }, " (", t.count, "/", runRows.length, ")"))
+                          /*#__PURE__*/React.createElement("span", { "key": t.market.key, "className": "bg-white/10 rounded px-1.5 py-0.5" }, t.market.label.split(" ")[0], " ", t.count > 0 ? fmtEuro(t.total) : "—", /*#__PURE__*/React.createElement("span", { "className": "opacity-60" }, " (", t.count, "/", cmpRows.length, ")"))
                         )), cheapest && (
                           /*#__PURE__*/React.createElement("span", { "className": "bg-emerald-400/90 text-stone-900 font-semibold rounded px-1.5 py-0.5" }, "goedkoopste: ", cheapest.market.label.split(" ")[0])
                         ))
-                    )), run.days.map((i) => {
-                    const rows = shoppingRows.filter((r) => r.day === i);
-                    if (!rows.length) return null;
-                    const entry = weekEntries[i];
-                    const rec = entry && entry.id ? byId[entry.id] : null;
-                    if (!rec) return null;
-                    const factor = entry && entry.eaters != null && settings.householdSize > 0 ? entry.eaters / settings.householdSize : 1;
-                    const scaled = factor !== 1;
-                    const eatersChip = entry && entry.eaters != null && entry.eaters !== settings.householdSize ? entry.eaters : null;
-                    return (
-                      /*#__PURE__*/React.createElement("div", { "key": i, "className": "mb-3" }, /*#__PURE__*/React.createElement("div", { "className": "text-xs font-semibold text-stone-500 mb-1" }, days[i], " ", fmtDay(weekKeys[i]), " · ", rec.name, eatersChip != null && /*#__PURE__*/React.createElement("span", { "className": "tag-eaters" }, "👥 ", eatersChip, " eters")), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm divide-y divide-stone-100" }, rows.map((r) => {
-                            const sc = scaled ? scaleIngredient(r.label, factor) : null;
-                            return (
-                              /*#__PURE__*/React.createElement("label", { "key": r.key, "className": "flex items-center gap-3 px-3 py-2 cursor-pointer" }, /*#__PURE__*/React.createElement("input", { "type": "checkbox", "checked": !!checked[r.key], "onChange": (e) => setChecked({ ...checked, [r.key]: e.target.checked }), "className": "w-4 h-4 accent-emerald-600" }), /*#__PURE__*/React.createElement("span", { "className": `text-sm ${checked[r.key] ? "line-through text-stone-300" : ""}` }, sc ? (
-                                    /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("span", { "className": "line-through text-stone-300" }, r.label), " → ", /*#__PURE__*/React.createElement("span", { "className": "font-semibold" }, sc))
-                                  ) : (
-                                    r.label
-                                  )), (() => {
-                                  const best = bestPrice(r.label, prices, markets);
-                                  return best ? (
-                                    /*#__PURE__*/React.createElement("span", { "className": "ml-auto text-xs text-stone-400 whitespace-nowrap" }, best.market.label.split(" ")[0], " ", fmtEuro(best.price))
-                                  ) : null;
-                                })())
-                            );
-                          })), scaled && (
-                          /*#__PURE__*/React.createElement("p", { "className": "text-[10px] text-stone-400 mt-1" }, "Hoeveelheden geschaald voor", entry.eaters, " eters (×", fmtFactor(factor), " t.o.v. standaard ", settings.householdSize, "); regels zonder getal blijven gelijk.")
-                        ))
-                    );
-                  }))
+                    )), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm divide-y divide-stone-100" }, sorted.map((r) => {
+                      const entry = weekEntries[r.day];
+                      const factor = entry && entry.eaters != null && settings.householdSize > 0 ? entry.eaters / settings.householdSize : 1;
+                      const sc = scaleIngredient(r.label, factor);
+                      const mkt = marketOf(r.label);
+                      const best = mkt ? null : bestPrice(r.label, prices, markets);
+                      return (
+                        /*#__PURE__*/React.createElement("label", { "key": r.key, "className": "flex items-center gap-3 px-3 py-2 cursor-pointer" }, /*#__PURE__*/React.createElement("input", { "type": "checkbox", "checked": !!checked[r.key], "onChange": (e) => setChecked({ ...checked, [r.key]: e.target.checked }), "className": "w-4 h-4 accent-emerald-600" }), /*#__PURE__*/React.createElement("span", { "className": `text-sm ${checked[r.key] ? "line-through text-stone-300" : ""}` }, sc ? (
+                              /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("span", { "className": "line-through text-stone-300" }, r.label), " → ", /*#__PURE__*/React.createElement("span", { "className": "font-semibold" }, sc))
+                            ) : (
+                              r.label
+                            )), mkt ? (
+                            /*#__PURE__*/React.createElement("span", { "className": "ml-auto chip mkt", "title": "Winkelvoorkeur: hier wordt dit artikel gehaald; prijsvergelijking heeft geen zin" }, marketChip(mkt))
+                          ) : best ? (
+                            /*#__PURE__*/React.createElement("span", { "className": "ml-auto text-xs text-stone-400 whitespace-nowrap" }, best.market.label.split(" ")[0], " ", fmtEuro(best.price))
+                          ) : null)
+                      );
+                    })), anyScaled && (
+                    /*#__PURE__*/React.createElement("p", { "className": "text-[10px] text-stone-400 mt-1" }, `Hoeveelheden geschaald voor afwijkende eters (×${scaledFactors.join(", ")} t.o.v. standaard ${settings.householdSize} eters); regels zonder getal blijven gelijk.`)
+                  ))
               );
-            }), stockShort.length > 0 && (
-              /*#__PURE__*/React.createElement("div", { "className": "mb-4" }, /*#__PURE__*/React.createElement("div", { "className": "text-xs font-semibold text-stone-500 mb-1" }, "Standaardvoorraad aanvullen"), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm divide-y divide-stone-100" }, stockShort.map((s) => (
-                    /*#__PURE__*/React.createElement("label", { "key": s.name, "className": "flex items-center gap-3 px-3 py-2 cursor-pointer" }, /*#__PURE__*/React.createElement("input", { "type": "checkbox", "checked": !!checked["stock-" + s.name], "onChange": (e) => setChecked({ ...checked, ["stock-" + s.name]: e.target.checked }), "className": "w-4 h-4 accent-emerald-600" }), /*#__PURE__*/React.createElement("span", { "className": `text-sm ${checked["stock-" + s.name] ? "line-through text-stone-300" : ""}` }, s.name, s.want > 1 && /*#__PURE__*/React.createElement("span", { "className": "text-stone-400" }, " (", s.want - s.have, " van ", s.want, ")")))
-                  ))))
-            ), extraItems.length > 0 && (
-              /*#__PURE__*/React.createElement("div", { "className": "mb-4" }, /*#__PURE__*/React.createElement("div", { "className": "text-xs font-semibold text-stone-500 mb-1" }, "Extra"), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm divide-y divide-stone-100" }, extraItems.map((item) => (
-                    /*#__PURE__*/React.createElement("div", { "key": item, "className": "flex items-center gap-3 px-3 py-2" }, /*#__PURE__*/React.createElement("input", { "type": "checkbox", "checked": !!checked["extra-" + item], "onChange": (e) => setChecked({ ...checked, ["extra-" + item]: e.target.checked }), "className": "w-4 h-4 accent-emerald-600" }), /*#__PURE__*/React.createElement("span", { "className": `flex-1 text-sm ${checked["extra-" + item] ? "line-through text-stone-300" : ""}` }, item), /*#__PURE__*/React.createElement("button", { "onClick": () => setExtraItems(extraItems.filter((x) => x !== item)), "className": "text-stone-300 hover:text-red-500 text-sm" }, "✕"))
-                  ))))
+            }), extraItems.length > 0 && (
+              /*#__PURE__*/React.createElement("div", { "className": "mb-4" }, /*#__PURE__*/React.createElement("div", { "className": "text-xs font-semibold text-stone-500 mb-1" }, "Extra"), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm divide-y divide-stone-100" }, sortRowsByCat(extraItems, (x) => x.name).map((item) => {
+                    const mkt = marketOf(item.name);
+                    const best = mkt ? null : bestPrice(item.name, prices, markets);
+                    return (
+                      /*#__PURE__*/React.createElement("div", { "key": item.name, "className": "flex items-center gap-3 px-3 py-2" }, /*#__PURE__*/React.createElement("input", { "type": "checkbox", "checked": !!checked["extra-" + item.name], "onChange": (e) => setChecked({ ...checked, ["extra-" + item.name]: e.target.checked }), "className": "w-4 h-4 accent-emerald-600" }), /*#__PURE__*/React.createElement("span", { "className": `flex-1 text-sm ${checked["extra-" + item.name] ? "line-through text-stone-300" : ""}` }, item.name), mkt ? (
+                          /*#__PURE__*/React.createElement("span", { "className": "chip mkt", "title": "Winkelvoorkeur" }, marketChip(mkt))
+                        ) : best ? (
+                          /*#__PURE__*/React.createElement("span", { "className": "text-xs text-stone-400 whitespace-nowrap" }, best.market.label.split(" ")[0], " ", fmtEuro(best.price))
+                        ) : null, /*#__PURE__*/React.createElement("button", { "onClick": () => setExtraItems(extraItems.filter((x) => x.name !== item.name)), "className": "text-stone-300 hover:text-red-500 text-sm", "title": "Artikel verwijderen" }, "✕"))
+                    );
+                  })))
+            ), stockShort.length > 0 && (
+              /*#__PURE__*/React.createElement("div", { "className": "mb-4" }, /*#__PURE__*/React.createElement("div", { "className": "text-xs font-semibold text-stone-500 mb-1" }, "Standaardvoorraad aanvullen"), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm divide-y divide-stone-100" }, sortRowsByCat(stockShort, (s) => s.name).map((s) => {
+                    const mkt = s.market || marketOf(s.name);
+                    const best = mkt ? null : bestPrice(s.name, prices, markets);
+                    return (
+                      /*#__PURE__*/React.createElement("label", { "key": s.name, "className": "flex items-center gap-3 px-3 py-2 cursor-pointer" }, /*#__PURE__*/React.createElement("input", { "type": "checkbox", "checked": !!checked["stock-" + s.name], "onChange": (e) => setChecked({ ...checked, ["stock-" + s.name]: e.target.checked }), "className": "w-4 h-4 accent-emerald-600" }), /*#__PURE__*/React.createElement("span", { "className": `text-sm ${checked["stock-" + s.name] ? "line-through text-stone-300" : ""}` }, s.name, s.want > 1 && /*#__PURE__*/React.createElement("span", { "className": "text-stone-400" }, ` (${s.want - s.have} van ${s.want})`)), mkt ? (
+                          /*#__PURE__*/React.createElement("span", { "className": "ml-auto chip mkt", "title": "Winkelvoorkeur" }, marketChip(mkt))
+                        ) : best ? (
+                          /*#__PURE__*/React.createElement("span", { "className": "ml-auto text-xs text-stone-400 whitespace-nowrap" }, best.market.label.split(" ")[0], " ", fmtEuro(best.price))
+                        ) : null)
+                    );
+                  })))
             ), totalItems > 0 && (
               /*#__PURE__*/React.createElement("button", { "onClick": () => setChecked({}), "className": "w-full py-2.5 border rounded-xl text-sm text-stone-500 hover:bg-white" }, "Vinkjes wissen")
             ))
