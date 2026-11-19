@@ -20,14 +20,23 @@
 - Vergrendelde gerechten worden per datum opgeslagen (`menuByDate`) en zijn op die datum later terug te vinden (ook in een nieuwe app-instance); de kalendercel toont 🔒; de boodschappenlijst volgt de getoonde week.
 - Migratie: een oude `menu`-array wordt bij het laden gemigreerd naar `menuByDate` op de datums van de huidige week, incl. vinkjes-sleutels (ADR-005).
 
-### Boodschappen
-- Ingrediënten vallen onder de juiste run (volgens `shopRuns`), gegroepeerd per dag en per gerecht.
-- Extra artikel toevoegen/afvinken → teller in de tab daalt; "Vinkjes wissen" reset alle checkboxen, artikelen blijven.
+### Boodschappen (ADR-015, `tools/test-voorraad-locaties.cjs`)
+- Ingrediënten vallen onder de juiste run (volgens `shopRuns`); per run één platte lijst gesorteerd op categorie-volgorde (`settings.shopCats`), zonder categorietekst; artikelen zonder categorie achteraan.
+- Extra artikel toevoegen (optioneel met categorie) en afvinken → teller in de tab daalt; sortering op categorie (fruit vóór lekkers); "Vinkjes wissen" reset alle checkboxen, artikelen blijven.
 - Voorraadtekorten verschijnen onder "Standaardvoorraad aanvullen" met "(n van want)".
+- Categorieën beheren via ⚙️ (inline paneel): toevoegen, ▲▼-volgorde, verwijderen disabled bij gebruik.
+- Artikel met winkelvoorkeur toont een winkel-chip ipv een prijs en telt niet mee in run-totalen/dekking/"goedkoopste".
+- Schaling per eters (ADR-012): inline "origineel → nieuw" per regel + footnote per run met de factor.
 
-### Voorraad
-- have < want → tekort; kruidenla-toggle → binair item; "Alles aangevuld" zet have = want; "Standaardlijst terug" = STOCK_DEFAULT.
-- Herladen: alle state (menu, vinkjes, voorraad, settings) bewaard via localStorage-sleutel `weekmenu-app-v1`.
+### Voorraad (ADR-015, `tools/test-voorraad-locaties.cjs`)
+- Default-locaties geseed; locaties starten ingeklapt; teller is een kaal getal.
+- Locatie toevoegen via inline formulier onderaan; 🗑️ disabled zolang er producten aan hangen, leeg wel verwijderbaar.
+- Uitklappen toont producten (categorie als subtekst, have-stapper, grijs "gewenst n", winkel-chip, ✕); product toevoegen via inline formulier (naam + categorie verplicht + supermarkt optioneel + want-stapper, default 1; have = want); product altijd verwijderbaar.
+- ✏️ edit-modus per locatie: want-stapper ipv grijs getal; have < want → tekort ("op lijst") → op de boodschappenlijst.
+- "Alles aangevuld" zet have = want; "Standaardlijst terug" reset naar defaults (17 producten, 5 locaties).
+- ℹ️-popover met uitleg op voorraad- en boodschappen-tab.
+- Migratie: oude `stock` (cat = kast/koel/fruit/kruiden) → locatie + categorie; oude `extraItems`-strings → `{ name, cat: "" }`; `shopCats` default in settings.
+- Herladen: alle state (menu, vinkjes, voorraad, locaties, settings) bewaard via localStorage-sleutel `weekmenu-app-v1`.
 
 ### Recepten / data
 - Pool start met `BASE_RECIPES`; recept bewerken en verwijderen (verdwijnt ook uit een lopend menu); import/export als JSON; reset naar startpool.

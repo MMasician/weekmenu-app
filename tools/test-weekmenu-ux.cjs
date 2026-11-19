@@ -201,7 +201,7 @@ function make(seed) {
   check("hint met factor 1,5 in de open regel", h.indexOf("boodschappenlijst") !== -1 && h.indexOf("1,5") !== -1);
   t.findTab("Boodschappen").props.onClick();
   h = t.html();
-  check("dagkop op boodschappen toont chip 👥 met 6 (tag-eaters)", t.tagEatersChildren().indexOf("6") !== -1);
+  check("boodschappenlijst is platte lijst per run (geen dagkop-chip meer)", t.tagEatersChildren().indexOf("6") === -1);
   check("'3 tomaten' geschaald naar '5 tomaten' (×1,5, afgerond)", h.indexOf("5 tomaten") !== -1 && h.indexOf("3 tomaten") !== -1);
   check("'1 ui' geschaald naar '2 ui'", h.indexOf("2 ui") !== -1);
   check("'1 blik mais' niet geschaald (vaste verpakking)", h.indexOf("2 blik") === -1);
@@ -215,7 +215,7 @@ function make(seed) {
   check("minder eters mag: eaters=2 opgeslagen", mbd[keys[4]].eaters === 2);
   t.findTab("Boodschappen").props.onClick();
   h = t.html();
-  check("chip 👥 met 2 en schaling factor 0,5 ('3 tomaten' -> '2 tomaten')", t.tagEatersChildren().indexOf("2") !== -1 && t.footnoteChildren().indexOf("0,5") !== -1 && h.indexOf("2 tomaten") !== -1);
+  check("schaling factor 0,5 in footnote en '3 tomaten' -> '2 tomaten'", t.footnoteChildren().indexOf("0,5") !== -1 && h.indexOf("2 tomaten") !== -1);
   t.findTab("Weekmenu").props.onClick();
   t.findButton("Standaard herstellen").props.onClick();
   mbd = t.menuByDateState();

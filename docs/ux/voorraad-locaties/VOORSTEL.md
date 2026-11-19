@@ -1,6 +1,17 @@
 # UX-voorstel: voorraad-tab — locaties, producten, categorieën en winkelvoorkeur
 
-**Status: ronde 1 ter review (mocks-eerst).** Nog niet geïmplementeerd; na goedkeuring per scherm volgen `docs/SPECS.md`, een nieuw ADR, `tools/test-*.cjs` en `src/App.jsx` (+ build/verify + CACHE_VERSION/`?v=`-bump in dezelfde PR).
+**Status: ronde 1 goedgekeurd (per scherm, met aanpassingen) en verwerkt in ADR-015, `docs/SPECS.md`, `tools/test-voorraad-locaties.cjs` en `src/App.jsx` (+ build/`src/app.js`, `npm run verify` groen, CACHE_VERSION v8 + `?v=7`).** Goedgekeurde keuzes per scherm:
+
+1. Locaties ingeklapt: **versie A** (eigen kaart per locatie), maar de teller toont een **kaal getal** zonder "producten" (zoals in B).
+2. Uitgeklapte locatie: **versie B** (categorie als subtekst onder de productnaam), **plus** de huidige voorraad (have) altijd aanpasbaar via een −/+ stapper per product (zodat have < want de boodschappenlijst vult).
+3. Locatie toevoegen: **inline zoals versie B, maar onderaan de lijst** (waar ook de ＋-knop staat).
+4. Product toevoegen: **versie B ongewijzigd** (inline kaart bovenaan de productlijst, dropdowns, stapper voor gewenst, default 1).
+5. Gewenste voorraad bewerken: **versie A** (stapper per product in edit-modus; gebruiksgemak wint).
+6. Boodschappenlijst: **lijstvorm zoals versie B** — platte lijst, categorie bepaalt de volgorde maar wordt **niet** getoond; geen lege secties (categorieën zijn sowieso niet zichtbaar).
+7. Categorieën beheren: **versie B** (inline paneel) met ▲▼-volgorde; **geen aantal producten** tonen.
+8. Uitleg: **versie A** (popover bij ℹ️).
+
+Overige beslissingen: extra artikelen én receptingrediënten krijgen een categorie (ingrediënten via naam-match met een bekend product); default gewenste voorraad = 1; generieke default-locaties = Voorraadkast, Koelkast, Vriezer, Kruidenla, Fruitschaal (migratie van oude data is generiek, zie ADR-015).
 
 ## Aanleiding (wensen)
 

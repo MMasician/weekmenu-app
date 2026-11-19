@@ -19,6 +19,7 @@ Zie INTENT.md voor doel en principes; ADR-009 t/m ADR-011 voor configuratie, pri
   - `fishDays`: array van dag-indices (standaard [0, 4])
   - `vegaTarget`: getal >= 0 — aantal vegetarische dagen op de niet-vis-dagen (standaard 2); vlees = overige niet-vis-dagen minus vegaTarget (afgetopt op >= 0)
   - `markets`: [{ key, label }] (standaard ah / jumbo / lidl)
+  - `shopCats`: string[] — categorieën van boodschappenartikelen in de volgorde waarop ze op de boodschappenlijst staan (standaard: fruit, groente, vlees/vis, kruiden, conserven, (maaltijd)saus, broodbeleg, zuivel, diepvries, lekkers, brood; ADR-015)
 - Dag-indices zijn relatief t.o.v. `weekStartDay` (index 0 = weekstart).
 - Instellingen zijn lokaal: ze worden nooit naar een server of GitHub geschreven en zijn voor andere households niet zichtbaar (ADR-010).
 
@@ -51,18 +52,23 @@ Zie INTENT.md voor doel en principes; ADR-009 t/m ADR-011 voor configuratie, pri
 - In de weekmenu-dagregel toont een dag nu een tijd-badge (kort/normaal/lang) in plaats van "X min"; het kok-veld is daar ook verdwenen.
 - Oudere opslag zonder `recipes` wordt geseed uit `BASE_RECIPES`.
 
-## Voorraad
-- `STOCK_CATS` = kast, koel, fruit, kruiden. Per item have/want (getallen); kruidenla binair (toggle aanwezig ja/nee).
-- Tekort = have < want → automatisch op de boodschappenlijst met "(n van want)"; kruidenla "aan" = tekort.
-- Knoppen: "Alles aangevuld" (have = want) en "Standaardlijst terug" (reset naar `STOCK_DEFAULT`).
-- `normalizeStock` bij laden.
+## Voorraad (ADR-015)
+- **Locaties** per huishouden: `stockLocations: [{ id, name }]` in localStorage (default `DEFAULT_LOCATIONS` = Voorraadkast, Koelkast, Vriezer, Kruidenla, Fruitschaal). Op de tab zijn locaties **uitklapbaar en starten ingeklapt**; de teller toont een kaal getal. Onderaan de lijst een ＋ → inline formulier onderaan (naam + ✓/✕). Achter elke locatie een ✏️ (edit-modus: gewenste hoeveelheden aanpasbaar) en een 🗑️ die **disabled** is zolang er producten aan de locatie hangen.
+- **Product** = `{ name, loc, cat, market?, want, have }`. Toevoegen via ＋ onderaan een uitgeklapte locatie → inline formulier bovenaan de productlijst (naam, categorie verplicht uit `settings.shopCats`, supermarkt optioneel uit `settings.markets`, gewenste voorraad stapper, standaard 1; `have = want` bij toevoegen). Producten zijn **altijd** verwijderbaar (✕).
+- Per productrij: naam met daaronder de categorie als subtekst; **huidige voorraad (have) altijd** aanpasbaar met −/+; daarachter grijs `gewenst n` — in edit-modus (✏️ getoggled) een want-stapper in plaats daarvan. Optionele winkelvoorkeur toont een chip (winkel-naam). Tekort (have < want) toont een "op lijst"-badge.
+- Tekort = have < want → automatisch op de boodschappenlijst met "(n van want)".
+- Knoppen onderaan: "Alles aangevuld" (have = want) en "Standaardlijst terug" (reset naar `DEFAULT_LOCATIONS` + `STOCK_DEFAULT`).
+- Uitleg achter een ℹ️-popover in de kop van de tab.
+- `normalizeLocations` / `normalizeStock` / `normalizeExtras` bij laden; oude `cat`-waarden (kast/koel/fruit/kruiden) migreren naar locatie + categorie (zie ADR-015).
 
-## Boodschappen
-- `shopRuns` splitst de week: ingrediënten van een gerecht vallen in de run van de dag waarop het gerecht staat.
-- Per run: ingrediënten gegroepeerd per dag en per gerecht met afvinkboxen; extra vrije artikelen per run; sectie "Standaardvoorraad aanvullen" uit tekorten. Dagen met een vrije-tekst entry (`custom`) verschijnen hier niet.
-- **Schaling per dag (ADR-012)**: bij een dag met `eaters`-afwijking toont de dagkop een chip "👥 N eters" en worden de ingrediënten van die dag geschaald met factor `eaters / householdSize`: alleen regels met een leidend getal + eenheid schalen mee (uitgezonderd vaste verpakkingen blik/pak/pakje/zak/doos/fles), afgerond met `Math.round` (minimaal 1); weergave "origineel (doorgehaald) → nieuw"; onder de groep een footnote met de factor ("Hoeveelheden geschaald voor N eters (×f t.o.v. standaard M); regels zonder getal blijven gelijk."). Regels zonder getal blijven ongewijzigd. Prijzen en run-totalen blijven gebaseerd op het originele label.
+## Boodschappen (ADR-015)
+- `shopRuns` splitst de week: ingrediënten van een gerecht vallen in de run van de dag waarop het gerecht staat. Dagen met een vrije-tekst entry (`custom`) verschijnen hier niet.
+- Per run: één **platte lijst** met afvinkboxen, **gesorteerd op categorie-volgorde** (`settings.shopCats`; artikelen zonder/onbekende categorie achteraan). De categorie zelf wordt niet getoond. Naast de run-lijsten: sectie "Extra" (vrije artikelen, optioneel met categorie bij toevoegen) en sectie "Standaardvoorraad aanvullen" (tekorten, "(n van want)") — beide eveneens plat en op categorie gesorteerd.
+- Categorie van een artikel: expliciet bij voorraadproducten en extra artikelen; recept-ingrediënten erven categorie/winkel van een product met dezelfde naam (`priceKey`, hoofdletterongevoelig).
+- **Categorieën beheren** (⚙️ op de tab → inline paneel): toevoegen (onderaan), verwijderen (✕ disabled zolang er een product/extra artikel in zit) en volgorde wijzigen (▲▼). Uitleg achter ℹ️-popover.
+- **Schaling per dag (ADR-012)**: bij een dag met `eaters`-afwijking worden de ingrediënten van die dag geschaald met factor `eaters / householdSize`: alleen regels met een leidend getal + eenheid schalen mee (uitgezonderd vaste verpakkingen blik/pak/pakje/zak/doos/fles), afgerond met `Math.round` (minimaal 1); weergave inline "origineel (doorgehaald) → nieuw"; onder de run een footnote met de factor(en) ("Hoeveelheden geschaald voor afwijkende eters (×f t.o.v. standaard M eters); regels zonder getal blijven gelijk."). Prijzen en run-totalen blijven gebaseerd op het originele label.
 - "Vinkjes wissen" reset alle checkboxen; de tab toont een teller (afgevinkt/totaal).
-- Prijsinformatie (ADR-008): per artikelregel rechts de beste bekende prijs (winkel + bedrag); per run-kop per winkel het totaal + dekking "(x/n met prijs)" en, bij volledige dekking, een badge "goedkoopste: <winkel>".
+- Prijsinformatie (ADR-008): per artikelregel rechts de beste bekende prijs (winkel + bedrag); per run-kop per winkel het totaal + dekking "(x/n met prijs)" en, bij volledige dekking, een badge "goedkoopste: <winkel>". Artikelen met een **winkelvoorkeur** (`market`) tonen in plaats daarvan een winkel-chip en tellen **niet mee** in totalen/dekking/goedkoopste-badge (prijsvergelijking heeft dan geen zin).
 
 ## Prijzen (ADR-008, ADR-010)
 - Winkels uit `markets` (instellingen). Prijzen per artikel: handmatig ingevoerd óf optioneel online opgehaald (niet-privé data, ADR-010); lokaal gecached.
@@ -71,7 +77,7 @@ Zie INTENT.md voor doel en principes; ADR-009 t/m ADR-011 voor configuratie, pri
 - `marketTotals(items)` somt per winkel (onbekende prijzen overgeslagen, dekking apart bijgehouden); `bestPrice(item)` = laagste bekende prijs + bijbehorende winkel.
 
 ## State & opslag (ADR-005, ADR-009, ADR-010)
-- Alles in localStorage-sleutel `weekmenu-app-v1`: menu per datum (`menuByDate`: `{ id, locked, eaters? }` of `{ custom, locked? }`), vinkjes, extra artikelen, voorraad, recepten, prijzen en **settings**.
+- Alles in localStorage-sleutel `weekmenu-app-v1`: menu per datum (`menuByDate`: `{ id, locked, eaters? }` of `{ custom, locked? }`), vinkjes, extra artikelen (`{ name, cat? }`), voorraad (`stock` + `stockLocations`), recepten, prijzen en **settings** (incl. `shopCats`).
 - Nooit iets naar een server of GitHub; online alleen voor niet-privé data (prijzen).
 
 ## Build & tests (ADR-011)

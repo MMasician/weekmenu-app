@@ -228,13 +228,13 @@ function make(seed) {
   const t = make({ menuByDate: { [keys[0]]: { id: "r25", locked: true } } });
   t.findTab("Boodschappen").props.onClick();
   let h = t.html();
-  check("huidige week: boodschappenlijst toont het gerecht van die datum", h.indexOf("Boodschappenlijst zaterdag") !== -1 && h.indexOf("Thaise viscurry") !== -1);
+  check("huidige week: boodschappenlijst toont de ingrediënten van het gerecht van die datum", h.indexOf("Boodschappenlijst zaterdag") !== -1 && h.indexOf("Zalm") !== -1);
   t.findTab("Weekmenu").props.onClick();
   t.openDateSheet();
   t.findButton("Volgende week").props.onClick();
   t.findTab("Boodschappen").props.onClick();
   h = t.html();
-  check("volgende week zonder menu: lege boodschappenlijst", h.indexOf("Stel eerst een weekmenu samen") !== -1 && h.indexOf("Thaise viscurry") === -1);
+  check("volgende week zonder menu: lege boodschappenlijst", h.indexOf("Stel eerst een weekmenu samen") !== -1 && h.indexOf("Zalm") === -1);
 }
 
 console.log(fails === 0 ? "ALLE TESTS GESLAAGD" : fails + " TEST(S) GEFAALD");
