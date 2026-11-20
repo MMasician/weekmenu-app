@@ -1,123 +1,50 @@
 # UX-voorstel: productcatalogus — uniform producten opvoeren & verrijken (recepten / voorraad / boodschappen / weekmenu)
 
-**Status: ronde 1 — mocks ter goedkeuring per scherm; nog NIET verwerkt in SPECS/ADR/App.jsx.**
-Zodra per scherm een versie is goedgekeurd, volgen in deze PR (zelfde branch): `docs/SPECS.md`, nieuw ADR
-(volgend nummer na ADR-016), `tools/test-*.cjs`, `src/App.jsx` + `npm run build`/`npm run verify`,
-én in dezelfde PR de cache-bump (`CACHE_VERSION` in `sw.js` + `?v=` op alle 4 plekken in `index.html` — les PR #8/#9).
+**Status: ronde 1 goedgekeurd per scherm (zie "Ronde 1 — goedgekeurd"). Ronde 2-mocks voor de schermen 3, 4 en 6 staan in deze map (15–19) — daarop wacht ik nog een keuze. Daarna worden in deze PR verwerkt: `docs/SPECS.md`, nieuw ADR (volgend nummer na ADR-016), `tools/test-*.cjs`, `src/App.jsx` + `npm run build`/`npm run verify`, én in dezelfde PR de cache-bump (`CACHE_VERSION` in `sw.js` + `?v=` op alle 4 plekken in `index.html` — les PR #8/#9).**
 
 ## Aanleiding (wensen)
 
-1. **Één manier van werken** voor het opvoeren/verrijken van een **product** (verzamelnaam voor ingrediënt,
-   voorraadproduct en extra boodschap) op de tabs **Recepten, Voorraad, Boodschappen** (en Weekmenu):
-   je voert een product in **met aantal**; het product wordt opgeslagen in een **lokaal bewaarde productcatalogus**.
+1. **Één manier van werken** voor het opvoeren/verrijken van een **product** (verzamelnaam voor ingrediënt, voorraadproduct en extra boodschap) op de tabs **Recepten, Voorraad, Boodschappen** (en Weekmenu): je voert een product in **met aantal**; het product wordt opgeslagen in een **lokaal bewaarde productcatalogus**.
 2. **Autocomplete** terwijl je een productnaam intikt: bestaande producten uit de catalogus verschijnen.
-3. Na het opvoeren kun je op de **naam van het product klikken** → meer info + wijzigingen (categorie,
-   voorkeurssupermarkt koppelen/ontkoppelen).
-4. **Migratie**: ingrediënten zijn nu strings in recepten → worden producten. Dubbele producten vermijden
-   (let op enkelvoud/meervoud: `1 paprika` en `2 paprika's` = één product). **Aantallen blijven per
-   recept/voorraad apart opgeslagen.**
-5. Categorie-voorstel: zie onderaan.
+3. Na het opvoeren kun je op de **naam van het product klikken** → meer info + wijzigingen (categorie, voorkeurssupermarkt koppelen/ontkoppelen).
+4. Ingrediënten zijn nu strings in recepten → worden producten. Dubbele producten vermijden (enkelvoud/meervoud: `1 paprika` en `2 paprika's` = één product). **Aantallen blijven per recept/voorraad apart opgeslagen.**
+5. Producten uit de catalogus moeten **verwijderbaar** zijn (typefouten bij het opvoeren herstellen).
+6. **Weekmenu (ronde 2, los van de catalogus)**: klik op een **gelockt gerecht** → ingrediënten en bereidingswijze in beeld; **ingrediënten bovenaan** (verzamelen), daarna de bereiding lezen om te gaan koken.
 
-Per te wijzigen scherm zijn er **2 versies** (mock-screenshots in deze map, gerenderd in de eigen huisstijl
-van de app — `styles.css` inline — op 390×844, datum = vr 20-11-2026, weekstart zaterdag, recepten uit
-`BASE_RECIPES`):
+Alle mocks zijn gerenderd in de eigen huisstijl van de app (`styles.css` inline) op 390×844; datum vr 20-11-2026, weekstart zaterdag, recepten uit `BASE_RECIPES`.
 
-## 1. Recepten — ingrediënt opvoeren in het bewerkformulier
+## Ronde 1 — goedgekeurd (2026-11-20)
 
-- `01-recept-ingredient-toevoegen-versie-A-inline-rijen.png` — **inline rijen** in het recept: per ingrediënt
-  een los **aantalveld** + **naamveld met autocomplete** (bestaand product uit de catalogus, gemarkeerde match;
-  Enter zonder match = nieuw product) + ✕. Onderaan "＋ Ingrediënt toevoegen".
-- `02-recept-ingredient-toevoegen-versie-B-bottomsheet.png` — **bottom sheet** "Ingrediënt toevoegen":
-  productveld met autocomplete + aantal-stapper + knop "Toevoegen aan recept"; de lijst erachter blijft
-  zichtbaar (gedimd).
+1. **Recepten — ingrediënt toevoegen: versie A** (inline rijen: los aantalveld + naamveld met autocomplete + ✕), maar **zonder** de beschrijvende tekst ("klik op een naam…", "aantal staat los") en **zonder** de Enter-foot in de autocomplete → mock `01-…-versie-A-inline-rijen.png` aangepast.
+2. **Product-detail: versie B** — inline kaart die uitklapt onder de rij (`04-product-detail-versie-B-inline-kaart.png`): naam, categorie, winkelvoorkeur, "n× gebruikt", Opslaan/Verwijderen.
+3. **Voorraad — product toevoegen: volledig inline zoals 1A** → ronde 2, mocks 15/16 (keuze bovenaan/onderaan).
+4. **Boodschappen — extra artikel: idem als 1A** (inline rij: naam + aantal; **géén categorie bij het opvoeren** — die stel je later in via het product; **aantal is wel altijd nodig**) → ronde 2, mock 17.
+5. **Boodschappenlijst: versie A** — productnaam zelf klikbaar (groen, onderstreept) → product-detail (`09-…-versie-A-naam-klikbaar.png`). Meervoudsvorm: ja, zonder AI — zie "Meervoud" onder Modelwijzigingen.
+6. **Weekmenu**: de ronde-1 mocks (chips/sheet per dag) waren **geen** verbetering — geschrapt. Nieuwe wens (punt 6 boven) → ronde 2, mocks 18/19.
+7. **Productcatalogus: versie A** — sectie in **Instellingen** (`13-…-versie-A-instellingen.png`), nu met **✕ per product** (verwijderen altijd mogelijk; koppelingen vallen terug op vrije tekst).
 
-## 2. Product-detail — klik op een productnaam (vanuit élke tab hetzelfde)
+Ronde-1 mocks (ter referentie): `01`–`14` (scherm 2 = product-detail, scherm 5 = lijstrij, scherm 7 = catalogus; versies A/B per scherm zoals hierboven).
 
-- `03-product-detail-versie-A-bottomsheet.png` — **bottom sheet "Product"**: naam (bewerkbaar), categorie als
-  chips, voorkeurssupermarkt als chips (geen/AH/Jumbo/Lidl), "n× gebruikt" (recepten/voorraad), knoppen
-  **Opslaan** + **Uit catalogus verwijderen**.
-- `04-product-detail-versie-B-inline-kaart.png` — **inline kaart** die uitklapt onder de rij in de lijst:
-  zelfde velden (categorie als select, winkel als chips), kleinere knoppen.
+## Ronde 2 — nieuwe mocks (keuze gevraagd)
 
-## 3. Voorraad — product toevoegen in een locatie
-
-- `05-voorraad-product-toevoegen-versie-A-uniform.png` — **zelfde invoer als in een recept** (uniform):
-  productnaam met autocomplete + gewenste-voorraad-stapper + Toevoegen; hint "categorie & winkel stel je in
-  door op de productnaam te klikken". Productrij: naam als klikbare link + categorie/winkel als subtekst +
-  have −/+ en "gewenst n".
-- `06-voorraad-product-toevoegen-versie-B-inline-formulier.png` — **alle velden direct** in het inline
-  formulier (naam + autocomplete, categorie-select, supermarkt-select, gewenst-stapper) — zoals het huidige
-  formulier, uitgebreid met autocomplete.
-
-## 4. Boodschappen — extra artikel toevoegen
-
-- `07-boodschappen-extra-versie-A-inline-autocomplete.png` — **bestaande input-rij uitgebreid** met
-  autocomplete uit de catalogus (bestaand product = categorie/winkel worden overgenomen; klik in de lijst op
-  de naam om te wijzigen); categorie-select ernaast blijft.
-- `08-boodschappen-extra-versie-B-bottomsheet.png` — **bottom sheet "Extra boodschap"**: product met
-  autocomplete + categorie-chips + winkel-chips + Toevoegen.
-
-## 5. Boodschappenlijst — hoe ziet een product-rij eruit / hoe kom je bij het product?
-
-- `09-boodschappen-lijst-versie-A-naam-klikbaar.png` — de **naam zelf is klikbaar** (groen, onderstreept) →
-  opent het product-detail (scherm 2); checkbox, datumchip, winkel-chip en ✕ (alleen extra artikelen) blijven.
-- `10-boodschappen-lijst-versie-B-categorie-subtekst.png` — rij toont **categorie als subtekst** onder de naam
-  + een ℹ️-knop rechts → opent het product-detail.
-
-## 6. Weekmenu — ingrediënten van een gerecht zien (per dag)
-
-- `11-weekmenu-ingredienten-versie-A-chips.png` — onder de dagregel van een recept staan de ingrediënten als
-  **klikbare product-chips** (aantal + productnaam) → klik opent product-detail.
-- `12-weekmenu-ingredienten-versie-B-sheet.png` — dagregel blijft compact; extra 🧺-knop per dag opent een
-  **sheet "Ingrediënten — <gerecht>"** met rijen (aantal + klikbare productnaam + datumchip bij
-  groente/zuivel).
-
-## 7. Productcatalogus beheren (overzicht van alle producten)
-
-- `13-productcatalogus-versie-A-instellingen.png` — sectie **"Productcatalogus" op de Instellingen-tab**:
-  zoekveld + lijst (naam klikbaar, categorie-chip, winkel-chip, "n× gebruikt", subtekst met de samengevoegde
-  enkelvoud/meervoud-vormen zoals `uit "1 paprika" · "2 paprika's" · "5 paprika's"`).
-- `14-productcatalogus-versie-B-boodschappen-paneel.png` — zelfde paneel als **inline paneel op de
-  Boodschappen-tab** (naast het bestaande ⚙️-categorieën-paneel).
+- `15-voorraad-product-toevoegen-versie-C-inline-bovenaan.png` — in de uitgeklapte locatie staat de add-rij **bovenaan** de productlijst: naamveld met autocomplete + "gewenst"-stapper + ✓/✕ (zelfde stijl als ingrediënt-rijen in een recept).
+- `16-voorraad-product-toevoegen-versie-D-inline-onderaan.png` — zelfde inline rij, maar **onderaan** (op de plek van "＋ Product toevoegen").
+- `17-boodschappen-extra-versie-C-inline-rij.png` — extra artikel als **inline rij bovenaan de lijst**: naam met autocomplete + aantal + Toevoegen; géén categorie-veld (categorie/winkel later via klik op de naam).
+- `18-weekmenu-gelockt-gerecht-versie-A-bottomsheet.png` — klik op gelockt gerecht → **bottom sheet**: bovenaan "Ingrediënten" (aantal + klikbare productnaam + datumchip), dááonder "Bereiding", knop Klaar.
+- `19-weekmenu-gelockt-gerecht-versie-B-inline.png` — klik op gelockt gerecht → klapt **inline** onder de dagregel open: eerst ingrediënt-chips, dan de bereiding.
 
 ## Modelwijzigingen (gevolg, na goedkeuring in een nieuw ADR)
 
-- **Productcatalogus** `products: [{ id, name, cat, market? }]` in localStorage-sleutel `weekmenu-app-v1`
-  (lokaal per huishouden, ADR-009/010; generieke defaults in de repo, household-data lokaal).
-- **Recept-ingrediënt** wordt `{ pid, qty }`: `qty` = het losse aantal ("5", "200 g", "1 blik"), de productnaam
-  komt uit de catalogus. Weergave in recept/lijst: `qty + " " + productnaam` (dus "2 paprika").
-- **Dedup (`productKey`)**: lowercase, trim, dubbele spaties eruit, leading hoeveelheid/verpakking weg
-  (`2 `, `1 blik `, `pak `, `zak `…), trailing `'s` weg, dan trailing `en`/`s` weg als de stam ≥ 4 tekens is
-  (niet eindigend op ss/us/is). Dus `1 paprika` en `2 paprika's` → beide product **paprika**;
-  `sperziebonen` → `sperzieboon`. Canonieke (weergave)naam = eerste lettercombinatie zoals ingevoerd.
-- **Migratie bij het laden** (generiek, zoals ADR-005/015): elke oude ingrediënt-string wordt gesplitst in
-  `qty` (leading getal + eenheid) + naam; naam → `productKey` → bestaand product of nieuw product in de
-  catalogus (zonder categorie → "overig"). Voorraadproducten en extra artikelen koppelen idem aan
-  `pid`; hun `cat`/`market` verhuist naar het product (ADR-015 keeps working: de boodschappenlijst sorteert op
-  categorie-volgorde en matcht nu via `productKey` i.p.v. `priceKey`).
-- **Aantallen** blijven per recept (`qty`) en per voorraad (`have`/`want`) apart opgeslagen — het product zelf
-  heeft geen aantal.
-- Product verwijderen uit catalogus: koppelingen in recepten/voorraad/extra's vallen terug op de vrije tekst
-  (oude label), het product zelf is weg.
+- **Productcatalogus** `products: [{ id, name, cat, market? }]` in localStorage-sleutel `weekmenu-app-v1` (lokaal per huishouden, ADR-009/010; generieke data in de repo).
+- **Recept-ingrediënt** wordt `{ pid, qty }`: `qty` = los aantal ("5", "200 g", "1 blik"); de productnaam komt uit de catalogus. Weergave: `qty + " " + productnaam` (met juiste meervoud, zie onder).
+- **Dedup (`productKey`)**: lowercase, trim, dubbele spaties eruit, leading hoeveelheid/verpakking weg (`2 `, `1 blik `, `pak `, `zak `…), trailing `'s` weg, dan trailing `en`/`s` weg als de stam ≥ 4 tekens is (niet eindigend op ss/us/is). Dus `1 paprika` en `2 paprika's` → beide product **paprika**; `sperziebonen` → `sperzieboon`. Bij het intypen matcht autocomplete op `productKey`, dus het juiste product staat meteen in beeld. Geen alias-lijst nodig.
+- **Geen automatische migratie van bestaande lokale data** — dat is de verantwoordelijkheid van de gebruiker. Wel wordt de catalogus bij eerste load gevuld/ontdubbeld uit de nu al bekende ingrediënten (`BASE_RECIPES`, generiek in de repo). Oude string-ingrediënten in lokaal opgeslagen recepten blijven als **vrije tekst** zichtbaar (vallen niet automatisch aan een product); opnieuw intypen koppelt via autocomplete.
+- **Product verwijderen uit de catalogus** kan altijd (ook bij gebruik): koppelingen in recepten/voorraad/extra's vallen terug op de vrije tekst. Handig bij typefouten.
+- **Meervoud zonder AI**: de productnaam is het enkelvoud (canoniek); weergave = `qty == 1` → enkelvoud, anders meervoud via een ingebouwde regel (eindigt op klinker/a → `+'s`; anders `+en`; kleine uitzonderingenlijst alléén voor de weergave: ei→eieren, ui→uien, tomaat→tomaten, aardappel→aardappelen…). Dus "5 paprika's" bij product "paprika" — puur regels, geen AI.
+- **Categorie-voorstel**: hergebruik `settings.shopCats` (ADR-015) als productcategorie — "waar in de supermarkt", volgorde = boodschappenlijst-volgorde, beheer op de Boodschappen-tab (⚙️); product zonder categorie → "overig" achteraan. Categorie/winkel van een product is overal hetzelfde en te wijzigen via het product-detail.
 
-## Categorie-voorstel
+## Open vragen ronde 2
 
-Hergebruik de bestaande **`settings.shopCats`** (ADR-015) als categorie van een product — een categorie zegt
-**waar het in de supermarkt ligt** en bepaalt de volgorde op de boodschappenlijst:
-fruit, groente, vlees/vis, kruiden, conserven, (maaltijd)saus, broodbeleg, zuivel, diepvries, lekkers, brood.
-Beheer (toevoegen/verwijderen/volgorde) blijft op de **Boodschappen-tab** (⚙️). Product zonder categorie →
-**"overig"**, staat achteraan op de lijst. De categorie van een product is overal hetzelfde (recept,
-voorraad, boodschappen, weekmenu) en te wijzigen via het product-detail.
-
-## Open vragen / knopen om door te hakken
-
-- Scherm 1: inline rijen (A) of bottom sheet (B)?
-- Scherm 2: product-detail als sheet (A) of inline kaart (B)?
-- Scherm 3: uniform (A) of alle velden direct in het formulier (B)?
-- Scherm 4: inline met autocomplete (A) of bottom sheet (B)?
-- Scherm 5: klikbare naam (A) of categorie-subtekst + ℹ️ (B)?
-- Scherm 6: chips onder de dag (A) of sheet via 🧺 (B)?
-- Scherm 7: catalogus in Instellingen (A) of als paneel op de Boodschappen-tab (B)?
-- Meervouds-dedup: bovenstaande regels dekken `paprika/paprika's`, `boon/bonen`; `ei/eieren` en
-  `tomaat/tomaten` matchen niet automatisch — kleine alias-lijst, of accepteren we dat?
-- Scherm 2: mag een product ook een **eigen_photo/notitie** krijgen, of alleen naam/categorie/winkel?
+- Scherm 3 (voorraad): inline add-rij **bovenaan** (15) of **onderaan** (16)?
+- Scherm 4 (boodschappen extra): inline rij bovenaan de lijst (17) ok?
+- Scherm 6 (weekmenu, gelockt gerecht): **bottom sheet** (18) of **inline uitklappen** (19)? En klik je op het gerecht zelf (dag/titel) of op het 🔒-icoon?
