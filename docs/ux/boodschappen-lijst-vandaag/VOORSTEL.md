@@ -1,6 +1,13 @@
 # UX-voorstel: boodschappenlijst van vandaag — dagenbereik, supermarktkeuze, houdbaarheidsdatum, gerechtstatus; prijzen-tab vervalt
 
-**Status: ronde 2 — feedback op ronde 1 verwerkt; nieuwe mocks `r2-*` ter goedkeuring per scherm (zelfde draft PR). Nog niet geïmplementeerd in `src/App.jsx`.**
+**Status: goedgekeurd per scherm (ronde 1 + ronde 2) en verwerkt in ADR-016, `docs/SPECS.md`/`INTENT.md`/`TESTS.md`, `tools/test-boodschappen-lijst.cjs` (test-prijzen.cjs vervalt) en `src/App.jsx` (+ build/`src/app.js`, `npm run verify` groen, CACHE_VERSION v9 + `?v=8`).** Goedgekeurde keuzes per scherm:
+
+1. Boodschappenkop: **r2-02** (één losse regel, geen kaart): titel `Boodschappenlijst · <vandaag>` + stapper dagen + supermarkt-chips; geen range/max/telling, geen dubbele "boodschappen"-tekst.
+2. Houdbaarheidsdatum: **versie B** (datumchip).
+3. Klaar bij supermarkt: **r2-04** — groene "Klaar met winkelen" + inline melding (✅ n compleet · ❗ m mist nog), lijst blijft afvinkbaar.
+4. Gerechtstatus: **r2-05** — ✅/❗ emoji-icoontjes (het ✓-tekstteken renderde niet betrouwbaar).
+5. Instellingen: **r2-07** (versie A, geen info-tekst) + per supermarkt een checkbox "standaard" (`defaultShop`).
+6. Lege lijst door winkelfilter: **versie A** — melding noemt de geselecteerde supermarkt + chip "Toon alle supermarkten".
 
 ## Aanleiding (wensen)
 

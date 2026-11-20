@@ -7,19 +7,20 @@ Zie INTENT.md voor doel en principes; ADR-009 t/m ADR-011 voor configuratie, pri
 2. Recepten
 3. Voorraad
 4. Boodschappen
-5. Prijzen
-6. Instellingen (per huishouden, ADR-009)
+5. Instellingen (per huishouden, ADR-009)
+
+(De Prijzen-tab is vervallen, ADR-016 deprecate ADR-008.)
 
 ## Instellingen per huishouden (ADR-009)
 - Opgeslagen in localStorage-sleutel `weekmenu-app-v1`, veld `settings`. Bij ontbreken of onvolledigheid worden `DEFAULT_SETTINGS` aangevuld bij het laden (normaliseren, zoals `normalizeStock`).
 - Schema:
   - `householdSize`: getal > 0 — aantal eters waarop recepten/hoeveelheden zijn afgestemd (standaard 4)
   - `weekStartDay`: 0-6, index in `DAYS` (standaard 0 = zaterdag)
-  - `shopRuns`: [{ label, days: [0-6] }] (standaard: twee runs die de week in tweeën delen)
   - `fishDays`: array van dag-indices (standaard [0, 4])
   - `vegaTarget`: getal >= 0 — aantal vegetarische dagen op de niet-vis-dagen (standaard 2); vlees = overige niet-vis-dagen minus vegaTarget (afgetopt op >= 0)
-  - `markets`: [{ key, label }] (standaard ah / jumbo / lidl)
+  - `markets`: [{ key, label, defaultShop }] (standaard ah / jumbo / lidl, `defaultShop` standaard true) — supermarkten voor de winkelkeuze op de boodschappen-tab (ADR-016)
   - `shopCats`: string[] — categorieën van boodschappenartikelen in de volgorde waarop ze op de boodschappenlijst staan (standaard: fruit, groente, vlees/vis, kruiden, conserven, (maaltijd)saus, broodbeleg, zuivel, diepvries, lekkers, brood; ADR-015)
+- Boodschappenmomenten (`shopRuns`) worden niet meer opgeslagen (ADR-016); bij normaliseren wordt het veld weggegooid. Oude data met `shopRuns`/`prices` wordt genegeerd.
 - Dag-indices zijn relatief t.o.v. `weekStartDay` (index 0 = weekstart).
 - Instellingen zijn lokaal: ze worden nooit naar een server of GitHub geschreven en zijn voor andere households niet zichtbaar (ADR-010).
 
@@ -34,7 +35,8 @@ Zie INTENT.md voor doel en principes; ADR-009 t/m ADR-011 voor configuratie, pri
 - Per dag een recept uit de categorie (niet herhaald binnen de week waar mogelijk) + knop **vergrendelen**. Handmatig per dag via **tekstveld** (geen dropdown), zie "Gerecht typen".
 - **Gerecht typen**: per dag een tekstveld ("Typ een gerecht…"). Na ≥ 2 letters verschijnt een suggestielijst met recepten (categorie ≠ "extra", maximaal 6; beginnend-met eerst; de gematchte letters zijn gemarkeerd; pijltjestoetsen bewegen de actieve suggestie). Enter of klik selecteert de suggestie. Enter zonder suggestie, of blur: een exacte hoofdletterongevoelige match op een receptnaam → dat recept; anders wordt de tekst als **vrije tekst** opgeslagen (`{ custom }`) met tag "📍 geen boodschappen" — die dag staat in het menu maar niet op de boodschappenlijst en het eters-icoon is uit. Een leeg veld wist de dag (bij blur/commit). Vergrendeling en `eaters` blijven behouden bij wisselen tussen recept en vrije tekst.
 - **Eters per dag**: naast het slot een 👥-icoon; bij afwijking van `householdSize` een badge met het absolute aantal eters (mag ook láger zijn). Klik op het icoon → de regel klapt inline open met een stapper (−/+), "standaard: N eters" en **Standaard herstellen** (wist de override; een waarde gelijk aan `householdSize` wordt ook als standaard behandeld). Wordt opgeslagen als `eaters` in de menuByDate-entry. Bij vrije tekst is het icoon gedimd en niet actief.
-- Week regenereren (geldt voor de getoonde week): vergrendelde dagen blijven staan; de afvinkjes van de getoonde week worden gewist. De boodschappenlijst volgt altijd de getoonde week.
+- Week regenereren (geldt voor de getoonde week): vergrendelde dagen blijven staan; de afvinkjes van de getoonde week worden gewist.
+- **Gerechtstatus (ADR-016)**: per datum binnen de scope van de boodschappenlijst (zie Boodschappen) toont de dagregel een icoon tussen eters-knop en slot: **✅** als alle zichtbare ingrediënten van het gerecht van die dag gecheckt zijn (title "Alle ingrediënten van dit gerecht zijn in huis"), **❗** als minstens één maar niet alles gecheckt is (title "n van m ingrediënten mist nog"), en niets als er niets gecheckt is of de dag buiten de scope valt. Zichtbaar in de weekweergave van die datum.
 - Migratie (ADR-005): een oude `menu`-array van 7 dagen (index t.o.v. de weekstart, zonder datum) wordt bij het laden afgebeeld op de datums van de huidige week; vinkjes-sleutels "<dagindex>-…" worden mee omgezet naar "<datum>-…".
 
 ## Recepten (ADR-006, ADR-013)
@@ -61,24 +63,22 @@ Zie INTENT.md voor doel en principes; ADR-009 t/m ADR-011 voor configuratie, pri
 - Uitleg achter een ℹ️-popover in de kop van de tab.
 - `normalizeLocations` / `normalizeStock` / `normalizeExtras` bij laden; oude `cat`-waarden (kast/koel/fruit/kruiden) migreren naar locatie + categorie (zie ADR-015).
 
-## Boodschappen (ADR-015)
-- `shopRuns` splitst de week: ingrediënten van een gerecht vallen in de run van de dag waarop het gerecht staat. Dagen met een vrije-tekst entry (`custom`) verschijnen hier niet.
-- Per run: één **platte lijst** met afvinkboxen, **gesorteerd op categorie-volgorde** (`settings.shopCats`; artikelen zonder/onbekende categorie achteraan). De categorie zelf wordt niet getoond. Naast de run-lijsten: sectie "Extra" (vrije artikelen, optioneel met categorie bij toevoegen) en sectie "Standaardvoorraad aanvullen" (tekorten, "(n van want)") — beide eveneens plat en op categorie gesorteerd.
+## Boodschappen (ADR-016; ADR-015 voor categorieën/winkelvoorkeur)
+- **Scope = vandaag + aantal dagen**: `scopeKeys` = de 7 datums vanaf vandaag (door de weekgrens heen). Max aantal dagen = aantal **aaneengesloten gelockte dagen met een gerecht** vanaf vandaag (max 7); default = `min(4, max)`; bereik 0..max. De lijst volgt dus **vandaag**, onafhankelijk van de getoonde week in het weekmenu. Dagen met een vrije-tekst entry (`custom`) genereren geen artikelen.
+- **Kop**: titel "Boodschappenlijst · <datum van vandaag>" + ℹ️/⚙️; daaronder één regel: stapper aantal dagen ("− n +", "+" disabled op max, "−" disabled op 0) + "dagen" + supermarkt-chips (multi-select, korte label). Geen range/max/telling in de kop. De keuze is **vluchtig** (niet opgeslagen).
+- **Supermarktkeuze**: default-selectie = winkels met `defaultShop: true` uit `settings.markets`. Een artikel met een winkelvoorkeur (`market`) buiten de selectie wordt **verborgen** (met winkel-chip als het wél zichtbaar is). Lege lijst door de filter → "Niets te halen bij <geselecteerde supermarkt(en)>" + chip "Toon alle supermarkten" (reset). Zonder artikelen überhaupt: "Stel eerst een weekmenu samen…".
+- **Eén platte lijst** met afvinkboxen: ingrediënten van gerechten in scope + extra artikelen (optioneel met categorie) + voorraadtekorten ("(n van want)" bij want > 1), alle tesamen **gesorteerd op categorie-volgorde** (`settings.shopCats`; onbekend/geen categorie achteraan); de categorie zelf wordt niet getoond; geen sectiekoppen meer. De tab toont een teller (afgevinkt/totaal van de zichtbare lijst).
 - Categorie van een artikel: expliciet bij voorraadproducten en extra artikelen; recept-ingrediënten erven categorie/winkel van een product met dezelfde naam (`priceKey`, hoofdletterongevoelig).
+- **Houdbaarheidsdatum**: bij een ingrediënt-rij (van een gerecht) met categorie `groente` of `zuivel` staat achter de naam een datumchip `<dagkort> <DD-MM>` van de dag van dat gerecht.
 - **Categorieën beheren** (⚙️ op de tab → inline paneel): toevoegen (onderaan), verwijderen (✕ disabled zolang er een product/extra artikel in zit) en volgorde wijzigen (▲▼). Uitleg achter ℹ️-popover.
-- **Schaling per dag (ADR-012)**: bij een dag met `eaters`-afwijking worden de ingrediënten van die dag geschaald met factor `eaters / householdSize`: alleen regels met een leidend getal + eenheid schalen mee (uitgezonderd vaste verpakkingen blik/pak/pakje/zak/doos/fles), afgerond met `Math.round` (minimaal 1); weergave inline "origineel (doorgehaald) → nieuw"; onder de run een footnote met de factor(en) ("Hoeveelheden geschaald voor afwijkende eters (×f t.o.v. standaard M eters); regels zonder getal blijven gelijk."). Prijzen en run-totalen blijven gebaseerd op het originele label.
-- "Vinkjes wissen" reset alle checkboxen; de tab toont een teller (afgevinkt/totaal).
-- Prijsinformatie (ADR-008): per artikelregel rechts de beste bekende prijs (winkel + bedrag); per run-kop per winkel het totaal + dekking "(x/n met prijs)" en, bij volledige dekking, een badge "goedkoopste: <winkel>". Artikelen met een **winkelvoorkeur** (`market`) tonen in plaats daarvan een winkel-chip en tellen **niet mee** in totalen/dekking/goedkoopste-badge (prijsvergelijking heeft dan geen zin).
-
-## Prijzen (ADR-008, ADR-010)
-- Winkels uit `markets` (instellingen). Prijzen per artikel: handmatig ingevoerd óf optioneel online opgehaald (niet-privé data, ADR-010); lokaal gecached.
-- Opslag: localStorage `weekmenu-app-v1`, veld `prices`: `{ "<priceKey>": { ah: 2.5, jumbo: 2.2, lidl: null } }`.
-- `priceKey(label)` = getrimd + lowercase ("Melk" = "melk").
-- `marketTotals(items)` somt per winkel (onbekende prijzen overgeslagen, dekking apart bijgehouden); `bestPrice(item)` = laagste bekende prijs + bijbehorende winkel.
+- **Schaling per dag (ADR-012)**: bij een dag met `eaters`-afwijking worden de ingrediënten van die dag geschaald met factor `eaters / householdSize`: alleen regels met een leidend getal + eenheid schalen mee (uitgezonderd vaste verpakkingen blik/pak/pakje/zak/doos/fles), afgerond met `Math.round` (minimaal 1); weergave inline "origineel (doorgehaald) → nieuw"; onder de lijst een footnote met de factor(en).
+- **Afvinken & klaar**: per product afvinken. Knop **"Klaar met winkelen"** (groen) forceert niets en toont een inline melding "✅ n gerechten compleet · ❗ m mist nog iets — zie weekmenu (lijst blijft afvinkbaar)" (bij niets gecheckt: "Nog niets afgevinkt…"); de melding is live (achteraf afvinken werkt). "Vinkjes wissen" reset alle checkboxen en de melding.
+- **Gerechtstatus** staat bij Weekmenu (ADR-016): ✅/❗ per dag in scope.
 
 ## State & opslag (ADR-005, ADR-009, ADR-010)
-- Alles in localStorage-sleutel `weekmenu-app-v1`: menu per datum (`menuByDate`: `{ id, locked, eaters? }` of `{ custom, locked? }`), vinkjes, extra artikelen (`{ name, cat? }`), voorraad (`stock` + `stockLocations`), recepten, prijzen en **settings** (incl. `shopCats`).
-- Nooit iets naar een server of GitHub; online alleen voor niet-privé data (prijzen).
+- Alles in localStorage-sleutel `weekmenu-app-v1`: menu per datum (`menuByDate`: `{ id, locked, eaters? }` of `{ custom, locked? }`), vinkjes, extra artikelen (`{ name, cat? }`), voorraad (`stock` + `stockLocations`), recepten en **settings** (incl. `shopCats` en `markets` met `defaultShop`).
+- `prices` en `shopRuns` worden niet meer opgeslagen (ADR-016); oude waarden worden bij laden genegeerd.
+- Nooit iets naar een server of GitHub (ADR-010).
 
 ## Build & tests (ADR-011)
 - Bron: `src/App.jsx`; build: `npm run build` (→ `src/app.js`, meegecommit; CI controleert synchroniteit).

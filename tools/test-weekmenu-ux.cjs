@@ -75,7 +75,7 @@ function make(seed) {
   };
   // menuByDate is de 2e useState in App (na `tab`); index-based is robuust ook als de map leeg is
   const menuByDateState = () => m.hooks.state[1];
-  const settingsState = () => m.hooks.state.find((x) => x && !Array.isArray(x) && typeof x === "object" && "householdSize" in x && "shopRuns" in x);
+  const settingsState = () => m.hooks.state.find((x) => x && !Array.isArray(x) && typeof x === "object" && "householdSize" in x);
   render();
   return { m, render, walk, findTab, findButton, dishInputs, eatersButtons, stepperBtn, nodesWithClass, tagEatersChildren, footnoteChildren, menuByDateState, settingsState, html: () => JSON.stringify(serialize(render())) };
 }
@@ -187,15 +187,16 @@ function make(seed) {
 // 4. Eters per dag: inline stapper, badge bij afwijking, {eaters} in menuByDate, schaling op de boodschappenlijst.
 {
   const keys = weekKeysFor(0, 0);
-  const t = make({ menuByDate: { [keys[4]]: { id: "r38" } } }); // wo: Chili con carne ("3 tomaten", "1 ui", "1 blik mais", "Gehakt")
+  const ti = keys.indexOf(dateKey(new Date())); // vandaag: de boodschappenlijst-scope start bij vandaag (ADR-016)
+  const t = make({ menuByDate: { [keys[ti]]: { id: "r38", locked: true } } }); // Chili con carne ("3 tomaten", "1 ui", "1 blik mais", "Gehakt")
   let eb = t.eatersButtons();
-  eb[4].props.onClick(); // regel openklappen
+  eb[ti].props.onClick(); // regel openklappen
   let h = t.html();
   check("eaters-regel klapt inline open met stapper + standaard/reset", !!t.stepperBtn("+") && h.indexOf("standaard:") !== -1 && h.indexOf("Standaard herstellen") !== -1);
   t.stepperBtn("+").props.onClick();
   t.stepperBtn("+").props.onClick(); // 4 -> 6
   let mbd = t.menuByDateState();
-  check("eaters=6 opgeslagen bij de datum (absoluut aantal)", mbd[keys[4]].eaters === 6 && mbd[keys[4]].id === "r38");
+  check("eaters=6 opgeslagen bij de datum (absoluut aantal)", mbd[keys[ti]].eaters === 6 && mbd[keys[ti]].id === "r38");
   h = t.html();
   check("badge met 6 toont bij afwijking", h.indexOf("ebadge") !== -1);
   check("hint met factor 1,5 in de open regel", h.indexOf("boodschappenlijst") !== -1 && h.indexOf("1,5") !== -1);
@@ -212,14 +213,14 @@ function make(seed) {
   t.stepperBtn("−").props.onClick();
   t.stepperBtn("−").props.onClick(); // 6 -> 2 (minder eters mag ook)
   mbd = t.menuByDateState();
-  check("minder eters mag: eaters=2 opgeslagen", mbd[keys[4]].eaters === 2);
+  check("minder eters mag: eaters=2 opgeslagen", mbd[keys[ti]].eaters === 2);
   t.findTab("Boodschappen").props.onClick();
   h = t.html();
   check("schaling factor 0,5 in footnote en '3 tomaten' -> '2 tomaten'", t.footnoteChildren().indexOf("0,5") !== -1 && h.indexOf("2 tomaten") !== -1);
   t.findTab("Weekmenu").props.onClick();
   t.findButton("Standaard herstellen").props.onClick();
   mbd = t.menuByDateState();
-  check("'Standaard herstellen' wist de afwijking (geen eaters meer)", !("eaters" in mbd[keys[4]]));
+  check("'Standaard herstellen' wist de afwijking (geen eaters meer)", !("eaters" in mbd[keys[ti]]));
   check("daarna geen badge meer", t.html().indexOf("ebadge") === -1);
 }
 

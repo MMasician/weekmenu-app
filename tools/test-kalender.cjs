@@ -3,7 +3,7 @@
 // - weeknavigatie: 1 of meer weken terug/vooruit via knoppen en via klikken op een kalenderdag
 // - vergrendelde gerechten worden per datum opgeslagen (menuByDate) en zijn op die datum later terug te vinden
 // - migratie van oude `menu`-array naar menuByDate (ADR-005)
-// - de boodschappenlijst volgt de getoonde week
+// - de boodschappenlijst volgt vandaag + instelbaar aantal dagen (ADR-016), niet de getoonde week
 const path = require("path");
 const { loadApp, serialize } = require(path.join(__dirname, "render-harness.cjs"));
 
@@ -50,7 +50,7 @@ function make(seed) {
     walk(render(), (n) => { if (n && n.type === "button" && JSON.stringify(n.children).indexOf(text) !== -1) found = n; });
     return found;
   };
-  const settingsState = () => m.hooks.state.find((x) => x && !Array.isArray(x) && typeof x === "object" && "householdSize" in x && "shopRuns" in x);
+  const settingsState = () => m.hooks.state.find((x) => x && !Array.isArray(x) && typeof x === "object" && "householdSize" in x);
   const offsetState = () => m.hooks.state.find((x) => typeof x === "number");
   const menuByDateState = () =>
     m.hooks.state.find((x) => x && !Array.isArray(x) && typeof x === "object" && Object.values(x).some((v) => v && typeof v === "object" && "id" in v));
@@ -221,20 +221,22 @@ function make(seed) {
   check("gemigreerd gerecht zichtbaar in de daglijst (r21 in het invoerveld)", t.html().indexOf("Burritobowl met tonijn") !== -1);
 }
 
-// 8. De boodschappenlijst volgt de getoonde week.
+// 8. De boodschappenlijst volgt vandaag + het ingestelde aantal dagen, NIET de getoonde week (ADR-016).
 {
   const w = 0;
-  const keys = weekKeysFor(w, 0);
-  const t = make({ menuByDate: { [keys[0]]: { id: "r25", locked: true } } });
+  weekKeysFor(w, 0);
+  const todayK = dateKey(new Date());
+  const t = make({ menuByDate: { [todayK]: { id: "r25", locked: true } } });
   t.findTab("Boodschappen").props.onClick();
   let h = t.html();
-  check("huidige week: boodschappenlijst toont de ingrediënten van het gerecht van die datum", h.indexOf("Boodschappenlijst zaterdag") !== -1 && h.indexOf("Zalm") !== -1);
+  check("lijst van vandaag: titel met vandatum + ingrediënten van het gelockte gerecht van vandaag (geen run-label)",
+    h.indexOf("Boodschappenlijst ·") !== -1 && h.indexOf("Zalm") !== -1 && h.indexOf("Boodschappenlijst zaterdag") === -1);
   t.findTab("Weekmenu").props.onClick();
   t.openDateSheet();
   t.findButton("Volgende week").props.onClick();
   t.findTab("Boodschappen").props.onClick();
   h = t.html();
-  check("volgende week zonder menu: lege boodschappenlijst", h.indexOf("Stel eerst een weekmenu samen") !== -1 && h.indexOf("Zalm") === -1);
+  check("volgende week tonen verandert de lijst niet (scope start bij vandaag)", h.indexOf("Zalm") !== -1 && h.indexOf("Stel eerst een weekmenu samen") === -1);
 }
 
 console.log(fails === 0 ? "ALLE TESTS GESLAAGD" : fails + " TEST(S) GEFAALD");
