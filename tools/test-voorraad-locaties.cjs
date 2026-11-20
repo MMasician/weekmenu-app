@@ -41,7 +41,7 @@ function make(seed) {
     let found = null;
     walk(render(), (n) => {
       if (found || !n || n.type !== "div" || !n.children) return;
-      if (n.children.some((c) => c && c.type === "span" && c.children && c.children[0] === label)) found = n;
+      if (n.children.some((c) => c && c.type === "span" && JSON.stringify(c.children || []).indexOf(label) !== -1)) found = n;
     });
     return found;
   };
@@ -53,9 +53,10 @@ function make(seed) {
   const stockState = () => m.hooks.state.find((x) => Array.isArray(x) && x.length && x[0] && "loc" in x[0] && "have" in x[0]);
   const locsState = () => m.hooks.state.find((x) => Array.isArray(x) && x.length && x[0] && "id" in x[0] && "name" in x[0] && !("ingredients" in x[0]) && !("loc" in x[0]));
   const settingsState = () => m.hooks.state.find((x) => x && !Array.isArray(x) && typeof x === "object" && "householdSize" in x);
+  const productsState = () => m.hooks.state.find((x) => Array.isArray(x) && x.length && x[0] && "unit" in x[0] && "market" in x[0] && "cat" in x[0]);
   const html = () => JSON.stringify(serialize(render()));
   render();
-  return { m, render, walk, findTab, findBtn, btnByText, btnByTitle, inputByPlaceholder, selectWithOption, findRow, childIn, stockState, locsState, settingsState, html };
+  return { m, render, walk, findTab, findBtn, btnByText, btnByTitle, inputByPlaceholder, selectWithOption, findRow, childIn, stockState, locsState, settingsState, productsState, html };
 }
 
 // ---------- 1. Defaults: locaties + shopCats, alles ingeklapt ----------
@@ -93,29 +94,44 @@ function make(seed) {
   t.btnByTitle("Locatie verwijderen").props.onClick();
   check("lege locatie wel verwijderbaar", !t.locsState().some((l) => l.name === "Bijkeuken") && t.locsState().length === nBefore - 1);
 
-  // ---------- 3. Uitklappen + product toevoegen (inline form bovenaan locatie) ----------
+  // ---------- 3. Uitklappen + product toevoegen (inline add-rij ONDERAAN, uniform met ingrediënt-rijen; ADR-017) ----------
   t.btnByText("Voorraadkast").props.onClick();
   h = t.html();
   check("uitgeklapt toont producten met categorie eronder", h.indexOf("Hagelslag") !== -1 && h.indexOf("categorie: broodbeleg") !== -1);
   check("gewenste voorraad grijs erachter", h.indexOf("gewenst 1") !== -1);
   t.btnByText("Product toevoegen").props.onClick();
-  const nameInput = t.inputByPlaceholder("hagelslag");
-  check("inline product-formulier bovenaan de locatie", !!nameInput);
+  const nameInput = t.inputByPlaceholder("Productnaam…");
+  check("inline add-rij onderaan de productlijst met naamveld (autocomplete)", !!nameInput);
   nameInput.props.onChange({ target: { value: "Kroepoek" } });
-  check("Toevoegen disabled zonder categorie", t.btnByText("Toevoegen").props.disabled === true);
-  t.selectWithOption("(maaltijd)saus").props.onChange({ target: { value: "(maaltijd)saus" } });
-  t.selectWithOption("geen voorkeur").props.onChange({ target: { value: "lidl" } });
-  check("Toevoegen enabled met naam+categorie", t.btnByText("Toevoegen").props.disabled === false);
-  // gewenste-voorraad-stapper van het formulier (binnen het bg-stone-50 blok)
-  let form = null;
-  t.walk(t.render(), (n) => { if (!form && n && n.type === "div" && String(n.props.className || "").indexOf("bg-stone-50") !== -1) form = n; });
-  const formStepper = t.childIn(form, (n) => n && n.type === "div" && String(n.props.className || "").indexOf("stepper") !== -1);
-  formStepper.children.find((c) => c && c.children && c.children[0] === "+").props.onClick(); // want 1 -> 2
-  t.btnByText("Toevoegen").props.onClick();
-  const added = t.stockState().find((s) => s.name === "Kroepoek");
-  check("product toegevoegd met cat/winkel/want/have/loc", !!added && added.cat === "(maaltijd)saus" && added.market === "lidl" && added.want === 2 && added.have === 2 && added.loc === "loc-kast");
   h = t.html();
-  check("productrij toont categorie + winkel-chip + gewenst", h.indexOf("categorie: (maaltijd)saus") !== -1 && h.indexOf("Lidl") !== -1 && h.indexOf("gewenst 2") !== -1);
+  check("autocomplete (suggest-list) verschijnt bij typen", h.indexOf("suggest-list") !== -1);
+  let addRow = null;
+  t.walk(t.render(), (n) => { if (!addRow && n && n.type === "div" && String(n.props.className || "").indexOf("bg-stone-50") !== -1) addRow = n; });
+  const rowStepper = t.childIn(addRow, (n) => n && n.type === "span" && String(n.props.className || "").indexOf("stepper") !== -1);
+  rowStepper.children.find((c) => c && c.children && c.children[0] === "+").props.onClick(); // gewenst 1 -> 2
+  const addBtn = t.btnByTitle("Toevoegen");
+  check("Toevoegen (✓) actief bij naam", !!addBtn && addBtn.props.disabled === false);
+  addBtn.props.onClick();
+  const added = t.stockState().find((s) => s.name === "Kroepoek");
+  check("product toegevoegd met want/have/loc + pid-koppeling", !!added && added.want === 2 && added.have === 2 && added.loc === "loc-kast" && !!added.pid);
+  const kProd = t.productsState().find((p) => p.name === "Kroepoek");
+  check("nieuw product in de catalogus (cat 'overig')", !!kProd && kProd.cat === "overig");
+  h = t.html();
+  check("productrij toont categorie + gewenst 2", h.indexOf("categorie: overig") !== -1 && h.indexOf("gewenst 2") !== -1);
+
+  // product-detail inline: klik op de productnaam -> kaart met naam/categorie/eenheid/winkel
+  const kLink = t.findBtn((n) => n.props.className === "prodlink" && JSON.stringify(n.children || []).indexOf("Kroepoek") !== -1);
+  check("productnaam in de rij is klikbaar (prodlink)", !!kLink);
+  kLink.props.onClick();
+  h = t.html();
+  check("product-kaart klapt inline open (categorie + eenheid + winkel)", h.indexOf("Eenheid (standaard bij dit product)") !== -1 && h.indexOf("Voorkeurssupermarkt") !== -1 && h.indexOf("Opslaan") !== -1);
+  t.selectWithOption("(maaltijd)saus").props.onChange({ target: { value: "(maaltijd)saus" } });
+  t.btnByText("Lidl").props.onClick(); // winkel-chip in de kaart
+  t.btnByText("Opslaan").props.onClick();
+  const kProd2 = t.productsState().find((p) => p.name === "Kroepoek");
+  check("categorie + winkel opgeslagen in het product", !!kProd2 && kProd2.cat === "(maaltijd)saus" && kProd2.market === "lidl");
+  h = t.html();
+  check("productrij toont nieuwe categorie + winkel-chip", h.indexOf("categorie: (maaltijd)saus") !== -1 && h.indexOf("Lidl") !== -1);
 
   // ---------- 4. Edit-modus (✏️): gewenste voorraad via stapper ----------
   t.btnByTitle("Gewenste hoeveelheden in deze locatie").props.onClick();
@@ -146,14 +162,20 @@ function make(seed) {
   check("tekort in de platte lijst met (n van want); geen sectiekoppen meer (ADR-016)",
     h2.indexOf("Standaardvoorraad aanvullen") === -1 && h2.indexOf('"Extra"') === -1 && h2.indexOf("Melk") !== -1 && h2.indexOf("1 van 2") !== -1);
   check("geen categorietekst op de boodschappenlijst", h2.indexOf("categorie:") === -1);
-  t.inputByPlaceholder("Extra artikel").props.onChange({ target: { value: "Chips" } });
-  t.selectWithOption("geen categorie").props.onChange({ target: { value: "lekkers" } });
+  // extra artikel: inline rij met productnaam (autocomplete) + aantal; géén categorie bij opvoeren (ADR-017)
+  const extraName = t.inputByPlaceholder("Productnaam…");
+  let amountInput = null;
+  t.walk(t.render(), (n) => { if (!amountInput && n && n.type === "input" && n.props.title === "Aantal") amountInput = n; });
+  check("inline extra-rij bovenaan met naamveld + aantal", !!extraName && !!amountInput);
+  extraName.props.onChange({ target: { value: "Chips" } });
   t.btnByText("Toevoegen").props.onClick();
-  t.inputByPlaceholder("Extra artikel").props.onChange({ target: { value: "Appel" } });
-  t.selectWithOption("geen categorie").props.onChange({ target: { value: "fruit" } });
+  t.inputByPlaceholder("Productnaam…").props.onChange({ target: { value: "Appel" } });
   t.btnByText("Toevoegen").props.onClick();
   h2 = t.html();
-  check("extra artikelen gesorteerd op categorie (fruit vóór lekkers)", h2.indexOf("Appel") !== -1 && h2.indexOf("Chips") !== -1 && h2.indexOf("Appel") < h2.indexOf("Chips"));
+  check("extra artikelen als product met aantal in de lijst (1 Chips / 1 Appel)", h2.indexOf("1 Chips") !== -1 && h2.indexOf("1 Appel") !== -1);
+  check("extra sortering op categorie-volgorde (fruit vóór overig)", h2.indexOf("1 Appel") !== -1 && h2.indexOf("1 Chips") !== -1 && h2.indexOf("1 Appel") < h2.indexOf("1 Chips"));
+  const extraState = t.m.hooks.state.find((x) => Array.isArray(x) && x.length && x[0] && "amount" in x[0] && "name" in x[0]);
+  check("extra opgeslagen met pid + amount (gekoppeld aan catalogus)", !!extraState && extraState.every((x) => "pid" in x && "amount" in x));
 
   // ---------- 7. Categorieën beheren (inline paneel): toevoegen, volgorde, verwijderen ----------
   t.btnByTitle("Categorieën beheren").props.onClick();
