@@ -1,6 +1,6 @@
 # UX-voorstel: boodschappenlijst van vandaag — dagenbereik, supermarktkeuze, houdbaarheidsdatum, gerechtstatus; prijzen-tab vervalt
 
-**Status: ronde 1 — mocks ter goedkeuring per scherm (draft PR). Nog niet geïmplementeerd in `src/App.jsx`.**
+**Status: ronde 2 — feedback op ronde 1 verwerkt; nieuwe mocks `r2-*` ter goedkeuring per scherm (zelfde draft PR). Nog niet geïmplementeerd in `src/App.jsx`.**
 
 ## Aanleiding (wensen)
 
@@ -50,6 +50,25 @@
 ### 6. Lege lijst (alles verborgen door de winkelfilter)
 - `11-leeg-door-winkelfilter-versie-A-reset.png` — lege-state "Niets te halen bij Albert Heijn" + chip-knop **"Toon alle supermarkten"** (reset van de selectie).
 - `12-leeg-door-winkelfilter-versie-B-link.png` — idem, maar met link **"Winkels bovenaan aanpassen ↑"** in plaats van een reset-knop.
+
+## Ronde 2 — feedback na ronde 1 (mocks `r2-*`)
+
+**Goedgekeurd uit ronde 1:** scherm 2 = **versie B** (`04-…-datum-chip.png`); scherm 6 = **versie A** (`11-…-reset.png` — lege-state noemt de geselecteerde supermarkt, reset is een expliciete chip, de selectie zelf verandert niet automatisch).
+
+**Aanpassingen met nieuwe versies:**
+
+- **Scherm 1 (boodschappenkop): géén A/B uit ronde 1.** Eis: titel `Boodschappenlijst · <datum vandaag>` (bv. "Boodschappenlijst · vr 20-11") met alleen ℹ️/⚙️ ernaast; daaronder **één regel**: stapper aantal dagen (`− 3 +` + "dagen") gevolgd door de supermarkt-chips. Géén dagenrange, géén max-indicatie, géén "x verborgen"-telling, geen dubbele "boodschappen"-tekst.
+  - `r2-01-kop-1regel-versie-A-kaart.png` — de ene regel in een witte kaart.
+  - `r2-02-kop-1regel-versie-B-los.png` — de ene regel los (zonder kaart) direct onder de titel.
+- **Scherm 3 (klaar bij supermarkt): versie B uit ronde 1, knop wordt groen** (posit iever), melding hoeveel gerechten compleet/mist blijft (zinvolle feedback; afterwards afvinken moet blijven kunnen — de lijst blijft gewoon bewerkbaar). Toast vs inline:
+  - `r2-03-klaar-groen-versie-A-toast.png` — groene "Klaar met winkelen" + toast onderin.
+  - `r2-04-klaar-groen-versie-B-inline.png` — groene knop + inline regel eronder (blijft staan).
+- **Scherm 4 (gerechtstatus): versie B (klein icoon), maar met echt vinkje** in plaats van een groen vakje:
+  - `r2-05-status-vinkje-versie-A-emoji.png` — ✅ / ❗ emoji-icoontjes (renderen betrouwbaar).
+  - `r2-06-status-vinkje-versie-B-checkmark.png` — ✓ / ! als tekst (let op: het ✓-teken rendert in de headless mock niet betrouwbaar — in de praktijk op de telefoon vast wel, maar emoji is zekerder).
+- **Scherm 5 (instellingen): versie A** (geen extra info-tekst), plus per supermarkt een **"standaard"-indicatie** (wordt default geselecteerd op de boodschappenlijst; per huishouden lokaal in `settings.markets`, bv. veld `defaultShop`). De keuze tijdens het winkelen zelf blijft vluchtig. Een dag-afhankelijke keuze blijft handmatig (vluchtige selectie).
+  - `r2-07-instellingen-default-versie-A-checkbox.png` — per winkel een checkbox "standaard".
+  - `r2-08-instellingen-default-versie-B-chip.png` — per winkel een chip "standaard" (aan = donker).
 
 ## Na goedkeuring per scherm (implementatie, zelfde PR)
 
