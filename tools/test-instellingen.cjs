@@ -56,7 +56,7 @@ function make(seed) {
   };
   const recipesState = () => m.hooks.state.find((x) => Array.isArray(x) && x.length > 0 && x[0] && x[0].cat);
   const settingsState = () =>
-    m.hooks.state.find((x) => x && !Array.isArray(x) && typeof x === "object" && "householdSize" in x && "shopRuns" in x);
+    m.hooks.state.find((x) => x && !Array.isArray(x) && typeof x === "object" && "householdSize" in x);
   const catOf = (id) => ((recipesState() || []).find((r) => r.id === id) || {}).cat;
   const dayLabels = () => {
     const out = [];
@@ -85,7 +85,8 @@ function make(seed) {
   check("standaard 2 vega / 3 vlees op overige dagen", cats.filter((c) => c === "vega").length === 2 && cats.filter((c) => c === "vlees").length === 3);
   const st = t.settingsState();
   check("settings genormaliseerd naar defaults", !!st && st.householdSize === 4 && st.weekStartDay === 0 &&
-    JSON.stringify(st.fishDays) === "[0,4]" && st.vegaTarget === 2 && st.markets.length === 3 && st.shopRuns.length === 2);
+    JSON.stringify(st.fishDays) === "[0,4]" && st.vegaTarget === 2 && st.markets.length === 3 &&
+    st.markets.every((m) => m.defaultShop === true) && !("shopRuns" in st));
 }
 
 // 2. Aangepaste instellingen uit localStorage: weekmenu, runs en winkels volgen
@@ -113,17 +114,19 @@ function make(seed) {
   const cats = [0, 2, 3, 4, 6].map((d) => t.catOf(menu[d].id));
   check("vegaTarget 3 -> 3 vega / 2 vlees op overige dagen", cats.filter((c) => c === "vega").length === 3 && cats.filter((c) => c === "vlees").length === 2);
 
+  // seed bevat expres nog shopRuns + prices: die worden genegeerd (ADR-016)
   t.findTab("Boodschappen").props.onClick();
   const sh = t.html();
-  check("boodschappenruns uit instellingen (Run A, Run B)", sh.indexOf("Run A") !== -1 && sh.indexOf("Run B") !== -1 && sh.indexOf("Run A") < sh.indexOf("Run B"));
-  check("dagen bij run gekopieerd uit instellingen (Maandag..Zondag)", sh.indexOf("Maandag") !== -1 && sh.indexOf("Zondag") !== -1);
-
-  t.findTab("Prijzen").props.onClick();
-  const ph = t.html();
-  check("winkels uit instellingen in prijzentab (Plus wel, Jumbo niet)", ph.indexOf("Plus") !== -1 && ph.indexOf("Albert") !== -1 && ph.indexOf("Jumbo") === -1);
+  check("geen run-labels meer op de boodschappenlijst (Run A/Run B uit seed genegeerd)", sh.indexOf("Run A") === -1 && sh.indexOf("Run B") === -1);
+  check("geen Prijzen-tab meer", !t.findTab("Prijzen"));
+  t.findTab("Instellingen").props.onClick();
+  const ih = t.html();
+  check("Instellingen: geen 'Boodschappenmomenten'-sectie meer", ih.indexOf("Boodschappenmomenten") === -1);
+  check("Instellingen: 'Supermarkten' met per winkel 'standaard'", ih.indexOf("Supermarkten") !== -1 && ih.indexOf("standaard") !== -1);
 
   const st = t.settingsState();
-  check("settings persisted in state", !!st && st.householdSize === 6 && st.weekStartDay === 2 && st.markets.map((m) => m.key).join(",") === "ah,plus");
+  check("settings persisted in state (shopRuns weg, defaultShop aangevuld)", !!st && st.householdSize === 6 && st.weekStartDay === 2 &&
+    st.markets.map((m) => m.key).join(",") === "ah,plus" && st.markets.every((m) => m.defaultShop === true) && !("shopRuns" in st));
 }
 
 // 3. Normalisatie: onvolledige settings + oude mix wordt genegeerd; vergrendelde dag blijft staan

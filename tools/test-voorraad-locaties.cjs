@@ -52,7 +52,7 @@ function make(seed) {
   };
   const stockState = () => m.hooks.state.find((x) => Array.isArray(x) && x.length && x[0] && "loc" in x[0] && "have" in x[0]);
   const locsState = () => m.hooks.state.find((x) => Array.isArray(x) && x.length && x[0] && "id" in x[0] && "name" in x[0] && !("ingredients" in x[0]) && !("loc" in x[0]));
-  const settingsState = () => m.hooks.state.find((x) => x && !Array.isArray(x) && typeof x === "object" && "householdSize" in x && "shopRuns" in x);
+  const settingsState = () => m.hooks.state.find((x) => x && !Array.isArray(x) && typeof x === "object" && "householdSize" in x);
   const html = () => JSON.stringify(serialize(render()));
   render();
   return { m, render, walk, findTab, findBtn, btnByText, btnByTitle, inputByPlaceholder, selectWithOption, findRow, childIn, stockState, locsState, settingsState, html };
@@ -143,7 +143,8 @@ function make(seed) {
   // ---------- 6. Boodschappenlijst: platte lijst, categorie-volgorde, geen categorietekst ----------
   t.findTab("Boodschappen").props.onClick();
   let h2 = t.html();
-  check("tekort in 'Standaardvoorraad aanvullen' met (n van want)", h2.indexOf("Standaardvoorraad aanvullen") !== -1 && h2.indexOf("Melk") !== -1 && h2.indexOf("1 van 2") !== -1);
+  check("tekort in de platte lijst met (n van want); geen sectiekoppen meer (ADR-016)",
+    h2.indexOf("Standaardvoorraad aanvullen") === -1 && h2.indexOf('"Extra"') === -1 && h2.indexOf("Melk") !== -1 && h2.indexOf("1 van 2") !== -1);
   check("geen categorietekst op de boodschappenlijst", h2.indexOf("categorie:") === -1);
   t.inputByPlaceholder("Extra artikel").props.onChange({ target: { value: "Chips" } });
   t.selectWithOption("geen categorie").props.onChange({ target: { value: "lekkers" } });
