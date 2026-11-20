@@ -204,7 +204,7 @@ function make(seed) {
   h = t.html();
   check("boodschappenlijst is platte lijst per run (geen dagkop-chip meer)", t.tagEatersChildren().indexOf("6") === -1);
   check("'3 tomaten' geschaald naar '5 tomaten' (×1,5, afgerond)", h.indexOf("5 tomaten") !== -1 && h.indexOf("3 tomaten") !== -1);
-  check("'1 ui' geschaald naar '2 ui'", h.indexOf("2 ui") !== -1);
+  check("'1 Ui' geschaald naar '2 Uien' (meervoud via productnaam, ADR-017)", h.indexOf("2 Uien") !== -1 && h.indexOf("1 Ui") !== -1);
   check("'1 blik mais' niet geschaald (vaste verpakking)", h.indexOf("2 blik") === -1);
   check("footnote legt schaling uit (6 eters, factor 1,5)", t.footnoteChildren().indexOf("geschaald") !== -1 && t.footnoteChildren().indexOf("1,5") !== -1);
   t.findTab("Weekmenu").props.onClick();

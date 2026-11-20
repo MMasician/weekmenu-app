@@ -1,6 +1,6 @@
 # UX-voorstel: productcatalogus — uniform producten opvoeren & verrijken (recepten / voorraad / boodschappen / weekmenu)
 
-**Status: ronde 1 en 2 goedgekeurd per scherm (zie onder). Ronde 3 (eenheden + automatische migratie) staat ter bespreking — mocks 20–23 in deze map. Daarna worden álles in deze PR verwerkt: `docs/SPECS.md`, nieuw ADR (na ADR-016), `tools/test-*.cjs`, `src/App.jsx` + `npm run build`/`npm run verify`, én in dezelfde PR de cache-bump (`CACHE_VERSION` in `sw.js` + `?v=` op alle 4 plekken in `index.html` — les PR #8/#9).**
+**Status: rondes 1–3 goedgekeurd per scherm en verwerkt in PR #28: ADR-017, `docs/SPECS.md`, `tools/test-producten-catalogus.cjs` (+ bestaande tests aangepast), `src/App.jsx` (+ `npm run build`, `npm run verify` groen, lint/typecheck exit 0, clean-room build-sync OK) en de cache-bump (`CACHE_VERSION` v10 in `sw.js` + `?v=9` op alle 4 plekken in `index.html`).**
 
 ## Aanleiding (wensen)
 
@@ -26,6 +26,14 @@ Mocks gerenderd in de eigen huisstijl (`styles.css` inline) op 390×844; datum v
 3. **Voorraad — product toevoegen: mock 16** — inline add-rij **onderaan** de productlijst (op de plek van "＋ Product toevoegen"): naam met autocomplete + "gewenst"-stapper + ✓/✕.
 4. **Boodschappen — extra artikel: mock 17** — inline rij bovenaan de lijst: naam met autocomplete + **aantal** + Toevoegen; **geen categorie bij het opvoeren** (later via klik op de naam).
 6. **Weekmenu — gelockt gerecht: mock 19** — klik op het **gerecht zelf** klapt inline onder de dagregel open: eerst ingrediënt-chips, dan de bereiding. Klik op 🔒 = ontgrendelen (ongewijzigd).
+
+## Ronde 3 — goedgekeurd (2026-11-20)
+
+- Scherm 8 (eenheid in product-detail): **mock 20** (select; lege optie = streepje, geen "geen eenheid"-tekst).
+- Scherm 9 (ingrediënt-rij): **mock 24** (finaal): eenheid staat los tussen aantal en productnaam, afkomstig van het
+  product; alleen wijzigbaar (select met alléén de converteerbare eenheden) als de eenheid g/kg/ml/cl/l is;
+  bij andere eenheden platte tekst; bij géén eenheid staat er niets.
+- Conversieregels zoals voorgesteld (g↔kg en ml↔l over de 1000-grens; bij eenheid-wijziging wordt het aantal meegerrekend) en **volautomatische migratie** van alle lokale data (strings → amount + unit + product, met dedup) — beide akkoord.
 
 ## Ronde 3 — eenheden & migratie (suggesties, mocks 20–23)
 
