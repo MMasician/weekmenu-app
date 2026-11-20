@@ -994,6 +994,1139 @@ export default function App() {
     { key: "settings", label: "Instellingen" },
   ];
 
+  // --- Tab-views: elke tab/sheet als eigen render-functie, direct aangeroepen (geen <Component/>):
+  // --- de test-harness vouwt alleen plain-functie-aanroepen open. Alle hooks blijven in App. ---
+
+  const renderMenuTab = () => (
+    <div>
+      <div className="bg-white rounded-xl shadow-sm p-4 mb-4">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <div className="text-[10px] text-stone-400 font-medium tracking-wide">VANDAAG</div>
+            <div className="text-2xl font-bold">{todayLabel}</div>
+          </div>
+          <button
+            onClick={() => setDateSheetOpen(true)}
+            className="shrink-0 px-3 py-2 border rounded-lg text-sm text-stone-600 bg-white"
+          >
+            📅 Kies een datum ▾
+          </button>
+        </div>
+        <div className="text-xs text-stone-400 mt-1">Week van {weekLabel}</div>
+        <button
+          onClick={generateMenu}
+          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl mt-3"
+        >
+          Genereer weekmenu
+        </button>
+      </div>
+
+      <div className="space-y-2">
+        {days.map((day, i) => {
+          const key = weekKeys[i];
+          const entry = weekEntries[i];
+          const r = entry && entry.id ? byId[entry.id] : null;
+          const isToday = key === todayKey;
+          const draft = drafts[key];
+          const text = draft !== undefined ? draft : entry && entry.custom ? entry.custom : r ? r.name : "";
+          const q = text.trim().toLowerCase();
+          const exactMatch = q.length >= 2 ? recipes.find((x) => x.cat !== "extra" && x.name.toLowerCase() === q) : null;
+          const suggestions = openSuggest === key && q.length >= 2 && !exactMatch ? matchRecipes(recipes, q) : [];
+          const isCustom = !!(entry && entry.custom);
+          const eatersOverride = entry && entry.eaters != null && entry.eaters !== settings.householdSize ? entry.eaters : null;
+          const effectiveEaters = entry && entry.eaters != null ? entry.eaters : settings.householdSize;
+          const factor = settings.householdSize > 0 ? effectiveEaters / settings.householdSize : 1;
+          return (
+            <div key={key} className={`rounded-xl shadow-sm p-3 ${isToday ? "bg-emerald-100" : "bg-white"}`}>
+              <div className="flex items-center gap-3">
+                <div className="w-20 shrink-0">
+                  <div className={`text-sm font-semibold ${isToday ? "text-emerald-700" : ""}`}>{day}</div>
+                  <div className="text-[10px] text-stone-400">
+                    {fmtDay(key)}
+                    {isToday ? " · vandaag" : ""}
+                  </div>
+                </div>
+                <div className="flex-1 min-w-0 suggest-wrap">
+                  <input
+                    className="dish-input"
+                    value={text}
+                    placeholder="Typ een gerecht…"
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setDrafts((d) => ({ ...d, [key]: v }));
+                      setOpenSuggest(v.trim().length >= 2 ? key : null);
+                      setActiveSuggest(0);
+                    }}
+                    onBlur={() => commitDay(i)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        if (suggestions.length && suggestions[activeSuggest]) selectRecipe(i, suggestions[activeSuggest].id);
+                        else commitDay(i);
+                      } else if (e.key === "Escape") {
+                        setOpenSuggest(null);
+                      } else if (e.key === "ArrowDown" && suggestions.length) {
+                        e.preventDefault();
+                        setActiveSuggest((s) => Math.min(s + 1, suggestions.length - 1));
+                      } else if (e.key === "ArrowUp" && suggestions.length) {
+                        e.preventDefault();
+                        setActiveSuggest((s) => Math.max(s - 1, 0));
+                      }
+                    }}
+                  />
+                  {isCustom && (
+                    <div className="mt-0.5">
+                      <span className="tag-free">📍 geen boodschappen</span>
+                    </div>
+                  )}
+                  {!isCustom && r && (
+                    <div className="text-xs text-stone-400 mt-0.5">
+                      <span className={`inline-block px-1.5 rounded ${CAT_STYLE[r.cat]}`}>{CAT_LABEL[r.cat]}</span>
+                      <span className={`inline-block px-1.5 rounded ${TIME_STYLE[r.timeCat || "normaal"]}`}>{TIME_LABEL[r.timeCat || "normaal"]}</span>
+                    </div>
+                  )}
+                  {suggestions.length > 0 && (
+                    <div className="suggest-list">
+                      {suggestions.map((s, si) => (
+                        <div
+                          key={s.id}
+                          className={`suggest-item${si === activeSuggest ? " active" : ""}`}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            selectRecipe(i, s.id);
+                          }}
+                        >
+                          <span>{highlightMatch(s.name, q)}</span>
+                          <span className={`text-[10px] shrink-0 inline-block px-1.5 rounded ${CAT_STYLE[s.cat]}`}>{CAT_LABEL[s.cat]}</span>
+                        </div>
+                      ))}
+                      <div className="suggest-foot">↵ Enter — “{text.trim()}” als eigen tekst opslaan (geen boodschappen)</div>
+                    </div>
+                  )}
+                </div>
+                <button
+                  className={`eatersbtn${eatersOverride != null ? " over" : ""}${isCustom ? " opacity-40" : ""}`}
+                  title={isCustom ? "Geen boodschappen voor deze dag" : "Aantal eters deze dag"}
+                  onClick={() => {
+                    if (isCustom || !entry) return;
+                    setEatersOpen(eatersOpen === key ? null : key);
+                  }}
+                >
+                  👥{eatersOverride != null && <span className="ebadge">{eatersOverride}</span>}
+                </button>
+                {mealStatus[key] && (
+                  <span className="shrink-0 text-sm" title={mealStatus[key].title}>
+                    {mealStatus[key].icon}
+                  </span>
+                )}
+                <button
+                  title={entry && entry.locked ? "Ontgrendelen" : "Vergrendelen"}
+                  onClick={() => entry && setDay(i, { ...entry, locked: !entry.locked })}
+                  className={`shrink-0 w-8 h-8 rounded-lg text-sm flex items-center justify-center ${entry && entry.locked ? "bg-amber-100 text-amber-700" : "bg-stone-100 text-stone-400"}`}
+                >
+                  {entry && entry.locked ? "🔒" : "🔓"}
+                </button>
+              </div>
+              {eatersOpen === key && entry && !isCustom && (
+                <div className="mt-2 pt-2 border-t flex items-center gap-2 flex-wrap">
+                  <div className="stepper">
+                    <button onClick={() => setEaters(i, Math.max(1, effectiveEaters - 1))}>−</button>
+                    <span>{effectiveEaters}</span>
+                    <button onClick={() => setEaters(i, Math.min(99, effectiveEaters + 1))}>+</button>
+                  </div>
+                  <span className="text-xs text-stone-500">standaard: {settings.householdSize} eters</span>
+                  <button className="text-xs text-emerald-700 font-semibold" onClick={() => setEaters(i, null)}>
+                    Standaard herstellen
+                  </button>
+                  {factor !== 1 && (
+                    <span className="text-[10px] text-stone-400 ml-auto">boodschappenlijst ×{fmtFactor(factor)} voor deze dag</span>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <button
+        onClick={() => setRulesSheetOpen(true)}
+        className="w-full mt-4 py-2.5 border rounded-xl text-sm font-medium text-stone-600 bg-white shadow-sm"
+      >
+        ⚙️ Regels voor het weekmenu
+      </button>
+    </div>
+  );
+
+  const renderRecipesTab = () => (
+    <div>
+      {recipeInfoOpen && (
+        <div className="mb-2 text-xs text-stone-500">
+          Zoek op receptnaam en filter op bereidingstijd, ingrediënt of tag(s). Tik op een recept om naam, categorie, bereidingstijd, tags, ingrediënten en bereiding te bewerken. Alles wordt lokaal op je toestel opgeslagen; met exporteren/importeren deel je de lijst als JSON.
+        </div>
+      )}
+      <div className="searchbar">
+        <span className="sicon">🔍</span>
+        <input
+          className="recipe-search"
+          value={recipeQuery}
+          placeholder="Zoek op receptnaam…"
+          onChange={(e) => setRecipeQuery(e.target.value)}
+        />
+        {recipeQuery !== "" && (
+          <button className="sicon" title="Zoekopdracht wissen" onClick={() => setRecipeQuery("")}>✕</button>
+        )}
+        <button className="iconbtn" title="Hoe werkt zoeken en filteren?" onClick={() => setRecipeInfoOpen((v) => !v)}>ℹ️</button>
+        <button className="iconbtn" title="Recept toevoegen" onClick={() => setAddSheetOpen(true)}>＋</button>
+      </div>
+      <div className="filterrow">
+        {["alle", ...TIME_CATS].map((t) => (
+          <button
+            key={t}
+            className={`chip${t !== "alle" ? " " + t : ""}${timeFilter === t ? " on" : ""}`}
+            onClick={() => setTimeFilter(t)}
+          >
+            {t === "alle" ? "Alle" : timeLabelCap(t)}
+          </button>
+        ))}
+        {topTags.map((t) => (
+          <button
+            key={t}
+            className={`chip${tagFilters.includes(t) ? " on" : ""}`}
+            onClick={() => toggleTagFilter(t)}
+          >
+            {`🏷 ${t}`}
+          </button>
+        ))}
+        {allTags.length > topTags.length && (
+          <button className="chip" onClick={() => setFilterSheetOpen(true)}>{`＋${allTags.length - topTags.length} meer ▾`}</button>
+        )}
+        <button className="chip" style={{ marginLeft: "auto" }} onClick={() => setFilterSheetOpen(true)}>⚙ Filters ▾</button>
+      </div>
+      {hasRecipeFilters && (
+        <div className="afilterrow">
+          {rq !== "" && (
+            <span className="afilter">{`🔍 “${recipeQuery.trim()}” `}<button className="x" onClick={() => setRecipeQuery("")}>×</button></span>
+          )}
+          {timeFilter !== "alle" && (
+            <span className="afilter">{`⏱ ${TIME_LABEL[timeFilter]} `}<button className="x" onClick={() => setTimeFilter("alle")}>×</button></span>
+          )}
+          {ingQ !== "" && (
+            <span className="afilter">{`🥘 ${ingFilter.trim()} `}<button className="x" onClick={() => setIngFilter("")}>×</button></span>
+          )}
+          {tagFilters.map((t) => (
+            <span key={t} className="afilter">{`🏷 ${t} `}<button className="x" onClick={() => toggleTagFilter(t)}>×</button></span>
+          ))}
+          <button className="clearall" onClick={clearRecipeFilters}>Alles wissen</button>
+          <span className="count">{`${filteredRecipes.length} van ${recipes.length} recepten`}</span>
+        </div>
+      )}
+      {!hasRecipeFilters && ["vega", "vis", "vlees", "extra"].map((c) => {
+        const list = recipes.filter((r) => r.cat === c).sort((a, b) => a.name.localeCompare(b.name, "nl"));
+        if (!list.length) return null;
+        return (
+          <div key={c} className="mb-4">
+            <div className={`inline-block px-2 py-0.5 rounded-full text-sm font-semibold mb-2 ${CAT_STYLE[c]}`}>
+              {CAT_LABEL[c]}
+            </div>
+            <div className="space-y-1.5">{list.map((r) => renderRecipeRow(r))}</div>
+          </div>
+        );
+      })}
+      {hasRecipeFilters && (
+        <div className="space-y-1.5">
+          {[...filteredRecipes].sort((a, b) => a.name.localeCompare(b.name, "nl")).map((r) => renderRecipeRow(r))}
+        </div>
+      )}
+      <div className="mutedrow">
+        <button className="linkbtn" onClick={exportRecipes}>Exporteren</button>
+        <label className="linkbtn cursor-pointer">
+          Importeren
+          <input
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            onChange={(e) => { if (e.target.files[0]) importRecipes(e.target.files[0]); e.target.value = ""; }}
+          />
+        </label>
+        <button className="linkbtn" onClick={resetRecipes}>Standaardlijst terug</button>
+      </div>
+      {filterSheetOpen && (
+        <div>
+          <div className="backdrop" onClick={() => setFilterSheetOpen(false)}></div>
+          <div className="sheet">
+            <div className="handle"></div>
+            <div className="px-4 pb-4">
+              <div className="flex items-center mb-3">
+                <span className="text-lg font-bold">Filters</span>
+                <button className="ml-auto text-stone-400" onClick={() => setFilterSheetOpen(false)}>✕</button>
+              </div>
+              <div className="text-xs mb-1">
+                <span className="text-stone-500">Bereidingstijd</span>
+                <div className="segl mt-0.5">
+                  {["alle", ...TIME_CATS].map((t) => (
+                    <button key={t} className={timeFilter === t ? "on" : ""} onClick={() => setTimeFilter(t)}>
+                      {t === "alle" ? "Alles" : timeLabelCap(t)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="text-xs mt-3 mb-1">
+                <span className="text-stone-500">Ingrediënt bevat</span>
+                <input
+                  className="w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm"
+                  value={ingFilter}
+                  placeholder="bijv. zalm, ui, kaas…"
+                  onChange={(e) => setIngFilter(e.target.value)}
+                />
+              </div>
+              <div className="text-xs mt-3 mb-1">
+                <span className="text-stone-500">Tags (alle geselecteerde moeten erop — AND)</span>
+                <div className="filterrow" style={{ marginTop: ".25rem" }}>
+                  {allTags.length === 0 && <span className="text-stone-400 text-xs">nog geen tags in de pool</span>}
+                  {allTags.map((t) => (
+                    <button key={t} className={`chip${tagFilters.includes(t) ? " on" : ""}`} onClick={() => toggleTagFilter(t)}>
+                      {`🏷 ${t}`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex items-center gap-2 mt-4">
+                <button className="text-xs font-semibold text-stone-500 px-1 py-2" onClick={clearRecipeFilters}>Wis filters</button>
+                <button
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl text-sm"
+                  onClick={() => setFilterSheetOpen(false)}
+                >
+                  {`Toon ${filteredRecipes.length} recepten`}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {addSheetOpen && (
+        <div>
+          <div className="backdrop" onClick={() => setAddSheetOpen(false)}></div>
+          <div className="sheet">
+            <div className="handle"></div>
+            <div className="px-4 pb-4">
+              <div className="flex items-center mb-3">
+                <span className="text-lg font-bold">Nieuw recept</span>
+                <button className="ml-auto text-stone-400" onClick={() => setAddSheetOpen(false)}>✕</button>
+              </div>
+              <div className="text-xs mb-3">
+                <span className="text-stone-500">Naam</span>
+                <input
+                  className="w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm"
+                  value={newRecipe.name}
+                  placeholder="Naam…"
+                  onChange={(e) => setNewRecipe({ ...newRecipe, name: e.target.value })}
+                  onKeyDown={(e) => { if (e.key === "Enter") addRecipe(); }}
+                />
+              </div>
+              <div className="text-xs mb-3">
+                <span className="text-stone-500">Categorie</span>
+                <div className="filterrow" style={{ marginTop: ".25rem" }}>
+                  {["vega", "vis", "vlees", "extra"].map((c) => (
+                    <button key={c} className={`chip${newRecipe.cat === c ? " on" : ""}`} onClick={() => setNewRecipe({ ...newRecipe, cat: c })}>
+                      {CAT_LABEL[c]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="text-xs mb-3">
+                <span className="text-stone-500">Bereidingstijd</span>
+                <div className="segl mt-0.5">
+                  {TIME_CATS.map((t) => (
+                    <button key={t} className={newRecipe.timeCat === t ? "on" : ""} onClick={() => setNewRecipe({ ...newRecipe, timeCat: t })}>
+                      {timeLabelCap(t)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="text-xs mb-3">
+                <span className="text-stone-500">Tags</span>
+                <div className="flex flex-wrap gap-1 mt-0.5">
+                  {newRecipe.tags.map((t) => (
+                    <span key={t} className="tag">
+                      {t} <button className="tagx" onClick={() => setNewRecipe({ ...newRecipe, tags: newRecipe.tags.filter((x) => x !== t) })}>×</button>
+                    </span>
+                  ))}
+                </div>
+                <div className="tagadd">
+                  <input
+                    value={newRecipe.tagDraft}
+                    placeholder="＋ tag toevoegen…"
+                    onChange={(e) => setNewRecipe({ ...newRecipe, tagDraft: e.target.value })}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addNewTag(); } }}
+                  />
+                  <button onClick={addNewTag}>+</button>
+                </div>
+              </div>
+              <div className="text-xs mb-3">
+                <span className="text-stone-500">Ingrediënten (één per regel)</span>
+                <textarea
+                  rows={3}
+                  className="w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm"
+                  value={newRecipe.ingredients}
+                  placeholder="Ingrediënten, één per regel…"
+                  onChange={(e) => setNewRecipe({ ...newRecipe, ingredients: e.target.value })}
+                />
+              </div>
+              <div className="text-xs mb-3">
+                <span className="text-stone-500">Bereiding (optioneel)</span>
+                <textarea
+                  rows={2}
+                  className="w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm"
+                  value={newRecipe.bereiding}
+                  placeholder="Bereiding…"
+                  onChange={(e) => setNewRecipe({ ...newRecipe, bereiding: e.target.value })}
+                />
+              </div>
+              <button
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl text-sm"
+                onClick={addRecipe}
+              >
+                Toevoegen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {daySheetRecipe && (
+        <div>
+          <div className="backdrop" onClick={() => setDaySheetRecipe(null)}></div>
+          <div className="sheet">
+            <div className="handle"></div>
+            <div className="px-4 pb-4">
+              <div className="flex items-center mb-1">
+                <span className="text-lg font-bold">Kies een dag deze week</span>
+                <button className="ml-auto text-stone-400" onClick={() => setDaySheetRecipe(null)}>✕</button>
+              </div>
+              <div className="text-xs text-stone-500 mb-2">Week van {curWeekLabel} · alleen onvergrendelde dagen kiesbaar (🔒 = vastgezet)</div>
+              {curWeekKeys.map((k, i) => {
+                const entry = menuByDate[k];
+                const locked = !!(entry && entry.locked);
+                const cur = entry && entry.id ? byId[entry.id] : null;
+                const isToday = k === todayKey;
+                return (
+                  <button
+                    key={k}
+                    className={`dayrow${locked ? " locked" : ""}${isToday ? " today" : ""}`}
+                    disabled={locked}
+                    onClick={() => addRecipeToWeek(daySheetRecipe, k)}
+                  >
+                    <span className="dname">{days[i]}</span>
+                    <span className="ddate">{fmtDay(k)}{isToday ? " · vandaag" : ""}</span>
+                    <span className="ddish">{locked ? "🔒 " : ""}{entry && entry.custom ? entry.custom : cur ? cur.name : "leeg"}</span>
+                  </button>
+                );
+              })}
+              <div className="text-xs text-stone-400 mt-3">{daySheetRecipe.name} wordt aan de gekozen dag toegewezen (een onvergrendeld gerecht aldaar wordt overschreven).</div>
+            </div>
+          </div>
+        </div>
+      )}
+      {weekToast !== "" && <div className="toast">{weekToast}</div>}
+    </div>
+  );
+
+  const renderStockTab = () => (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm font-semibold text-stone-700">Locaties</span>
+        <span className="relative">
+          <button
+            className={`iconbtn${stockInfoOpen ? " on" : ""}`}
+            title="Hoe werkt de voorraad?"
+            onClick={() => setStockInfoOpen((v) => !v)}
+          >
+            ℹ️
+          </button>
+          {stockInfoOpen && (
+            <div className="pop">
+              <b>Hoe werkt de voorraad?</b>
+              <ul>
+                <li>Locaties (voorraadkast, koelkast…) zijn per huishouden: voeg toe met ＋ onderaan, verwijder met 🗑️ — pas als er geen producten meer aan hangen.</li>
+                <li>Klik op een locatie om de producten te zien; ＋ onderaan een locatie voegt een product toe (altijd te verwijderen met ✕).</li>
+                <li>Per product stel je de huidige voorraad in met −/+; de gewenste voorraad staat grijs erachter (“gewenst n”). Met ✏️ achter de locatie pas je de gewenste hoeveelheden aan.</li>
+                <li>Is de huidige voorraad lager dan gewenst? Dan staat het product automatisch op de boodschappenlijst.</li>
+                <li>De categorie zegt waar het product in de supermarkt ligt (bewerkbaar bij Boodschappen). Een getagde winkel betekent: daar wordt het bij voorkeur gehaald; prijsvergelijking heeft dan geen zin.</li>
+              </ul>
+            </div>
+          )}
+        </span>
+      </div>
+
+      {stockLocations.map((loc) => {
+        const items = productsOf(loc.id);
+        const open = !!openLocs[loc.id];
+        const editing = editLoc === loc.id;
+        return (
+          <div key={loc.id} className="bg-white rounded-xl shadow-sm mb-3 overflow-hidden">
+            <div className="flex items-center gap-2 px-3 py-2.5">
+              <button className="text-stone-400 text-xs w-4 shrink-0" title={open ? "Inklappen" : "Uitklappen"} onClick={() => toggleLoc(loc.id)}>
+                {open ? "▾" : "▸"}
+              </button>
+              <button className="flex-1 text-left min-w-0 font-medium text-sm truncate" onClick={() => toggleLoc(loc.id)}>
+                {loc.name}
+              </button>
+              <span className="text-xs text-stone-400 shrink-0" title={`${items.length} ${items.length === 1 ? "product" : "producten"}`}>
+                {items.length}
+              </span>
+              <button
+                className={`iconbtn${editing ? " on" : ""}`}
+                title={editing ? "Gewenste hoeveelheden niet meer bewerken" : "Gewenste hoeveelheden in deze locatie bewerken"}
+                onClick={() => setEditLoc(editing ? null : loc.id)}
+              >
+                ✏️
+              </button>
+              <button
+                className={`delbtn${items.length ? " dis" : ""}`}
+                disabled={items.length > 0}
+                title={items.length ? "Verwijderen kan pas als er geen producten meer aan deze locatie hangen" : "Locatie verwijderen"}
+                onClick={() => deleteLocation(loc.id)}
+              >
+                🗑️
+              </button>
+            </div>
+            {open && (
+              <div className="border-t border-stone-100">
+                {addProdLoc === loc.id && (
+                  <div className="p-3 border-b border-stone-100 bg-stone-50">
+                    <div className="text-xs mb-2">
+                      <span className="text-stone-500">Naam</span>
+                      <input
+                        className="w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm"
+                        value={newProd.name}
+                        placeholder="Bijv. hagelslag…"
+                        onChange={(e) => setNewProd({ ...newProd, name: e.target.value })}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 mb-2">
+                      <label className="text-xs">
+                        <span className="text-stone-500">Categorie</span>
+                        <select
+                          className="w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm text-stone-600"
+                          value={newProd.cat}
+                          onChange={(e) => setNewProd({ ...newProd, cat: e.target.value })}
+                        >
+                          <option value="">Kies categorie…</option>
+                          {shopCats.map((c) => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="text-xs">
+                        <span className="text-stone-500">Supermarkt (optioneel)</span>
+                        <select
+                          className="w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm text-stone-600"
+                          value={newProd.market}
+                          onChange={(e) => setNewProd({ ...newProd, market: e.target.value })}
+                        >
+                          <option value="">geen voorkeur</option>
+                          {markets.map((m) => (
+                            <option key={m.key} value={m.key}>{m.label}</option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                    <div className="text-xs mb-2">
+                      <span className="text-stone-500">Gewenste voorraad</span>
+                      <div className="stepper mt-0.5">
+                        <button onClick={() => setNewProd({ ...newProd, want: Math.max(0, newProd.want - 1) })}>−</button>
+                        <span>{newProd.want}</span>
+                        <button onClick={() => setNewProd({ ...newProd, want: newProd.want + 1 })}>+</button>
+                      </div>
+                    </div>
+                    <button
+                      className={`w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 rounded-xl text-sm${newProd.name.trim() && newProd.cat ? "" : " opacity-40"}`}
+                      disabled={!newProd.name.trim() || !newProd.cat}
+                      onClick={() => addProduct(loc.id)}
+                    >
+                      Toevoegen
+                    </button>
+                  </div>
+                )}
+                <div className="divide-y divide-stone-100">
+                  {items.map((s) => {
+                    const tekort = s.have < s.want;
+                    return (
+                      <div key={s.i} className="flex items-center gap-2 px-3 py-2 flex-wrap">
+                        <span className="flex-1 min-w-0 text-sm">
+                          {s.name}
+                          <span className="block text-[10px] text-stone-400">{`categorie: ${s.cat}`}</span>
+                        </span>
+                        <span className="flex items-center gap-1" title="Huidige voorraad">
+                          <button className="w-7 h-7 rounded-lg bg-stone-100 font-bold text-stone-600" onClick={() => bumpHave(s.i, -1)}>−</button>
+                          <span className={`w-6 text-center text-sm font-medium ${tekort ? "text-orange-600" : "text-stone-700"}`}>{s.have}</span>
+                          <button className="w-7 h-7 rounded-lg bg-stone-100 font-bold text-stone-600" onClick={() => bumpHave(s.i, 1)}>+</button>
+                        </span>
+                        {editing ? (
+                          <span className="flex items-center gap-1" title="Gewenste voorraad aanpassen">
+                            <button className="w-7 h-7 rounded-lg bg-stone-100 font-bold text-stone-600" onClick={() => bumpWant(s.i, -1)}>−</button>
+                            <span className="w-6 text-center text-sm font-medium text-stone-700">{s.want}</span>
+                            <button className="w-7 h-7 rounded-lg bg-stone-100 font-bold text-stone-600" onClick={() => bumpWant(s.i, 1)}>+</button>
+                          </span>
+                        ) : (
+                          <span className="text-xs text-stone-400 whitespace-nowrap">{`gewenst ${s.want}`}</span>
+                        )}
+                        {s.market && <span className="chip mkt" title="Winkelvoorkeur">{marketChip(s.market)}</span>}
+                        {tekort && <span className="text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full whitespace-nowrap">op lijst</span>}
+                        <button className="text-stone-300 hover:text-red-500 text-sm" title="Product verwijderen" onClick={() => deleteProduct(s.i)}>✕</button>
+                      </div>
+                    );
+                  })}
+                  {items.length === 0 && (
+                    <div className="px-3 py-3 text-sm text-stone-400 text-center">Nog geen producten in deze locatie.</div>
+                  )}
+                </div>
+                <button className="addrow" onClick={() => setAddProdLoc(addProdLoc === loc.id ? null : loc.id)}>
+                  ＋ Product toevoegen
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {addLocOpen && (
+        <div className="bg-white rounded-xl shadow-sm mb-3 p-3 flex gap-2 items-center">
+          <input
+            value={newLocName}
+            onChange={(e) => setNewLocName(e.target.value)}
+            placeholder="Naam van de locatie…"
+            className="flex-1 border rounded-lg px-3 py-2 text-sm"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                addLocation();
+              }
+            }}
+          />
+          <button className="iconbtn on" title="Locatie toevoegen" onClick={addLocation}>✓</button>
+          <button
+            className="delbtn"
+            title="Annuleren"
+            onClick={() => {
+              setAddLocOpen(false);
+              setNewLocName("");
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+      <button className="addcard" onClick={() => setAddLocOpen((v) => !v)}>
+        ＋ Locatie toevoegen
+      </button>
+
+      <div className="flex gap-2 mt-4">
+        <button
+          onClick={() => setStock(stock.map((s) => ({ ...s, have: s.want })))}
+          className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-medium"
+        >
+          ✓ Alles aangevuld
+        </button>
+        <button
+          onClick={() => {
+            setStock(defaultStock());
+            setStockLocations(DEFAULT_LOCATIONS.map((l) => ({ ...l })));
+          }}
+          className="py-2.5 px-4 border rounded-xl text-sm text-stone-500 hover:bg-white"
+        >
+          Standaardlijst terug
+        </button>
+      </div>
+    </div>
+  );
+
+  const renderShoppingTab = () => (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm font-semibold text-stone-700">{`Boodschappenlijst · ${todayLabel}`}</span>
+        <span className="flex gap-1.5 relative">
+          <button className={`iconbtn${shopInfoOpen ? " on" : ""}`} title="Hoe werkt de boodschappenlijst?" onClick={() => setShopInfoOpen((v) => !v)}>ℹ️</button>
+          <button className={`iconbtn${catsOpen ? " on" : ""}`} title="Categorieën beheren" onClick={() => setCatsOpen((v) => !v)}>⚙️</button>
+          {shopInfoOpen && (
+            <div className="pop">
+              <b>Hoe werkt de boodschappenlijst?</b>
+              <ul>
+                <li>Bovenaan kies je voor hoeveel dagen je boodschappen doet en bij welke supermarkt(en). Artikelen met een winkelvoorkeur voor een andere supermarkt zie je niet.</li>
+                <li>De lijst is één platte lijst op categorie-volgorde (zie ⚙️) — ingrediënt, voorraad of extra artikel maakt niet uit.</li>
+                <li>Afvinken maar. "Klaar met winkelen" toont per gerecht in het weekmenu of alles in huis is; "Vinkjes wissen" zet alles terug.</li>
+                <li>Bij groente/zuivel zie je de datum waarop het nodig is (beperkt houdbaar). Tekorten uit de voorraad ("n van want") staan automatisch in de lijst.</li>
+              </ul>
+            </div>
+          )}
+        </span>
+      </div>
+
+      <div className="flex items-center gap-2 mb-4 px-1">
+        <div className="stepper">
+          <button onClick={() => setShopDays(Math.max(0, shopDaysEff - 1))} disabled={shopDaysEff <= 0}>−</button>
+          <span>{shopDaysEff}</span>
+          <button onClick={() => setShopDays(Math.min(maxShopDays, shopDaysEff + 1))} disabled={shopDaysEff >= maxShopDays}>+</button>
+        </div>
+        <span className="text-xs text-stone-500 shrink-0">dagen</span>
+        <div className="flex gap-1 ml-auto overflow-x-auto">
+          {markets.map((m) => (
+            <button
+              key={m.key}
+              className={`chip${shopMarketsEff.includes(m.key) ? " on" : ""}`}
+              title={m.label}
+              onClick={() =>
+                setShopMarkets(
+                  shopMarketsEff.includes(m.key) ? shopMarketsEff.filter((x) => x !== m.key) : [...shopMarketsEff, m.key]
+                )
+              }
+            >
+              {marketChip(m.key)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {catsOpen && (
+        <div className="bg-white rounded-xl shadow-sm p-3 mb-4">
+          <div className="text-sm font-semibold mb-1">Categorieën</div>
+          <div className="text-xs text-stone-500 mb-2">
+            De volgorde is de volgorde op de boodschappenlijst. Een categorie zegt waar een artikel in de supermarkt ligt — tortilla en kroepoek horen daarom bij “(maaltijd)saus”.
+          </div>
+          <div className="divide-y divide-stone-100 border border-stone-100 rounded-xl">
+            {shopCats.map((c, i) => {
+              const used = stock.some((s) => s.cat === c) || extraItems.some((x) => x.cat === c);
+              return (
+                <div key={c} className="flex items-center gap-2 px-2 py-1.5">
+                  <span className="flex flex-col leading-none shrink-0">
+                    <button className="text-[9px] text-stone-400 hover:text-stone-700" disabled={i === 0} onClick={() => moveCat(i, -1)}>▲</button>
+                    <button className="text-[9px] text-stone-400 hover:text-stone-700" disabled={i === shopCats.length - 1} onClick={() => moveCat(i, 1)}>▼</button>
+                  </span>
+                  <span className="flex-1 text-sm min-w-0 truncate">{c}</span>
+                  <button
+                    className={`text-sm ${used ? "text-stone-300" : "text-stone-300 hover:text-red-500"}`}
+                    disabled={used}
+                    title={used ? "Verwijderen kan pas als er geen producten/artikelen meer in deze categorie zitten" : "Categorie verwijderen"}
+                    onClick={() => removeCat(c)}
+                  >
+                    ✕
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex gap-2 mt-2">
+            <input
+              value={newCat}
+              onChange={(e) => setNewCat(e.target.value)}
+              placeholder="Nieuwe categorie…"
+              className="flex-1 border rounded-lg px-2 py-1.5 text-sm"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addCat();
+                }
+              }}
+            />
+            <button className="px-3 border rounded-lg text-sm text-stone-600 bg-white" onClick={addCat}>＋</button>
+          </div>
+        </div>
+      )}
+
+      <div className="bg-white rounded-xl shadow-sm p-3 mb-4 flex gap-2">
+        <input
+          value={newItem}
+          onChange={(e) => setNewItem(e.target.value)}
+          placeholder="Extra artikel toevoegen…"
+          className="flex-1 border rounded-lg px-3 py-2 text-sm min-w-0"
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              addExtra();
+            }
+          }}
+        />
+        <select
+          value={newItemCat}
+          onChange={(e) => setNewItemCat(e.target.value)}
+          className="border rounded-lg px-2 py-2 text-sm text-stone-600"
+          title="Categorie (bepaalt de plek in de lijst)"
+        >
+          <option value="">geen categorie</option>
+          {shopCats.map((c) => (
+            <option key={c} value={c}>{c}</option>
+          ))}
+        </select>
+        <button onClick={addExtra} className="bg-stone-800 text-white px-4 rounded-lg text-sm font-medium shrink-0">
+          Toevoegen
+        </button>
+      </div>
+
+      {listRows.length === 0 && unfilteredCount > 0 && (
+        <div className="text-center text-stone-400 text-sm py-10 bg-white rounded-xl shadow-sm">
+          {`Niets te halen bij ${shopMarketsEff.map((k) => marketChip(k)).join(", ") || "de geselecteerde supermarkt"}`}
+          <div className="text-xs mt-1">alle artikelen hebben een winkelvoorkeur voor een andere supermarkt</div>
+          <button className="chip on mt-2" onClick={() => setShopMarkets(markets.map((m) => m.key))}>
+            Toon alle supermarkten
+          </button>
+        </div>
+      )}
+      {listRows.length === 0 && unfilteredCount === 0 && (
+        <div className="text-center text-stone-400 text-sm py-10">
+          Stel eerst een weekmenu samen; de ingrediënten verschijnen dan hier automatisch.
+        </div>
+      )}
+
+      {listRows.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm divide-y divide-stone-100">
+          {listRows.map((r) => {
+            const entry = r.dayKey ? menuByDate[r.dayKey] : null;
+            const factor = entry && entry.eaters != null && settings.householdSize > 0 ? entry.eaters / settings.householdSize : 1;
+            const sc = r.src === "ing" ? scaleIngredient(r.label, factor) : null;
+            const mkt = r.src === "stock" ? (stockShort.find((s) => s.name === r.label) || {}).market || marketOf(r.label) : marketOf(r.label);
+            const cat = catOf(r.label);
+            const showDate = r.src === "ing" && (cat === "groente" || cat === "zuivel");
+            return (
+              <label key={r.key} className="flex items-center gap-3 px-3 py-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={!!checked[r.key]}
+                  onChange={(e) => setChecked({ ...checked, [r.key]: e.target.checked })}
+                  className="w-4 h-4 accent-emerald-600"
+                />
+                <span className={`text-sm ${checked[r.key] ? "line-through text-stone-300" : ""}`}>
+                  {sc ? (
+                    <span>
+                      <span className="line-through text-stone-300">{r.label}</span>
+                      {" → "}
+                      <span className="font-semibold">{sc}</span>
+                    </span>
+                  ) : (
+                    r.label
+                  )}
+                  {r.note && <span className="text-stone-400">{` ${r.note}`}</span>}
+                  {showDate && <span className="datechip">{`${dayShortOf(r.dayKey)} ${fmtDay(r.dayKey)}`}</span>}
+                </span>
+                {mkt && (
+                  <span className="ml-auto chip mkt" title="Winkelvoorkeur: dit artikel wordt daar gehaald">
+                    {marketChip(mkt)}
+                  </span>
+                )}
+                {r.src === "extra" && (
+                  <button
+                    onClick={() => setExtraItems(extraItems.filter((x) => x.name !== r.label))}
+                    className="text-stone-300 hover:text-red-500 text-sm"
+                    title="Artikel verwijderen"
+                  >
+                    ✕
+                  </button>
+                )}
+              </label>
+            );
+          })}
+        </div>
+      )}
+
+      {anyScaled && (
+        <p className="text-[10px] text-stone-400 mt-1">
+          {`Hoeveelheden geschaald voor afwijkende eters (×${scaledFactors.join(", ")} t.o.v. standaard ${settings.householdSize} eters); regels zonder getal blijven gelijk.`}
+        </p>
+      )}
+
+      {totalItems > 0 && (
+        <div className="mt-4">
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShopDone(true)}
+              className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl text-sm"
+            >
+              Klaar met winkelen
+            </button>
+            <button
+              onClick={() => {
+                setChecked({});
+                setShopDone(false);
+              }}
+              className="py-2.5 px-4 border rounded-xl text-sm text-stone-500 hover:bg-white"
+            >
+              Vinkjes wissen
+            </button>
+          </div>
+          {shopDone && (
+            <div className="text-xs text-stone-500 mt-2 text-center">
+              {mealOk + mealWarn > 0
+                ? `✅ ${mealOk} gerechten compleet${mealWarn > 0 ? ` · ❗ ${mealWarn} mist nog iets` : ""} — zie weekmenu (lijst blijft afvinkbaar)`
+                : "Nog niets afgevinkt — vink de gehaalde artikelen af."}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
+  const renderSettingsTab = () => (
+    <div>
+      <div className="mb-2 text-xs text-stone-500">
+        Instellingen per huishouden. Ze worden alleen lokaal op dit toestel bewaard (localStorage) en gelden direct voor het weekmenu en de boodschappenlijst. Dagindex 0 is de weekstart ({days[0]}).
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm p-4 mb-4">
+        <div className="text-sm font-medium mb-2">Huishouden</div>
+        <label className="flex items-center justify-between gap-2 text-sm mb-2">
+          <span className="text-stone-600">Aantal eters</span>
+          <input
+            type="number"
+            min="1"
+            value={settings.householdSize}
+            onChange={(e) => updateSettings({ householdSize: Math.max(1, Number(e.target.value) || 1) })}
+            className="w-20 border rounded-lg px-2 py-1.5 text-sm text-center"
+          />
+        </label>
+        <label className="flex items-center justify-between gap-2 text-sm">
+          <span className="text-stone-600">Week start op</span>
+          <select
+            value={settings.weekStartDay}
+            onChange={(e) => updateSettings({ weekStartDay: Number(e.target.value) })}
+            className="border rounded-lg px-2 py-1.5 text-sm text-stone-600"
+          >
+            {DAY_NAMES.map((d, i) => (
+              <option key={d} value={i}>{d}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm p-4 mb-4">
+        <div className="text-sm font-medium mb-2">Eetpatroon</div>
+        <div className="text-xs text-stone-500 mb-2">Vis-dagen:</div>
+        <div className="flex flex-wrap gap-2 mb-3">
+          {days.map((d, i) => (
+            <label key={i} className="flex items-center gap-1 text-xs border rounded-lg px-2 py-1 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={fishDays.includes(i)}
+                onChange={(e) =>
+                  updateSettings({ fishDays: e.target.checked ? [...fishDays, i] : fishDays.filter((x) => x !== i) })
+                }
+                className="accent-emerald-600"
+              />
+              {d}
+            </label>
+          ))}
+        </div>
+        <label className="flex items-center justify-between gap-2 text-sm">
+          <span className="text-stone-600">Aantal vega-dagen (op niet-vis-dagen)</span>
+          <input
+            type="number"
+            min="0"
+            max="7"
+            value={settings.vegaTarget}
+            onChange={(e) => updateSettings({ vegaTarget: Math.max(0, Number(e.target.value) || 0) })}
+            className="w-20 border rounded-lg px-2 py-1.5 text-sm text-center"
+          />
+        </label>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm p-4 mb-4">
+        <div className="text-sm font-medium mb-2">Supermarkten</div>
+        {markets.map((m, mi) => (
+          <div key={mi} className="flex gap-2 mb-2">
+            <input
+              value={m.key}
+              onChange={(e) => updateMarket(mi, { key: e.target.value })}
+              placeholder="sleutel…"
+              className="w-20 border rounded-lg px-2 py-1.5 text-sm"
+            />
+            <input
+              value={m.label}
+              onChange={(e) => updateMarket(mi, { label: e.target.value })}
+              placeholder="Naam…"
+              className="flex-1 border rounded-lg px-2 py-1.5 text-sm min-w-0"
+            />
+            <label
+              className="flex items-center gap-1 text-[10px] text-stone-500 shrink-0 cursor-pointer"
+              title="Standaard geselecteerd op de boodschappenlijst"
+            >
+              <input
+                type="checkbox"
+                checked={m.defaultShop !== false}
+                onChange={(e) => updateMarket(mi, { defaultShop: e.target.checked })}
+                className="accent-emerald-600"
+              />
+              standaard
+            </label>
+            <button
+              onClick={() => updateSettings({ markets: markets.filter((_, j) => j !== mi) })}
+              className="text-stone-300 hover:text-red-500 text-sm px-1"
+            >
+              ✕
+            </button>
+          </div>
+        ))}
+        <button
+          onClick={() => updateSettings({ markets: [...markets, { key: "winkel" + (markets.length + 1), label: "Nieuwe winkel", defaultShop: true }] })}
+          className="w-full py-2 border rounded-xl text-sm text-stone-500 hover:bg-white"
+        >
+          + Supermarkt toevoegen
+        </button>
+      </div>
+    </div>
+  );
+
+  const renderDateSheet = () => (
+    <div>
+      <div className="backdrop" onClick={() => setDateSheetOpen(false)} />
+      <div className="sheet">
+        <div className="handle" />
+        <div className="px-4 pb-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-sm font-semibold">Kies een datum</div>
+            <button onClick={() => setDateSheetOpen(false)} className="text-stone-400 px-1 text-lg leading-none">✕</button>
+          </div>
+          <div className="grid grid-cols-7 gap-0.5 mb-0.5">
+            {days.map((d) => (
+              <div key={d} className="text-[10px] text-stone-400 text-center font-medium">{d.slice(0, 2)}</div>
+            ))}
+          </div>
+          <div className="grid grid-cols-7 gap-0.5 mb-3">
+            {weekKeys.map((k) => (
+              <div
+                key={k}
+                className={`flex flex-col items-center justify-center py-1.5 rounded-lg text-xs ${
+                  k === todayKey ? "bg-emerald-600 text-white font-bold" : "bg-stone-100 text-stone-700 font-semibold"
+                }`}
+              >
+                {Number(k.slice(8, 10))}
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <button onClick={() => setWeekOffset((o) => o - 1)} className="px-2 py-1.5 border rounded-lg text-xs text-stone-600 bg-white">
+              ◀ Vorige week
+            </button>
+            <div className="text-xs font-semibold text-stone-600">{weekLabel}</div>
+            <button onClick={() => setWeekOffset((o) => o + 1)} className="px-2 py-1.5 border rounded-lg text-xs text-stone-600 bg-white">
+              Volgende week ▶
+            </button>
+          </div>
+          {weekOffset !== 0 && (
+            <button onClick={() => setWeekOffset(0)} className="w-full mb-2 py-1.5 border rounded-lg text-xs text-stone-500 bg-white">
+              Naar deze week
+            </button>
+          )}
+          <div className="text-sm font-medium mb-1">{MONTH_NAMES[calAnchor.getMonth()]} {calAnchor.getFullYear()}</div>
+          <div className="grid grid-cols-7 gap-0.5 mb-0.5">
+            {days.map((d) => (
+              <div key={d} className="text-[10px] text-stone-400 text-center font-medium">{d.slice(0, 2)}</div>
+            ))}
+          </div>
+          {calWeeks.map((row, wi) => (
+            <div key={wi} className="grid grid-cols-7 gap-0.5">
+              {row.map((cell) => {
+                const entry = menuByDate[cell.key];
+                const r = entry && entry.id ? byId[entry.id] : null;
+                const locked = !!(entry && entry.locked);
+                const isToday = cell.key === todayKey;
+                const inWeek = weekKeys.includes(cell.key);
+                return (
+                  <button
+                    key={cell.key}
+                    data-date={cell.key}
+                    title={r ? r.name : ""}
+                    onClick={() => setWeekOffset(weeksBetween(new Date(), cell.date, settings.weekStartDay))}
+                    className={`flex flex-col items-center justify-center py-1 rounded-lg text-xs ${
+                      isToday
+                        ? "bg-emerald-600 text-white font-bold"
+                        : inWeek
+                          ? "bg-stone-100 font-semibold " + (cell.inMonth ? "text-stone-700" : "text-stone-300")
+                          : cell.inMonth
+                            ? "text-stone-700"
+                            : "text-stone-300"
+                    }`}
+                  >
+                    {cell.date.getDate()}
+                    {locked && <span className="text-[10px]">🔒</span>}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+          <p className="text-xs text-stone-400 mt-2">
+            Klik op een dag om naar de week van die dag te springen. 🔒 = vergrendeld gerecht, blijft per datum bewaard.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderRulesSheet = () => (
+    <div>
+      <div className="backdrop" onClick={() => setRulesSheetOpen(false)} />
+      <div className="sheet">
+        <div className="handle" />
+        <div className="px-4 pb-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-sm font-semibold">Regels voor het weekmenu</div>
+            <button onClick={() => setRulesSheetOpen(false)} className="text-stone-400 px-1 text-lg leading-none">✕</button>
+          </div>
+          <div className="mb-3">
+            <div className="text-xs font-medium text-stone-500 mb-1">Weekstart</div>
+            <div className="flex flex-wrap gap-1">
+              {DAY_NAMES.map((d, i) => (
+                <button
+                  key={d}
+                  onClick={() => updateSettings({ weekStartDay: i })}
+                  className={`chip${settings.weekStartDay === i ? " on" : ""}`}
+                >
+                  {d.slice(0, 2)}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="mb-3">
+            <div className="text-xs font-medium text-stone-500 mb-1">Visdagen</div>
+            <div className="flex flex-wrap gap-1">
+              {days.map((d, i) => (
+                <button
+                  key={d}
+                  onClick={() =>
+                    updateSettings({
+                      fishDays: fishDays.includes(i) ? fishDays.filter((x) => x !== i) : [...fishDays, i].sort((a, b) => a - b),
+                    })
+                  }
+                  className={`chip fish${fishDays.includes(i) ? " on" : ""}`}
+                >
+                  {d.slice(0, 2)}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="mb-3">
+            <div className="text-xs font-medium text-stone-500 mb-1">Vega-dagen op de overige {otherDays.length} dagen</div>
+            <div className="flex items-center gap-3">
+              <div className="stepper">
+                <button onClick={() => updateSettings({ vegaTarget: Math.max(0, vegaCount - 1) })}>−</button>
+                <span>{vegaCount}</span>
+                <button onClick={() => updateSettings({ vegaTarget: Math.min(otherDays.length, vegaCount + 1) })}>+</button>
+              </div>
+              <div className="text-xs text-stone-600">
+                {vegaCount} vega · {otherDays.length - vegaCount} vlees
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => { setRulesSheetOpen(false); setTab("settings"); }}
+            className="block text-xs text-emerald-700 font-medium mb-3"
+          >
+            Eters &amp; supermarkten → Instellingen
+          </button>
+          <button onClick={() => setRulesSheetOpen(false)} className="w-full bg-stone-800 text-white rounded-xl py-2.5 text-sm font-medium">
+            Klaar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-stone-50 text-stone-800">
       <div className="mx-auto max-w-2xl px-4 pb-16">
@@ -1016,1133 +2149,17 @@ export default function App() {
           ))}
         </nav>
 
-        {tab === "menu" && (
-          <div>
-            <div className="bg-white rounded-xl shadow-sm p-4 mb-4">
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <div className="text-[10px] text-stone-400 font-medium tracking-wide">VANDAAG</div>
-                  <div className="text-2xl font-bold">{todayLabel}</div>
-                </div>
-                <button
-                  onClick={() => setDateSheetOpen(true)}
-                  className="shrink-0 px-3 py-2 border rounded-lg text-sm text-stone-600 bg-white"
-                >
-                  📅 Kies een datum ▾
-                </button>
-              </div>
-              <div className="text-xs text-stone-400 mt-1">Week van {weekLabel}</div>
-              <button
-                onClick={generateMenu}
-                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl mt-3"
-              >
-                Genereer weekmenu
-              </button>
-            </div>
+        {tab === "menu" && renderMenuTab()}
+        {tab === "recipes" && renderRecipesTab()}
 
-            <div className="space-y-2">
-              {days.map((day, i) => {
-                const key = weekKeys[i];
-                const entry = weekEntries[i];
-                const r = entry && entry.id ? byId[entry.id] : null;
-                const isToday = key === todayKey;
-                const draft = drafts[key];
-                const text = draft !== undefined ? draft : entry && entry.custom ? entry.custom : r ? r.name : "";
-                const q = text.trim().toLowerCase();
-                const exactMatch = q.length >= 2 ? recipes.find((x) => x.cat !== "extra" && x.name.toLowerCase() === q) : null;
-                const suggestions = openSuggest === key && q.length >= 2 && !exactMatch ? matchRecipes(recipes, q) : [];
-                const isCustom = !!(entry && entry.custom);
-                const eatersOverride = entry && entry.eaters != null && entry.eaters !== settings.householdSize ? entry.eaters : null;
-                const effectiveEaters = entry && entry.eaters != null ? entry.eaters : settings.householdSize;
-                const factor = settings.householdSize > 0 ? effectiveEaters / settings.householdSize : 1;
-                return (
-                  <div key={key} className={`rounded-xl shadow-sm p-3 ${isToday ? "bg-emerald-100" : "bg-white"}`}>
-                    <div className="flex items-center gap-3">
-                      <div className="w-20 shrink-0">
-                        <div className={`text-sm font-semibold ${isToday ? "text-emerald-700" : ""}`}>{day}</div>
-                        <div className="text-[10px] text-stone-400">
-                          {fmtDay(key)}
-                          {isToday ? " · vandaag" : ""}
-                        </div>
-                      </div>
-                      <div className="flex-1 min-w-0 suggest-wrap">
-                        <input
-                          className="dish-input"
-                          value={text}
-                          placeholder="Typ een gerecht…"
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            setDrafts((d) => ({ ...d, [key]: v }));
-                            setOpenSuggest(v.trim().length >= 2 ? key : null);
-                            setActiveSuggest(0);
-                          }}
-                          onBlur={() => commitDay(i)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              if (suggestions.length && suggestions[activeSuggest]) selectRecipe(i, suggestions[activeSuggest].id);
-                              else commitDay(i);
-                            } else if (e.key === "Escape") {
-                              setOpenSuggest(null);
-                            } else if (e.key === "ArrowDown" && suggestions.length) {
-                              e.preventDefault();
-                              setActiveSuggest((s) => Math.min(s + 1, suggestions.length - 1));
-                            } else if (e.key === "ArrowUp" && suggestions.length) {
-                              e.preventDefault();
-                              setActiveSuggest((s) => Math.max(s - 1, 0));
-                            }
-                          }}
-                        />
-                        {isCustom && (
-                          <div className="mt-0.5">
-                            <span className="tag-free">📍 geen boodschappen</span>
-                          </div>
-                        )}
-                        {!isCustom && r && (
-                          <div className="text-xs text-stone-400 mt-0.5">
-                            <span className={`inline-block px-1.5 rounded ${CAT_STYLE[r.cat]}`}>{CAT_LABEL[r.cat]}</span>
-                            <span className={`inline-block px-1.5 rounded ${TIME_STYLE[r.timeCat || "normaal"]}`}>{TIME_LABEL[r.timeCat || "normaal"]}</span>
-                          </div>
-                        )}
-                        {suggestions.length > 0 && (
-                          <div className="suggest-list">
-                            {suggestions.map((s, si) => (
-                              <div
-                                key={s.id}
-                                className={`suggest-item${si === activeSuggest ? " active" : ""}`}
-                                onMouseDown={(e) => {
-                                  e.preventDefault();
-                                  selectRecipe(i, s.id);
-                                }}
-                              >
-                                <span>{highlightMatch(s.name, q)}</span>
-                                <span className={`text-[10px] shrink-0 inline-block px-1.5 rounded ${CAT_STYLE[s.cat]}`}>{CAT_LABEL[s.cat]}</span>
-                              </div>
-                            ))}
-                            <div className="suggest-foot">↵ Enter — “{text.trim()}” als eigen tekst opslaan (geen boodschappen)</div>
-                          </div>
-                        )}
-                      </div>
-                      <button
-                        className={`eatersbtn${eatersOverride != null ? " over" : ""}${isCustom ? " opacity-40" : ""}`}
-                        title={isCustom ? "Geen boodschappen voor deze dag" : "Aantal eters deze dag"}
-                        onClick={() => {
-                          if (isCustom || !entry) return;
-                          setEatersOpen(eatersOpen === key ? null : key);
-                        }}
-                      >
-                        👥{eatersOverride != null && <span className="ebadge">{eatersOverride}</span>}
-                      </button>
-                      {mealStatus[key] && (
-                        <span className="shrink-0 text-sm" title={mealStatus[key].title}>
-                          {mealStatus[key].icon}
-                        </span>
-                      )}
-                      <button
-                        title={entry && entry.locked ? "Ontgrendelen" : "Vergrendelen"}
-                        onClick={() => entry && setDay(i, { ...entry, locked: !entry.locked })}
-                        className={`shrink-0 w-8 h-8 rounded-lg text-sm flex items-center justify-center ${entry && entry.locked ? "bg-amber-100 text-amber-700" : "bg-stone-100 text-stone-400"}`}
-                      >
-                        {entry && entry.locked ? "🔒" : "🔓"}
-                      </button>
-                    </div>
-                    {eatersOpen === key && entry && !isCustom && (
-                      <div className="mt-2 pt-2 border-t flex items-center gap-2 flex-wrap">
-                        <div className="stepper">
-                          <button onClick={() => setEaters(i, Math.max(1, effectiveEaters - 1))}>−</button>
-                          <span>{effectiveEaters}</span>
-                          <button onClick={() => setEaters(i, Math.min(99, effectiveEaters + 1))}>+</button>
-                        </div>
-                        <span className="text-xs text-stone-500">standaard: {settings.householdSize} eters</span>
-                        <button className="text-xs text-emerald-700 font-semibold" onClick={() => setEaters(i, null)}>
-                          Standaard herstellen
-                        </button>
-                        {factor !== 1 && (
-                          <span className="text-[10px] text-stone-400 ml-auto">boodschappenlijst ×{fmtFactor(factor)} voor deze dag</span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+        {tab === "stock" && renderStockTab()}
 
-            <button
-              onClick={() => setRulesSheetOpen(true)}
-              className="w-full mt-4 py-2.5 border rounded-xl text-sm font-medium text-stone-600 bg-white shadow-sm"
-            >
-              ⚙️ Regels voor het weekmenu
-            </button>
-          </div>
-        )}
-        {tab === "recipes" && (
-          <div>
-            {recipeInfoOpen && (
-              <div className="mb-2 text-xs text-stone-500">
-                Zoek op receptnaam en filter op bereidingstijd, ingrediënt of tag(s). Tik op een recept om naam, categorie, bereidingstijd, tags, ingrediënten en bereiding te bewerken. Alles wordt lokaal op je toestel opgeslagen; met exporteren/importeren deel je de lijst als JSON.
-              </div>
-            )}
-            <div className="searchbar">
-              <span className="sicon">🔍</span>
-              <input
-                className="recipe-search"
-                value={recipeQuery}
-                placeholder="Zoek op receptnaam…"
-                onChange={(e) => setRecipeQuery(e.target.value)}
-              />
-              {recipeQuery !== "" && (
-                <button className="sicon" title="Zoekopdracht wissen" onClick={() => setRecipeQuery("")}>✕</button>
-              )}
-              <button className="iconbtn" title="Hoe werkt zoeken en filteren?" onClick={() => setRecipeInfoOpen((v) => !v)}>ℹ️</button>
-              <button className="iconbtn" title="Recept toevoegen" onClick={() => setAddSheetOpen(true)}>＋</button>
-            </div>
-            <div className="filterrow">
-              {["alle", ...TIME_CATS].map((t) => (
-                <button
-                  key={t}
-                  className={`chip${t !== "alle" ? " " + t : ""}${timeFilter === t ? " on" : ""}`}
-                  onClick={() => setTimeFilter(t)}
-                >
-                  {t === "alle" ? "Alle" : timeLabelCap(t)}
-                </button>
-              ))}
-              {topTags.map((t) => (
-                <button
-                  key={t}
-                  className={`chip${tagFilters.includes(t) ? " on" : ""}`}
-                  onClick={() => toggleTagFilter(t)}
-                >
-                  {`🏷 ${t}`}
-                </button>
-              ))}
-              {allTags.length > topTags.length && (
-                <button className="chip" onClick={() => setFilterSheetOpen(true)}>{`＋${allTags.length - topTags.length} meer ▾`}</button>
-              )}
-              <button className="chip" style={{ marginLeft: "auto" }} onClick={() => setFilterSheetOpen(true)}>⚙ Filters ▾</button>
-            </div>
-            {hasRecipeFilters && (
-              <div className="afilterrow">
-                {rq !== "" && (
-                  <span className="afilter">{`🔍 “${recipeQuery.trim()}” `}<button className="x" onClick={() => setRecipeQuery("")}>×</button></span>
-                )}
-                {timeFilter !== "alle" && (
-                  <span className="afilter">{`⏱ ${TIME_LABEL[timeFilter]} `}<button className="x" onClick={() => setTimeFilter("alle")}>×</button></span>
-                )}
-                {ingQ !== "" && (
-                  <span className="afilter">{`🥘 ${ingFilter.trim()} `}<button className="x" onClick={() => setIngFilter("")}>×</button></span>
-                )}
-                {tagFilters.map((t) => (
-                  <span key={t} className="afilter">{`🏷 ${t} `}<button className="x" onClick={() => toggleTagFilter(t)}>×</button></span>
-                ))}
-                <button className="clearall" onClick={clearRecipeFilters}>Alles wissen</button>
-                <span className="count">{`${filteredRecipes.length} van ${recipes.length} recepten`}</span>
-              </div>
-            )}
-            {!hasRecipeFilters && ["vega", "vis", "vlees", "extra"].map((c) => {
-              const list = recipes.filter((r) => r.cat === c).sort((a, b) => a.name.localeCompare(b.name, "nl"));
-              if (!list.length) return null;
-              return (
-                <div key={c} className="mb-4">
-                  <div className={`inline-block px-2 py-0.5 rounded-full text-sm font-semibold mb-2 ${CAT_STYLE[c]}`}>
-                    {CAT_LABEL[c]}
-                  </div>
-                  <div className="space-y-1.5">{list.map((r) => renderRecipeRow(r))}</div>
-                </div>
-              );
-            })}
-            {hasRecipeFilters && (
-              <div className="space-y-1.5">
-                {[...filteredRecipes].sort((a, b) => a.name.localeCompare(b.name, "nl")).map((r) => renderRecipeRow(r))}
-              </div>
-            )}
-            <div className="mutedrow">
-              <button className="linkbtn" onClick={exportRecipes}>Exporteren</button>
-              <label className="linkbtn cursor-pointer">
-                Importeren
-                <input
-                  type="file"
-                  accept="application/json,.json"
-                  className="hidden"
-                  onChange={(e) => { if (e.target.files[0]) importRecipes(e.target.files[0]); e.target.value = ""; }}
-                />
-              </label>
-              <button className="linkbtn" onClick={resetRecipes}>Standaardlijst terug</button>
-            </div>
-            {filterSheetOpen && (
-              <div>
-                <div className="backdrop" onClick={() => setFilterSheetOpen(false)}></div>
-                <div className="sheet">
-                  <div className="handle"></div>
-                  <div className="px-4 pb-4">
-                    <div className="flex items-center mb-3">
-                      <span className="text-lg font-bold">Filters</span>
-                      <button className="ml-auto text-stone-400" onClick={() => setFilterSheetOpen(false)}>✕</button>
-                    </div>
-                    <div className="text-xs mb-1">
-                      <span className="text-stone-500">Bereidingstijd</span>
-                      <div className="segl mt-0.5">
-                        {["alle", ...TIME_CATS].map((t) => (
-                          <button key={t} className={timeFilter === t ? "on" : ""} onClick={() => setTimeFilter(t)}>
-                            {t === "alle" ? "Alles" : timeLabelCap(t)}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="text-xs mt-3 mb-1">
-                      <span className="text-stone-500">Ingrediënt bevat</span>
-                      <input
-                        className="w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm"
-                        value={ingFilter}
-                        placeholder="bijv. zalm, ui, kaas…"
-                        onChange={(e) => setIngFilter(e.target.value)}
-                      />
-                    </div>
-                    <div className="text-xs mt-3 mb-1">
-                      <span className="text-stone-500">Tags (alle geselecteerde moeten erop — AND)</span>
-                      <div className="filterrow" style={{ marginTop: ".25rem" }}>
-                        {allTags.length === 0 && <span className="text-stone-400 text-xs">nog geen tags in de pool</span>}
-                        {allTags.map((t) => (
-                          <button key={t} className={`chip${tagFilters.includes(t) ? " on" : ""}`} onClick={() => toggleTagFilter(t)}>
-                            {`🏷 ${t}`}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 mt-4">
-                      <button className="text-xs font-semibold text-stone-500 px-1 py-2" onClick={clearRecipeFilters}>Wis filters</button>
-                      <button
-                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl text-sm"
-                        onClick={() => setFilterSheetOpen(false)}
-                      >
-                        {`Toon ${filteredRecipes.length} recepten`}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-            {addSheetOpen && (
-              <div>
-                <div className="backdrop" onClick={() => setAddSheetOpen(false)}></div>
-                <div className="sheet">
-                  <div className="handle"></div>
-                  <div className="px-4 pb-4">
-                    <div className="flex items-center mb-3">
-                      <span className="text-lg font-bold">Nieuw recept</span>
-                      <button className="ml-auto text-stone-400" onClick={() => setAddSheetOpen(false)}>✕</button>
-                    </div>
-                    <div className="text-xs mb-3">
-                      <span className="text-stone-500">Naam</span>
-                      <input
-                        className="w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm"
-                        value={newRecipe.name}
-                        placeholder="Naam…"
-                        onChange={(e) => setNewRecipe({ ...newRecipe, name: e.target.value })}
-                        onKeyDown={(e) => { if (e.key === "Enter") addRecipe(); }}
-                      />
-                    </div>
-                    <div className="text-xs mb-3">
-                      <span className="text-stone-500">Categorie</span>
-                      <div className="filterrow" style={{ marginTop: ".25rem" }}>
-                        {["vega", "vis", "vlees", "extra"].map((c) => (
-                          <button key={c} className={`chip${newRecipe.cat === c ? " on" : ""}`} onClick={() => setNewRecipe({ ...newRecipe, cat: c })}>
-                            {CAT_LABEL[c]}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="text-xs mb-3">
-                      <span className="text-stone-500">Bereidingstijd</span>
-                      <div className="segl mt-0.5">
-                        {TIME_CATS.map((t) => (
-                          <button key={t} className={newRecipe.timeCat === t ? "on" : ""} onClick={() => setNewRecipe({ ...newRecipe, timeCat: t })}>
-                            {timeLabelCap(t)}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="text-xs mb-3">
-                      <span className="text-stone-500">Tags</span>
-                      <div className="flex flex-wrap gap-1 mt-0.5">
-                        {newRecipe.tags.map((t) => (
-                          <span key={t} className="tag">
-                            {t} <button className="tagx" onClick={() => setNewRecipe({ ...newRecipe, tags: newRecipe.tags.filter((x) => x !== t) })}>×</button>
-                          </span>
-                        ))}
-                      </div>
-                      <div className="tagadd">
-                        <input
-                          value={newRecipe.tagDraft}
-                          placeholder="＋ tag toevoegen…"
-                          onChange={(e) => setNewRecipe({ ...newRecipe, tagDraft: e.target.value })}
-                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addNewTag(); } }}
-                        />
-                        <button onClick={addNewTag}>+</button>
-                      </div>
-                    </div>
-                    <div className="text-xs mb-3">
-                      <span className="text-stone-500">Ingrediënten (één per regel)</span>
-                      <textarea
-                        rows={3}
-                        className="w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm"
-                        value={newRecipe.ingredients}
-                        placeholder="Ingrediënten, één per regel…"
-                        onChange={(e) => setNewRecipe({ ...newRecipe, ingredients: e.target.value })}
-                      />
-                    </div>
-                    <div className="text-xs mb-3">
-                      <span className="text-stone-500">Bereiding (optioneel)</span>
-                      <textarea
-                        rows={2}
-                        className="w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm"
-                        value={newRecipe.bereiding}
-                        placeholder="Bereiding…"
-                        onChange={(e) => setNewRecipe({ ...newRecipe, bereiding: e.target.value })}
-                      />
-                    </div>
-                    <button
-                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl text-sm"
-                      onClick={addRecipe}
-                    >
-                      Toevoegen
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-            {daySheetRecipe && (
-              <div>
-                <div className="backdrop" onClick={() => setDaySheetRecipe(null)}></div>
-                <div className="sheet">
-                  <div className="handle"></div>
-                  <div className="px-4 pb-4">
-                    <div className="flex items-center mb-1">
-                      <span className="text-lg font-bold">Kies een dag deze week</span>
-                      <button className="ml-auto text-stone-400" onClick={() => setDaySheetRecipe(null)}>✕</button>
-                    </div>
-                    <div className="text-xs text-stone-500 mb-2">Week van {curWeekLabel} · alleen onvergrendelde dagen kiesbaar (🔒 = vastgezet)</div>
-                    {curWeekKeys.map((k, i) => {
-                      const entry = menuByDate[k];
-                      const locked = !!(entry && entry.locked);
-                      const cur = entry && entry.id ? byId[entry.id] : null;
-                      const isToday = k === todayKey;
-                      return (
-                        <button
-                          key={k}
-                          className={`dayrow${locked ? " locked" : ""}${isToday ? " today" : ""}`}
-                          disabled={locked}
-                          onClick={() => addRecipeToWeek(daySheetRecipe, k)}
-                        >
-                          <span className="dname">{days[i]}</span>
-                          <span className="ddate">{fmtDay(k)}{isToday ? " · vandaag" : ""}</span>
-                          <span className="ddish">{locked ? "🔒 " : ""}{entry && entry.custom ? entry.custom : cur ? cur.name : "leeg"}</span>
-                        </button>
-                      );
-                    })}
-                    <div className="text-xs text-stone-400 mt-3">{daySheetRecipe.name} wordt aan de gekozen dag toegewezen (een onvergrendeld gerecht aldaar wordt overschreven).</div>
-                  </div>
-                </div>
-              </div>
-            )}
-            {weekToast !== "" && <div className="toast">{weekToast}</div>}
-          </div>
-        )}
+        {tab === "shopping" && renderShoppingTab()}
 
-        {tab === "stock" && (
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-semibold text-stone-700">Locaties</span>
-              <span className="relative">
-                <button
-                  className={`iconbtn${stockInfoOpen ? " on" : ""}`}
-                  title="Hoe werkt de voorraad?"
-                  onClick={() => setStockInfoOpen((v) => !v)}
-                >
-                  ℹ️
-                </button>
-                {stockInfoOpen && (
-                  <div className="pop">
-                    <b>Hoe werkt de voorraad?</b>
-                    <ul>
-                      <li>Locaties (voorraadkast, koelkast…) zijn per huishouden: voeg toe met ＋ onderaan, verwijder met 🗑️ — pas als er geen producten meer aan hangen.</li>
-                      <li>Klik op een locatie om de producten te zien; ＋ onderaan een locatie voegt een product toe (altijd te verwijderen met ✕).</li>
-                      <li>Per product stel je de huidige voorraad in met −/+; de gewenste voorraad staat grijs erachter (“gewenst n”). Met ✏️ achter de locatie pas je de gewenste hoeveelheden aan.</li>
-                      <li>Is de huidige voorraad lager dan gewenst? Dan staat het product automatisch op de boodschappenlijst.</li>
-                      <li>De categorie zegt waar het product in de supermarkt ligt (bewerkbaar bij Boodschappen). Een getagde winkel betekent: daar wordt het bij voorkeur gehaald; prijsvergelijking heeft dan geen zin.</li>
-                    </ul>
-                  </div>
-                )}
-              </span>
-            </div>
+        {tab === "settings" && renderSettingsTab()}
+        {tab === "menu" && dateSheetOpen && renderDateSheet()}
 
-            {stockLocations.map((loc) => {
-              const items = productsOf(loc.id);
-              const open = !!openLocs[loc.id];
-              const editing = editLoc === loc.id;
-              return (
-                <div key={loc.id} className="bg-white rounded-xl shadow-sm mb-3 overflow-hidden">
-                  <div className="flex items-center gap-2 px-3 py-2.5">
-                    <button className="text-stone-400 text-xs w-4 shrink-0" title={open ? "Inklappen" : "Uitklappen"} onClick={() => toggleLoc(loc.id)}>
-                      {open ? "▾" : "▸"}
-                    </button>
-                    <button className="flex-1 text-left min-w-0 font-medium text-sm truncate" onClick={() => toggleLoc(loc.id)}>
-                      {loc.name}
-                    </button>
-                    <span className="text-xs text-stone-400 shrink-0" title={`${items.length} ${items.length === 1 ? "product" : "producten"}`}>
-                      {items.length}
-                    </span>
-                    <button
-                      className={`iconbtn${editing ? " on" : ""}`}
-                      title={editing ? "Gewenste hoeveelheden niet meer bewerken" : "Gewenste hoeveelheden in deze locatie bewerken"}
-                      onClick={() => setEditLoc(editing ? null : loc.id)}
-                    >
-                      ✏️
-                    </button>
-                    <button
-                      className={`delbtn${items.length ? " dis" : ""}`}
-                      disabled={items.length > 0}
-                      title={items.length ? "Verwijderen kan pas als er geen producten meer aan deze locatie hangen" : "Locatie verwijderen"}
-                      onClick={() => deleteLocation(loc.id)}
-                    >
-                      🗑️
-                    </button>
-                  </div>
-                  {open && (
-                    <div className="border-t border-stone-100">
-                      {addProdLoc === loc.id && (
-                        <div className="p-3 border-b border-stone-100 bg-stone-50">
-                          <div className="text-xs mb-2">
-                            <span className="text-stone-500">Naam</span>
-                            <input
-                              className="w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm"
-                              value={newProd.name}
-                              placeholder="Bijv. hagelslag…"
-                              onChange={(e) => setNewProd({ ...newProd, name: e.target.value })}
-                            />
-                          </div>
-                          <div className="grid grid-cols-2 gap-2 mb-2">
-                            <label className="text-xs">
-                              <span className="text-stone-500">Categorie</span>
-                              <select
-                                className="w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm text-stone-600"
-                                value={newProd.cat}
-                                onChange={(e) => setNewProd({ ...newProd, cat: e.target.value })}
-                              >
-                                <option value="">Kies categorie…</option>
-                                {shopCats.map((c) => (
-                                  <option key={c} value={c}>{c}</option>
-                                ))}
-                              </select>
-                            </label>
-                            <label className="text-xs">
-                              <span className="text-stone-500">Supermarkt (optioneel)</span>
-                              <select
-                                className="w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm text-stone-600"
-                                value={newProd.market}
-                                onChange={(e) => setNewProd({ ...newProd, market: e.target.value })}
-                              >
-                                <option value="">geen voorkeur</option>
-                                {markets.map((m) => (
-                                  <option key={m.key} value={m.key}>{m.label}</option>
-                                ))}
-                              </select>
-                            </label>
-                          </div>
-                          <div className="text-xs mb-2">
-                            <span className="text-stone-500">Gewenste voorraad</span>
-                            <div className="stepper mt-0.5">
-                              <button onClick={() => setNewProd({ ...newProd, want: Math.max(0, newProd.want - 1) })}>−</button>
-                              <span>{newProd.want}</span>
-                              <button onClick={() => setNewProd({ ...newProd, want: newProd.want + 1 })}>+</button>
-                            </div>
-                          </div>
-                          <button
-                            className={`w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 rounded-xl text-sm${newProd.name.trim() && newProd.cat ? "" : " opacity-40"}`}
-                            disabled={!newProd.name.trim() || !newProd.cat}
-                            onClick={() => addProduct(loc.id)}
-                          >
-                            Toevoegen
-                          </button>
-                        </div>
-                      )}
-                      <div className="divide-y divide-stone-100">
-                        {items.map((s) => {
-                          const tekort = s.have < s.want;
-                          return (
-                            <div key={s.i} className="flex items-center gap-2 px-3 py-2 flex-wrap">
-                              <span className="flex-1 min-w-0 text-sm">
-                                {s.name}
-                                <span className="block text-[10px] text-stone-400">{`categorie: ${s.cat}`}</span>
-                              </span>
-                              <span className="flex items-center gap-1" title="Huidige voorraad">
-                                <button className="w-7 h-7 rounded-lg bg-stone-100 font-bold text-stone-600" onClick={() => bumpHave(s.i, -1)}>−</button>
-                                <span className={`w-6 text-center text-sm font-medium ${tekort ? "text-orange-600" : "text-stone-700"}`}>{s.have}</span>
-                                <button className="w-7 h-7 rounded-lg bg-stone-100 font-bold text-stone-600" onClick={() => bumpHave(s.i, 1)}>+</button>
-                              </span>
-                              {editing ? (
-                                <span className="flex items-center gap-1" title="Gewenste voorraad aanpassen">
-                                  <button className="w-7 h-7 rounded-lg bg-stone-100 font-bold text-stone-600" onClick={() => bumpWant(s.i, -1)}>−</button>
-                                  <span className="w-6 text-center text-sm font-medium text-stone-700">{s.want}</span>
-                                  <button className="w-7 h-7 rounded-lg bg-stone-100 font-bold text-stone-600" onClick={() => bumpWant(s.i, 1)}>+</button>
-                                </span>
-                              ) : (
-                                <span className="text-xs text-stone-400 whitespace-nowrap">{`gewenst ${s.want}`}</span>
-                              )}
-                              {s.market && <span className="chip mkt" title="Winkelvoorkeur">{marketChip(s.market)}</span>}
-                              {tekort && <span className="text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full whitespace-nowrap">op lijst</span>}
-                              <button className="text-stone-300 hover:text-red-500 text-sm" title="Product verwijderen" onClick={() => deleteProduct(s.i)}>✕</button>
-                            </div>
-                          );
-                        })}
-                        {items.length === 0 && (
-                          <div className="px-3 py-3 text-sm text-stone-400 text-center">Nog geen producten in deze locatie.</div>
-                        )}
-                      </div>
-                      <button className="addrow" onClick={() => setAddProdLoc(addProdLoc === loc.id ? null : loc.id)}>
-                        ＋ Product toevoegen
-                      </button>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-
-            {addLocOpen && (
-              <div className="bg-white rounded-xl shadow-sm mb-3 p-3 flex gap-2 items-center">
-                <input
-                  value={newLocName}
-                  onChange={(e) => setNewLocName(e.target.value)}
-                  placeholder="Naam van de locatie…"
-                  className="flex-1 border rounded-lg px-3 py-2 text-sm"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      addLocation();
-                    }
-                  }}
-                />
-                <button className="iconbtn on" title="Locatie toevoegen" onClick={addLocation}>✓</button>
-                <button
-                  className="delbtn"
-                  title="Annuleren"
-                  onClick={() => {
-                    setAddLocOpen(false);
-                    setNewLocName("");
-                  }}
-                >
-                  ✕
-                </button>
-              </div>
-            )}
-            <button className="addcard" onClick={() => setAddLocOpen((v) => !v)}>
-              ＋ Locatie toevoegen
-            </button>
-
-            <div className="flex gap-2 mt-4">
-              <button
-                onClick={() => setStock(stock.map((s) => ({ ...s, have: s.want })))}
-                className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-medium"
-              >
-                ✓ Alles aangevuld
-              </button>
-              <button
-                onClick={() => {
-                  setStock(defaultStock());
-                  setStockLocations(DEFAULT_LOCATIONS.map((l) => ({ ...l })));
-                }}
-                className="py-2.5 px-4 border rounded-xl text-sm text-stone-500 hover:bg-white"
-              >
-                Standaardlijst terug
-              </button>
-            </div>
-          </div>
-        )}
-
-        {tab === "shopping" && (
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-semibold text-stone-700">{`Boodschappenlijst · ${todayLabel}`}</span>
-              <span className="flex gap-1.5 relative">
-                <button className={`iconbtn${shopInfoOpen ? " on" : ""}`} title="Hoe werkt de boodschappenlijst?" onClick={() => setShopInfoOpen((v) => !v)}>ℹ️</button>
-                <button className={`iconbtn${catsOpen ? " on" : ""}`} title="Categorieën beheren" onClick={() => setCatsOpen((v) => !v)}>⚙️</button>
-                {shopInfoOpen && (
-                  <div className="pop">
-                    <b>Hoe werkt de boodschappenlijst?</b>
-                    <ul>
-                      <li>Bovenaan kies je voor hoeveel dagen je boodschappen doet en bij welke supermarkt(en). Artikelen met een winkelvoorkeur voor een andere supermarkt zie je niet.</li>
-                      <li>De lijst is één platte lijst op categorie-volgorde (zie ⚙️) — ingrediënt, voorraad of extra artikel maakt niet uit.</li>
-                      <li>Afvinken maar. "Klaar met winkelen" toont per gerecht in het weekmenu of alles in huis is; "Vinkjes wissen" zet alles terug.</li>
-                      <li>Bij groente/zuivel zie je de datum waarop het nodig is (beperkt houdbaar). Tekorten uit de voorraad ("n van want") staan automatisch in de lijst.</li>
-                    </ul>
-                  </div>
-                )}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2 mb-4 px-1">
-              <div className="stepper">
-                <button onClick={() => setShopDays(Math.max(0, shopDaysEff - 1))} disabled={shopDaysEff <= 0}>−</button>
-                <span>{shopDaysEff}</span>
-                <button onClick={() => setShopDays(Math.min(maxShopDays, shopDaysEff + 1))} disabled={shopDaysEff >= maxShopDays}>+</button>
-              </div>
-              <span className="text-xs text-stone-500 shrink-0">dagen</span>
-              <div className="flex gap-1 ml-auto overflow-x-auto">
-                {markets.map((m) => (
-                  <button
-                    key={m.key}
-                    className={`chip${shopMarketsEff.includes(m.key) ? " on" : ""}`}
-                    title={m.label}
-                    onClick={() =>
-                      setShopMarkets(
-                        shopMarketsEff.includes(m.key) ? shopMarketsEff.filter((x) => x !== m.key) : [...shopMarketsEff, m.key]
-                      )
-                    }
-                  >
-                    {marketChip(m.key)}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {catsOpen && (
-              <div className="bg-white rounded-xl shadow-sm p-3 mb-4">
-                <div className="text-sm font-semibold mb-1">Categorieën</div>
-                <div className="text-xs text-stone-500 mb-2">
-                  De volgorde is de volgorde op de boodschappenlijst. Een categorie zegt waar een artikel in de supermarkt ligt — tortilla en kroepoek horen daarom bij “(maaltijd)saus”.
-                </div>
-                <div className="divide-y divide-stone-100 border border-stone-100 rounded-xl">
-                  {shopCats.map((c, i) => {
-                    const used = stock.some((s) => s.cat === c) || extraItems.some((x) => x.cat === c);
-                    return (
-                      <div key={c} className="flex items-center gap-2 px-2 py-1.5">
-                        <span className="flex flex-col leading-none shrink-0">
-                          <button className="text-[9px] text-stone-400 hover:text-stone-700" disabled={i === 0} onClick={() => moveCat(i, -1)}>▲</button>
-                          <button className="text-[9px] text-stone-400 hover:text-stone-700" disabled={i === shopCats.length - 1} onClick={() => moveCat(i, 1)}>▼</button>
-                        </span>
-                        <span className="flex-1 text-sm min-w-0 truncate">{c}</span>
-                        <button
-                          className={`text-sm ${used ? "text-stone-300" : "text-stone-300 hover:text-red-500"}`}
-                          disabled={used}
-                          title={used ? "Verwijderen kan pas als er geen producten/artikelen meer in deze categorie zitten" : "Categorie verwijderen"}
-                          onClick={() => removeCat(c)}
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="flex gap-2 mt-2">
-                  <input
-                    value={newCat}
-                    onChange={(e) => setNewCat(e.target.value)}
-                    placeholder="Nieuwe categorie…"
-                    className="flex-1 border rounded-lg px-2 py-1.5 text-sm"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        addCat();
-                      }
-                    }}
-                  />
-                  <button className="px-3 border rounded-lg text-sm text-stone-600 bg-white" onClick={addCat}>＋</button>
-                </div>
-              </div>
-            )}
-
-            <div className="bg-white rounded-xl shadow-sm p-3 mb-4 flex gap-2">
-              <input
-                value={newItem}
-                onChange={(e) => setNewItem(e.target.value)}
-                placeholder="Extra artikel toevoegen…"
-                className="flex-1 border rounded-lg px-3 py-2 text-sm min-w-0"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    addExtra();
-                  }
-                }}
-              />
-              <select
-                value={newItemCat}
-                onChange={(e) => setNewItemCat(e.target.value)}
-                className="border rounded-lg px-2 py-2 text-sm text-stone-600"
-                title="Categorie (bepaalt de plek in de lijst)"
-              >
-                <option value="">geen categorie</option>
-                {shopCats.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-              <button onClick={addExtra} className="bg-stone-800 text-white px-4 rounded-lg text-sm font-medium shrink-0">
-                Toevoegen
-              </button>
-            </div>
-
-            {listRows.length === 0 && unfilteredCount > 0 && (
-              <div className="text-center text-stone-400 text-sm py-10 bg-white rounded-xl shadow-sm">
-                {`Niets te halen bij ${shopMarketsEff.map((k) => marketChip(k)).join(", ") || "de geselecteerde supermarkt"}`}
-                <div className="text-xs mt-1">alle artikelen hebben een winkelvoorkeur voor een andere supermarkt</div>
-                <button className="chip on mt-2" onClick={() => setShopMarkets(markets.map((m) => m.key))}>
-                  Toon alle supermarkten
-                </button>
-              </div>
-            )}
-            {listRows.length === 0 && unfilteredCount === 0 && (
-              <div className="text-center text-stone-400 text-sm py-10">
-                Stel eerst een weekmenu samen; de ingrediënten verschijnen dan hier automatisch.
-              </div>
-            )}
-
-            {listRows.length > 0 && (
-              <div className="bg-white rounded-xl shadow-sm divide-y divide-stone-100">
-                {listRows.map((r) => {
-                  const entry = r.dayKey ? menuByDate[r.dayKey] : null;
-                  const factor = entry && entry.eaters != null && settings.householdSize > 0 ? entry.eaters / settings.householdSize : 1;
-                  const sc = r.src === "ing" ? scaleIngredient(r.label, factor) : null;
-                  const mkt = r.src === "stock" ? (stockShort.find((s) => s.name === r.label) || {}).market || marketOf(r.label) : marketOf(r.label);
-                  const cat = catOf(r.label);
-                  const showDate = r.src === "ing" && (cat === "groente" || cat === "zuivel");
-                  return (
-                    <label key={r.key} className="flex items-center gap-3 px-3 py-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={!!checked[r.key]}
-                        onChange={(e) => setChecked({ ...checked, [r.key]: e.target.checked })}
-                        className="w-4 h-4 accent-emerald-600"
-                      />
-                      <span className={`text-sm ${checked[r.key] ? "line-through text-stone-300" : ""}`}>
-                        {sc ? (
-                          <span>
-                            <span className="line-through text-stone-300">{r.label}</span>
-                            {" → "}
-                            <span className="font-semibold">{sc}</span>
-                          </span>
-                        ) : (
-                          r.label
-                        )}
-                        {r.note && <span className="text-stone-400">{` ${r.note}`}</span>}
-                        {showDate && <span className="datechip">{`${dayShortOf(r.dayKey)} ${fmtDay(r.dayKey)}`}</span>}
-                      </span>
-                      {mkt && (
-                        <span className="ml-auto chip mkt" title="Winkelvoorkeur: dit artikel wordt daar gehaald">
-                          {marketChip(mkt)}
-                        </span>
-                      )}
-                      {r.src === "extra" && (
-                        <button
-                          onClick={() => setExtraItems(extraItems.filter((x) => x.name !== r.label))}
-                          className="text-stone-300 hover:text-red-500 text-sm"
-                          title="Artikel verwijderen"
-                        >
-                          ✕
-                        </button>
-                      )}
-                    </label>
-                  );
-                })}
-              </div>
-            )}
-
-            {anyScaled && (
-              <p className="text-[10px] text-stone-400 mt-1">
-                {`Hoeveelheden geschaald voor afwijkende eters (×${scaledFactors.join(", ")} t.o.v. standaard ${settings.householdSize} eters); regels zonder getal blijven gelijk.`}
-              </p>
-            )}
-
-            {totalItems > 0 && (
-              <div className="mt-4">
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setShopDone(true)}
-                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl text-sm"
-                  >
-                    Klaar met winkelen
-                  </button>
-                  <button
-                    onClick={() => {
-                      setChecked({});
-                      setShopDone(false);
-                    }}
-                    className="py-2.5 px-4 border rounded-xl text-sm text-stone-500 hover:bg-white"
-                  >
-                    Vinkjes wissen
-                  </button>
-                </div>
-                {shopDone && (
-                  <div className="text-xs text-stone-500 mt-2 text-center">
-                    {mealOk + mealWarn > 0
-                      ? `✅ ${mealOk} gerechten compleet${mealWarn > 0 ? ` · ❗ ${mealWarn} mist nog iets` : ""} — zie weekmenu (lijst blijft afvinkbaar)`
-                      : "Nog niets afgevinkt — vink de gehaalde artikelen af."}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {tab === "settings" && (
-          <div>
-            <div className="mb-2 text-xs text-stone-500">
-              Instellingen per huishouden. Ze worden alleen lokaal op dit toestel bewaard (localStorage) en gelden direct voor het weekmenu en de boodschappenlijst. Dagindex 0 is de weekstart ({days[0]}).
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm p-4 mb-4">
-              <div className="text-sm font-medium mb-2">Huishouden</div>
-              <label className="flex items-center justify-between gap-2 text-sm mb-2">
-                <span className="text-stone-600">Aantal eters</span>
-                <input
-                  type="number"
-                  min="1"
-                  value={settings.householdSize}
-                  onChange={(e) => updateSettings({ householdSize: Math.max(1, Number(e.target.value) || 1) })}
-                  className="w-20 border rounded-lg px-2 py-1.5 text-sm text-center"
-                />
-              </label>
-              <label className="flex items-center justify-between gap-2 text-sm">
-                <span className="text-stone-600">Week start op</span>
-                <select
-                  value={settings.weekStartDay}
-                  onChange={(e) => updateSettings({ weekStartDay: Number(e.target.value) })}
-                  className="border rounded-lg px-2 py-1.5 text-sm text-stone-600"
-                >
-                  {DAY_NAMES.map((d, i) => (
-                    <option key={d} value={i}>{d}</option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm p-4 mb-4">
-              <div className="text-sm font-medium mb-2">Eetpatroon</div>
-              <div className="text-xs text-stone-500 mb-2">Vis-dagen:</div>
-              <div className="flex flex-wrap gap-2 mb-3">
-                {days.map((d, i) => (
-                  <label key={i} className="flex items-center gap-1 text-xs border rounded-lg px-2 py-1 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={fishDays.includes(i)}
-                      onChange={(e) =>
-                        updateSettings({ fishDays: e.target.checked ? [...fishDays, i] : fishDays.filter((x) => x !== i) })
-                      }
-                      className="accent-emerald-600"
-                    />
-                    {d}
-                  </label>
-                ))}
-              </div>
-              <label className="flex items-center justify-between gap-2 text-sm">
-                <span className="text-stone-600">Aantal vega-dagen (op niet-vis-dagen)</span>
-                <input
-                  type="number"
-                  min="0"
-                  max="7"
-                  value={settings.vegaTarget}
-                  onChange={(e) => updateSettings({ vegaTarget: Math.max(0, Number(e.target.value) || 0) })}
-                  className="w-20 border rounded-lg px-2 py-1.5 text-sm text-center"
-                />
-              </label>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm p-4 mb-4">
-              <div className="text-sm font-medium mb-2">Supermarkten</div>
-              {markets.map((m, mi) => (
-                <div key={mi} className="flex gap-2 mb-2">
-                  <input
-                    value={m.key}
-                    onChange={(e) => updateMarket(mi, { key: e.target.value })}
-                    placeholder="sleutel…"
-                    className="w-20 border rounded-lg px-2 py-1.5 text-sm"
-                  />
-                  <input
-                    value={m.label}
-                    onChange={(e) => updateMarket(mi, { label: e.target.value })}
-                    placeholder="Naam…"
-                    className="flex-1 border rounded-lg px-2 py-1.5 text-sm min-w-0"
-                  />
-                  <label
-                    className="flex items-center gap-1 text-[10px] text-stone-500 shrink-0 cursor-pointer"
-                    title="Standaard geselecteerd op de boodschappenlijst"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={m.defaultShop !== false}
-                      onChange={(e) => updateMarket(mi, { defaultShop: e.target.checked })}
-                      className="accent-emerald-600"
-                    />
-                    standaard
-                  </label>
-                  <button
-                    onClick={() => updateSettings({ markets: markets.filter((_, j) => j !== mi) })}
-                    className="text-stone-300 hover:text-red-500 text-sm px-1"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-              <button
-                onClick={() => updateSettings({ markets: [...markets, { key: "winkel" + (markets.length + 1), label: "Nieuwe winkel", defaultShop: true }] })}
-                className="w-full py-2 border rounded-xl text-sm text-stone-500 hover:bg-white"
-              >
-                + Supermarkt toevoegen
-              </button>
-            </div>
-          </div>
-        )}
-        {tab === "menu" && dateSheetOpen && (
-          <div>
-            <div className="backdrop" onClick={() => setDateSheetOpen(false)} />
-            <div className="sheet">
-              <div className="handle" />
-              <div className="px-4 pb-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-sm font-semibold">Kies een datum</div>
-                  <button onClick={() => setDateSheetOpen(false)} className="text-stone-400 px-1 text-lg leading-none">✕</button>
-                </div>
-                <div className="grid grid-cols-7 gap-0.5 mb-0.5">
-                  {days.map((d) => (
-                    <div key={d} className="text-[10px] text-stone-400 text-center font-medium">{d.slice(0, 2)}</div>
-                  ))}
-                </div>
-                <div className="grid grid-cols-7 gap-0.5 mb-3">
-                  {weekKeys.map((k) => (
-                    <div
-                      key={k}
-                      className={`flex flex-col items-center justify-center py-1.5 rounded-lg text-xs ${
-                        k === todayKey ? "bg-emerald-600 text-white font-bold" : "bg-stone-100 text-stone-700 font-semibold"
-                      }`}
-                    >
-                      {Number(k.slice(8, 10))}
-                    </div>
-                  ))}
-                </div>
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <button onClick={() => setWeekOffset((o) => o - 1)} className="px-2 py-1.5 border rounded-lg text-xs text-stone-600 bg-white">
-                    ◀ Vorige week
-                  </button>
-                  <div className="text-xs font-semibold text-stone-600">{weekLabel}</div>
-                  <button onClick={() => setWeekOffset((o) => o + 1)} className="px-2 py-1.5 border rounded-lg text-xs text-stone-600 bg-white">
-                    Volgende week ▶
-                  </button>
-                </div>
-                {weekOffset !== 0 && (
-                  <button onClick={() => setWeekOffset(0)} className="w-full mb-2 py-1.5 border rounded-lg text-xs text-stone-500 bg-white">
-                    Naar deze week
-                  </button>
-                )}
-                <div className="text-sm font-medium mb-1">{MONTH_NAMES[calAnchor.getMonth()]} {calAnchor.getFullYear()}</div>
-                <div className="grid grid-cols-7 gap-0.5 mb-0.5">
-                  {days.map((d) => (
-                    <div key={d} className="text-[10px] text-stone-400 text-center font-medium">{d.slice(0, 2)}</div>
-                  ))}
-                </div>
-                {calWeeks.map((row, wi) => (
-                  <div key={wi} className="grid grid-cols-7 gap-0.5">
-                    {row.map((cell) => {
-                      const entry = menuByDate[cell.key];
-                      const r = entry && entry.id ? byId[entry.id] : null;
-                      const locked = !!(entry && entry.locked);
-                      const isToday = cell.key === todayKey;
-                      const inWeek = weekKeys.includes(cell.key);
-                      return (
-                        <button
-                          key={cell.key}
-                          data-date={cell.key}
-                          title={r ? r.name : ""}
-                          onClick={() => setWeekOffset(weeksBetween(new Date(), cell.date, settings.weekStartDay))}
-                          className={`flex flex-col items-center justify-center py-1 rounded-lg text-xs ${
-                            isToday
-                              ? "bg-emerald-600 text-white font-bold"
-                              : inWeek
-                                ? "bg-stone-100 font-semibold " + (cell.inMonth ? "text-stone-700" : "text-stone-300")
-                                : cell.inMonth
-                                  ? "text-stone-700"
-                                  : "text-stone-300"
-                          }`}
-                        >
-                          {cell.date.getDate()}
-                          {locked && <span className="text-[10px]">🔒</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                ))}
-                <p className="text-xs text-stone-400 mt-2">
-                  Klik op een dag om naar de week van die dag te springen. 🔒 = vergrendeld gerecht, blijft per datum bewaard.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {tab === "menu" && rulesSheetOpen && (
-          <div>
-            <div className="backdrop" onClick={() => setRulesSheetOpen(false)} />
-            <div className="sheet">
-              <div className="handle" />
-              <div className="px-4 pb-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="text-sm font-semibold">Regels voor het weekmenu</div>
-                  <button onClick={() => setRulesSheetOpen(false)} className="text-stone-400 px-1 text-lg leading-none">✕</button>
-                </div>
-                <div className="mb-3">
-                  <div className="text-xs font-medium text-stone-500 mb-1">Weekstart</div>
-                  <div className="flex flex-wrap gap-1">
-                    {DAY_NAMES.map((d, i) => (
-                      <button
-                        key={d}
-                        onClick={() => updateSettings({ weekStartDay: i })}
-                        className={`chip${settings.weekStartDay === i ? " on" : ""}`}
-                      >
-                        {d.slice(0, 2)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="mb-3">
-                  <div className="text-xs font-medium text-stone-500 mb-1">Visdagen</div>
-                  <div className="flex flex-wrap gap-1">
-                    {days.map((d, i) => (
-                      <button
-                        key={d}
-                        onClick={() =>
-                          updateSettings({
-                            fishDays: fishDays.includes(i) ? fishDays.filter((x) => x !== i) : [...fishDays, i].sort((a, b) => a - b),
-                          })
-                        }
-                        className={`chip fish${fishDays.includes(i) ? " on" : ""}`}
-                      >
-                        {d.slice(0, 2)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="mb-3">
-                  <div className="text-xs font-medium text-stone-500 mb-1">Vega-dagen op de overige {otherDays.length} dagen</div>
-                  <div className="flex items-center gap-3">
-                    <div className="stepper">
-                      <button onClick={() => updateSettings({ vegaTarget: Math.max(0, vegaCount - 1) })}>−</button>
-                      <span>{vegaCount}</span>
-                      <button onClick={() => updateSettings({ vegaTarget: Math.min(otherDays.length, vegaCount + 1) })}>+</button>
-                    </div>
-                    <div className="text-xs text-stone-600">
-                      {vegaCount} vega · {otherDays.length - vegaCount} vlees
-                    </div>
-                  </div>
-                </div>
-                <button
-                  onClick={() => { setRulesSheetOpen(false); setTab("settings"); }}
-                  className="block text-xs text-emerald-700 font-medium mb-3"
-                >
-                  Eters &amp; supermarkten → Instellingen
-                </button>
-                <button onClick={() => setRulesSheetOpen(false)} className="w-full bg-stone-800 text-white rounded-xl py-2.5 text-sm font-medium">
-                  Klaar
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {tab === "menu" && rulesSheetOpen && renderRulesSheet()}
       </div>
     </div>
   );
