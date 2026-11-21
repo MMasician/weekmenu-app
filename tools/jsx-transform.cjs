@@ -141,9 +141,11 @@ function parseElement(s, i) {
 // - witruimte naast een newline wordt weggehaald; lege regels vervallen
 // - HTML-entities worden gedecodeerd
 function jsxText(raw) {
+  // &amp; laatst decoderen, anders wordt bv. '&amp;lt;' dubbel gedeodeerd tot '<'
   const decode = (s) =>
-    s.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
-     .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, "\u00a0");
+    s.replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+     .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, "\u00a0")
+     .replace(/&amp;/g, "&");
   if (raw.indexOf("\n") === -1) return raw === "" ? null : decode(raw);
   const lines = raw.split("\n");
   let lastNonEmpty = 0;
