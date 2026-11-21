@@ -18,6 +18,7 @@ De app is per huishouden instelbaar (weekstart, boodschappenmomenten, vis/vega/v
 
 ## Documentatie
 - `docs/INTENT.md` — doel en principes
+- `docs/domeinproces.md` — domeinproces (strategie t/m koken) + werkwijze met issues (Definition of Ready/Done, labels, conflictafspraken bij parallel werken)
 - `docs/SPECS.md` — functionaliteit per tab + schema van de per-huishouden instellingen
 - `docs/TESTS.md` — testbeleid en checklist
 - `docs/adr/` — ADR-001 t/m ADR-011
