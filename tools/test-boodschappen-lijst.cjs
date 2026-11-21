@@ -84,7 +84,10 @@ function make(seed) {
 const baseSeed = () => ({
   settings: {
     householdSize: 4,
-    weekStartDay: 0,
+    // weekstart op morgen: dan is morgen (d1K) de eerste dag van de volgende week,
+    // los van op welke dag de test draait (anders faalt de 'Volgende week'-check op de
+    // meeste dagen van de week)
+    weekStartDay: (today.getDay() + 2) % 7, // DAY_NAMES-index van morgen
     markets: [
       { key: "ah", label: "Albert Heijn", defaultShop: true },
       { key: "jumbo", label: "Jumbo", defaultShop: true },
