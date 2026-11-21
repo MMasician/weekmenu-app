@@ -1,60 +1,53 @@
 ---
 name: Change-aanvraag
-about: Voorgestelde change voor de weekmenu-app. Wordt opgepakt zodra het label `ready` erop staat (zie docs/domeinproces.md).
+about: Voorgestelde change voor de weekmenu-app. Zie docs/domeinproces.md voor de workflow.
 title: ''
 labels: needs-approval
 ---
 
-## Definition of Ready
+> Vul alleen de **seed** hieronder in (doel + richting). De agent vult de overige
+> secties aan tot de volledige Definition of Ready en maakt de mocks
+> (`docs/ux/<onderwerp>/` + VOORSTEL.md) vóór implementatie. Na approval van de
+> seed zet de eigenaar het label `needs-approval` om in `ready`.
 
-Vul onderstaand in; het issue mag pas het label `ready` krijgen (na approval) als álle punten zijn ingevuld:
+## Seed — door de indiener (mens of agent)
 
-- [ ] Doel/probleem beschreven in 1–2 zinnen, met verwijzing naar `docs/SPECS.md`, een ADR of `docs/ux/`
-- [ ] Acceptatiecriteria concreet en testbaar
-- [ ] Scope begrensd (inclusief wat buiten scope valt)
-- [ ] UX: mocks gelinkt of "geen UI-wijziging"
-- [ ] Randgevallen benoemd (lege state, foutafhandeling, offline, per-huishouden-instellingen)
-- [ ] Geen open vragen (of expliciet gemarkeerd als "tijdens werk te beslissen")
-- [ ] Verificatiepad bepaald (tests + `npm run verify` + CI)
-- [ ] Afhankelijkheden genoteerd
-
-## Doel / probleem
-
+### Doel / probleem
 <!-- 1–2 zinnen: wat moet er veranderen en waarom? -->
 
-## Acceptatiecriteria
+### Richting van de wijziging
+<!-- Wat moet er ongeveer gebeuren? (bijv. "boodschappen-tab compacter", "nieuwe filter op recepten") -->
 
+### Context (optioneel)
+<!-- Links naar docs/SPECS.md, een ADR, docs/ux/..., of een bestaand issue -->
+
+## Rest van de DoR — aan te vullen door de agent, te accorderen door de eigenaar
+
+### Acceptatiecriteria
 <!-- Concreet en testbaar, bijv. Given/When/Then -->
-
 - [ ]
 - [ ]
 
-## Scope
-
+### Scope
 - Getroffen tab(s)/onderdelen:
 - Buiten scope:
 
-## UX / mocks
+### UX / mocks
+<!-- Door de agent: mocks in docs/ux/<onderwerp>/ + VOORSTEL.md, of "geen UI-wijziging" -->
 
-<!-- Link naar mocks in `docs/ux/<onderwerp>/` + VOORSTEL.md, of: "geen UI-wijziging" -->
-
-## Randgevallen
-
+### Randgevallen
 - [ ] Lege state
 - [ ] Foutafhandeling
 - [ ] Offline gedrag
 - [ ] Per-huishouden-instellingen (ADR-009/ADR-010)
 
-## Open vragen
-
+### Open vragen
 <!-- of: "geen open vragen" -->
 
-## Verificatie
-
+### Verificatie
 - [ ] Tests uitgebreid in `tools/test-*.cjs`
 - [ ] `npm run verify` geslaagd (build + sync-check + tests + lint + typecheck)
 - [ ] CI groen (test/quality/security, ADR-014)
 
-## Afhankelijkheden
-
+### Afhankelijkheden
 <!-- Blokkeert dit issue iets anders, of hangt het af van een ander issue? -->

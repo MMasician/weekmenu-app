@@ -21,25 +21,39 @@ voorkeuren, gezinssamenstelling) hoort niet in deze repo (ADR-010).
 - Boodschappen afvinken — samen met de voorraad — bepalen de **kookstatus**
   (✅/❗) op de dag zelf.
 
-## Werkwijze: changes via issues (Definition of Ready)
+## Werkwijze: changes via issues (twee-niveau Definition of Ready)
 
-Changes aan de app lopen via GitHub-issues met een vaste workflow:
+Changes aan de app lopen via GitHub-issues. De Definition of Ready is opgedeeld
+in twee niveaus: de **seed** (minimaal, door de indiener ingevuld — alleen wat
+vooraf bekend is) en de **volledige DoR** (door de agent aangevuld en door de
+eigenaar geaccordeerd vóór implementatie). Mocks en feedback-iteraties blijven
+onderdeel van het proces: de agent maakt de mocks, de eigenaar reageert daarop.
 
-1. Issue wordt aangemaakt (door mens of agent) met label `needs-approval` via het
-   template `.github/ISSUE_TEMPLATE/change.md` (bevat de Definition of Ready).
-2. De eigenaar keurt het issue goed: label `needs-approval` vervangen door `ready`.
-3. De agent pakt alleen issues met label `ready` op, werkt op een branch
-   `vibe/<slug>`, en zet het label op `in-progress`.
-4. Mocks-eerst: UX-voorstellen gaan eerst als mocks in `docs/ux/<onderwerp>/`
-   met `VOORSTEL.md`; na feedback de code in dezelfde branch.
-5. Ter review: label `needs-review`; na merge terug naar `Done`/issue dicht.
+1. **Seed**: issue aanmaken via het template `.github/ISSUE_TEMPLATE/change.md`
+   met alleen doel + richting (+ optionele context-links). Label `needs-approval`
+   (agent-voorgesteld) of direct `ready` (eigen issue).
+2. **Approval seed**: de eigenaar keurt de seed goed — label `needs-approval`
+   vervangen door `ready`. De agent pakt alleen issues met `ready` op.
+3. **Elaboration + mocks-eerst**: de agent verrijkt het issue tot volledige DoR
+   en maakt mocks in `docs/ux/<onderwerp>/` met `VOORSTEL.md` op branch
+   `vibe/<slug>`; label `in-progress`.
+4. **Review**: label `needs-review`; de eigenaar geeft feedback op mocks én issue;
+   de agent itereert zo vaak als nodig.
+5. **Implementatie**: na accordering van mocks + volledige DoR werkt de agent de
+   code uit in dezelfde branch (tests, SPECS/ADR, `src/app.js` regenereren).
+6. **Merge**: PR met groene CI (Definition of Done) → merge → issue dicht.
 
-Definition of Ready — een issue mag pas op `ready` als álle punten gelden:
+### DoR-seed — minimale input om te starten (door de indiener)
 
-- [ ] Doel/probleem beschreven in 1–2 zinnen, met verwijzing naar `docs/SPECS.md`, ADR of `docs/ux/`
+- [ ] Doel/probleem in 1–2 zinnen
+- [ ] Richting van de wijziging (wat moet er ongeveer veranderen)
+- [ ] Optioneel: verwijzing naar `docs/SPECS.md`, ADR, `docs/ux/` of een bestaand issue
+
+### DoR-volledig — door de agent ingevuld vóór implementatie, geaccordeerd door de eigenaar
+
 - [ ] Acceptatiecriteria concreet en testbaar (Given/When/Then of bullet-lijst)
 - [ ] Scope begrensd: welke tab(s)/onderdelen, én expliciet wat buiten scope valt
-- [ ] UX: link naar mocks/schets, of "geen UI-wijziging"
+- [ ] UX: mocks in `docs/ux/` (door de agent gemaakt) of "geen UI-wijziging"
 - [ ] Randgevallen benoemd: lege state, foutafhandeling, offline, per-huishouden-instellingen
 - [ ] Geen open vragen (of expliciet gemarkeerd als "tijdens werk te beslissen")
 - [ ] Verificatiepad bepaald: tests in `tools/test-*.cjs`, `npm run verify`, CI groen
