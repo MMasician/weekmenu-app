@@ -1,6 +1,25 @@
 # UX-voorstel: recepten-tab — sorteren op "laatst gegeten", readonly-weergave met klikbare producten, editknop, inline ingrediënten bij nieuw recept
 
-**Status: ter review (ronde 1).** Nog niet geïmplementeerd; na goedkeuring per scherm volgen SPECS/ADR/tests/`src/App.jsx` (+ build) in deze PR.
+**Status: ronde 1 goedgekeurd (keuzes hieronder), ronde 2 = verbesserde screenshots ter review.** Nog niet geïmplementeerd; na goedkeuring van ronde 2 volgen SPECS/ADR/tests/`src/App.jsx` (+ build) in deze PR.
+
+## Ronde 1 — goedkeuring per scherm (2026-11-21)
+
+- Scherm 1 (sorteerknop bovenaan): **versie A** (dropdown "⇅ Sorteer ▾" naast "⚙ Filters ▾") — met de opmerking dat het screenshot onhandig was (tekst buiten beeld, 2× filterknop zichtbaar door een mock-bug) → verbeterde screenshot in ronde 2 (`r2-01-…-v2.png`).
+- Scherm 2 (hoelang geleden bij sorteren): **versie A** — badge-chips `🕒 …` in de metarow; "Onbekend" = donkere chip, bovenaan.
+- Scherm 3 (rij-readonly): **versie A** — rij uitklapbaar naar readonly detail (chips + bereiding).
+- Scherm 4 (product-klik in readonly): **versie A** — product-kaart binnen het detail, direct onder de chips. Opmerking: in het screenshot zat geen sperziebonen in Couscous, waardoor onduidelijk was welk product geopend was → verbeterde screenshot in ronde 2 (`r2-02-…-v2.png`, kaart van "350 g zoete aardappel", geklikte chip gemarkeerd).
+- Scherm 5 (nieuw recept, ingrediënten): **versie A** — inline rijen onderaan de sheet (zelfde plek als bij bewerken).
+- Scherm 6 (edit via ✏️): **versie A inline**, maar categorie als **chips** (zoals bij nieuw recept) in plaats van een dropdown → ronde 2 (`r2-03-…-categoriechips.png`).
+
+Aanvullende beslissingen:
+- **"Gegeten" = alleen vergrendelde dagen**: `lastEaten(receptId)` = grootste datum-sleutel in `menuByDate` met `entry.id === receptId` **én `entry.locked === true`** én datum ≤ vandaag (verleden weken tellen mee, toekomstige niet). Nooit vergrendeld geweest = `null` = **"Onbekend"** = bovenaan.
+- **Sorteren op "laatst gegeten" = altijd een platte lijst** (niet per categorie gegroepeerd).
+
+## Ronde 2 — verbeterde screenshots (ter review)
+
+- `r2-01-kop-sorteer-versie-A-dropdown-v2.png` — scherm 1 opnieuw: dropdown volledig in beeld, beide items op één regel, rechts in de filterrij staat 1× "⇅ Sorteer ▾" en 1× "⚙ Filters ▾".
+- `r2-02-productklik-versie-A-kaart-in-detail-v2.png` — scherm 4 opnieuw: in Couscous is de chip "350 g zoete aardappel" gemarkeerd (actief) en klapt onder álle chips de product-kaart open met naam "zoete aardappel" — de chips blijven zichtbaar, dus ondubbelzinnig welk product geopend is.
+- `r2-03-edit-versie-A-inline-categoriechips.png` — scherm 6 aangepast: edit inline in de rij, **categorie als chips** (Vega/Vis/Vlees/Extra) zoals bij "Nieuw recept".
 
 ## Aanleiding (wensen)
 
@@ -43,23 +62,26 @@ Per te wijzigen scherm zijn er **2 versies** (mocks gerenderd in de eigen app-st
 
 ## Model- & datagevolgen (na goedkeuring in een nieuw ADR)
 
-- **Geen nieuw opslagveld nodig voor "laatst gegeten"**: `lastEaten(receptId)` = de **grootste datum-sleutel in `menuByDate`** waar `entry.id === receptId` (alle weken, vergrendeld of niet; `custom`-dagen tellen niet). Nooit in het menu = `null` = **"Onbekend"** = bovenaan bij sorteren.
-- Sorteermodus is vluchtige UI-state (zoals de filterkeuze): `"naam"` (default) of `"laatst"`. Bij `"laatst"` → **platte lijst** (net als bij actieve filters), sortering: `null` (Onbekend) eerst, dan op datum oplopend (langst geleden = kleinste datum bovenaan); bij gelijke/null: op naam. Bij `"naam"` blijft de huidige weergave (gegroepeerd per categorie zonder filters; plat op naam mét filters).
+- **Geen nieuw opslagveld nodig voor "laatst gegeten"**: `lastEaten(receptId)` = de **grootste datum-sleutel ≤ vandaag in `menuByDate`** waar `entry.id === receptId` **én `entry.locked`** (alle verleden weken tellen; niet-vergrendelde dagen en toekomstige dagen niet; `custom`-dagen tellen niet). Nooit vergrendeld = `null` = **"Onbekend"** = bovenaan bij sorteren.
+- Sorteermodus is vluchtige UI-state (zoals de filterkeuze): `"naam"` (default) of `"laatst"`. Bij `"laatst"` → **altijd een platte lijst**, sortering: `null` (Onbekend) eerst, dan op datum oplopend (langst geleden = kleinste datum bovenaan); bij gelijke/null: op naam. Bij `"naam"` blijft de huidige weergave (gegroepeerd per categorie zonder filters; plat op naam mét filters).
 - Tekst "hoelang geleden" (alleen zichtbaar bij sortering `"laatst"`): `vandaag` / `gisteren` / `n dagen geleden` (< 7) / `n wk geleden` (< 8 wk) / `n mnd geleden` (< 12 mnd) / `n jr geleden`; onbekend = `Onbekend`.
-- Readonly-rij: klik = detail open (ingrediënt-chips als `prodchip` → `openProdCard`/`renderProductCard`, ADR-017 — hergebruik van het bestaande mechanisme); ✏️ = edit; 📅 blijft weekmenu-koppeling.
+- Readonly-rij: klik = detail open (ingrediënt-chips als `prodchip` → `openProdCard`/`renderProductCard`, ADR-017 — hergebruik van het bestaande mechanisme; kaart opent binnen het detail, direct onder de chips); ✏️ = edit (inline in de rij, categorie als chips); 📅 blijft weekmenu-koppeling.
 - Nieuw recept: `newRecipe.ingredients` als array van `{ pid, amount, unit, name }` met dezelfde inline rijen + autocomplete als `renderIngRow` (hergebruik), ipv textarea; parsen bij "Toevoegen" vervalt (direct gestructureerd).
 - Bij elke app-wijziging in deze PR: `CACHE_VERSION` in `sw.js` + `?v=` in `index.html` bumpen (les PR #8/#9).
 
-## Open vragen / knopen om door te hakken
+## Open vragen / knopen om door te hakken — ronde 1 beslecht (2026-11-21)
 
-- Scherm 1: sorteerknop met dropdown (A) of toggle-chip (B)?
-- Scherm 2: badge-chip in de metarow (A) of losse tekst rechts in de rij (B)? — "Onbekend" in beide versies bovenaan.
-- Scherm 3: rij uitklapbaar naar readonly detail (A) of direct compact in de rij (B)?
-- Scherm 4: product-kaart binnen het detail (A) of onder de hele rij (B)?
-- Scherm 5: inline rijen onderaan het sheet (A) of direct onder de naam (B)?
-- Scherm 6: edit inline in de rij (A) of in een bottom sheet (B)?
-- Telt een gerecht op een **niet-vergrendelde** dag van een verleden week ook als "gegeten"? (voorstel: ja, elke datum in `menuByDate` telt)
-- Moet de sortering "laatst gegeten" ook werken binnen de per-categorie-gegroepeerde weergave (sorteren binnen categorie), of altijd als platte lijst? (huidig voorstel: altijd platte lijst)
+- Scherm 1: **dropdown (A)** — zie ronde 2 voor de verbeterde screenshot.
+- Scherm 2: **badge-chip in de metarow (A)**; "Onbekend" bovenaan.
+- Scherm 3: **uitklapbaar readonly detail (A)**.
+- Scherm 4: **product-kaart binnen het detail, onder de chips (A)**.
+- Scherm 5: **inline rijen onderaan het sheet (A)**.
+- Scherm 6: **edit inline (A)**, categorie als chips (ronde 2).
+- "Gegeten" tellen: **alleen vergrendelde dagen t/m vandaag** (beslist).
+- Sortering "laatst gegeten": **altijd platte lijst** (beslist).
+
+### Opmerking: categorie vs. vega-variant (Kip Siam ook met cashewnoten)
+Niet in deze ronde opgepakt. De bestaande **tags** dekken dit al zonder modelwijziging: een tag als `ook vega` (vrij toe te voegen, ADR-013) markeert gerechten met een makkelijke vegetarische variant; de dagcategorie (vega/vis/vlees) blijft leidend voor het weekmenu. Eventueel later uit te breiden (bijv. aparte `vegaVariant`-notitie per recept) in een eigen ADR.
 
 ## Wat er ná goedkeuring per scherm gebeurt (nog niet uitgevoerd)
 
