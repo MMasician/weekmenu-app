@@ -1,6 +1,6 @@
 # UX-voorstel: recepten-tab — sorteren op "laatst gegeten", readonly-weergave met klikbare producten, editknop, inline ingrediënten bij nieuw recept
 
-**Status: ronde 1 goedgekeurd (keuzes hieronder), ronde 2 = verbesserde screenshots ter review.** Nog niet geïmplementeerd; na goedkeuring van ronde 2 volgen SPECS/ADR/tests/`src/App.jsx` (+ build) in deze PR.
+**Status: ronde 1 + ronde 2 goedgekeurd (2026-11-21) en verwerkt in deze PR (ADR-018).** Geïmplementeerd in `docs/SPECS.md`, `docs/adr/ADR-018-recepten-sorteren-readonly.md`, `tools/test-recepten-sorteren-readonly.cjs` (+ aangepaste tests in `test-recepten-ux.cjs` / `test-producten-catalogus.cjs`) en `src/App.jsx` (+ build `src/app.js`, `styles.css`, cache-bump `CACHE_VERSION` v10→v11 + `?v=9`→`?v=10`); `npm run verify` groen, `npm run lint`/`npm run typecheck` groen (alleen pre-existente warnings).
 
 ## Ronde 1 — goedkeuring per scherm (2026-11-21)
 

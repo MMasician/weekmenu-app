@@ -259,3 +259,16 @@ input, select, textarea { font: inherit; }
 .ingrow .grow { flex: 1; min-width: 0; position: relative; }
 .ingrow input.name { width: 100%; border: 1px solid var(--stone-300); border-radius: .5rem;
   padding: .375rem .5rem; font-size: .875rem; background: #fff; }
+
+/* --- recepten-tab: sorteren op "laatst gegeten" + readonly-rij met editknop (ADR-018) --- */
+.sortwrap { position: relative; display: inline-flex; }
+.sortmenu { position: absolute; right: 0; top: calc(100% + 6px); min-width: 15rem; width: max-content; max-width: 92vw;
+  background: var(--white); border: 1px solid var(--stone-300); border-radius: .75rem;
+  box-shadow: 0 8px 24px rgba(0,0,0,.16); padding: .375rem; z-index: 50; }
+.sortmenu button { display: flex; width: 100%; align-items: center; gap: .5rem; padding: .55rem .625rem; border: none;
+  background: none; border-radius: .5rem; font-size: .8125rem; color: var(--stone-700); text-align: left; white-space: nowrap; }
+.sortmenu button:hover { background: var(--stone-100); }
+.sortmenu button.on { background: var(--emerald-50); color: var(--emerald-700); font-weight: 600; }
+.last { font-size: 10px; padding: .125rem .375rem; border-radius: .25rem; background: var(--stone-100);
+  color: var(--stone-500); font-weight: 600; white-space: nowrap; }
+.last.unknown { background: var(--stone-800); color: var(--white); }

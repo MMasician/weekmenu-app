@@ -248,6 +248,18 @@ function weekDateKeys(weekStartDay, offset) {
   const start = weekStartFor(weekStartDay, offset);
   return Array.from({ length: 7 }, (_, i) => dateKey(addDays(start, i)));
 }
+// "hoelang geleden" voor een datum-sleutel (ADR-018): null -> "Onbekend"
+function agoLabel(isoKey, todayK) {
+  if (!isoKey) return "Onbekend";
+  const p = (k) => { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d); };
+  const days = Math.round((p(todayK).getTime() - p(isoKey).getTime()) / 86400000);
+  if (days <= 0) return "vandaag";
+  if (days === 1) return "gisteren";
+  if (days < 7) return `${days} dagen geleden`;
+  if (days < 56) return `${Math.floor(days / 7)} wk geleden`;
+  if (days < 365) return `${Math.floor(days / 30)} mnd geleden`;
+  return `${Math.floor(days / 365)} jr geleden`;
+}
 // aantal weken tussen de week van fromDate en de week van toDate
 function weeksBetween(fromDate, toDate, weekStartDay) {
   return Math.round((startOfWeek(toDate, weekStartDay).getTime() - startOfWeek(fromDate, weekStartDay).getTime()) / (7 * 24 * 3600 * 1000));
@@ -551,7 +563,7 @@ export default function App() {
   const [menuByDate, setMenuByDate] = useState((stored && stored.menuByDate) || {}); // per datum (YYYY-MM-DD): {id, locked}
   const [weekOffset, setWeekOffset] = useState(0); // 0 = week van vandaag; bij openen start de app automatisch in de huidige week
   const [recipes, setRecipes] = useState(() => migrateRecipesIngredients(loadRecipes(stored), catalog0)); // receptenpool (ADR-006); string-ingrediënten gemigreerd naar producten (ADR-017)
-  const [newRecipe, setNewRecipe] = useState({ name: "", cat: "vega", timeCat: "normaal", tags: [], tagDraft: "", ingredients: "", bereiding: "" });
+  const [newRecipe, setNewRecipe] = useState({ name: "", cat: "vega", timeCat: "normaal", tags: [], tagDraft: "", ingredients: [], bereiding: "" });
   const [checked, setChecked] = useState((stored && stored.checked) || {});
   const [extraItems, setExtraItems] = useState(() => normalizeExtras(stored && stored.extraItems).map((x) => ({ ...x, pid: pidOfName(catalog0, x.name), amount: x.amount != null ? x.amount : 1, unit: x.unit || null })));
   const [stockLocations, setStockLocations] = useState(() => normalizeLocations(stored && stored.stockLocations));
@@ -576,7 +588,8 @@ export default function App() {
   const [shopDays, setShopDays] = useState(null); // null = default min(4, max aaneengesloten gelockte dagen)
   const [shopMarkets, setShopMarkets] = useState(null); // null = default uit settings (defaultShop per winkel)
   const [shopDone, setShopDone] = useState(false); // "Klaar met winkelen" geklikt -> melding tonen
-  const [openRecipe, setOpenRecipe] = useState(null);
+  const [openRecipe, setOpenRecipe] = useState(null); // recept met open readonly-detail (ADR-018)
+  const [editRecipe, setEditRecipe] = useState(null); // recept-id in bewerkmodus via ✏️ (ADR-018)
   // weekmenu-tab v2 (ADR-012): datum-sheet, regels-sheet, eters per dag, getypte invoer
   const [dateSheetOpen, setDateSheetOpen] = useState(false);
   const [rulesSheetOpen, setRulesSheetOpen] = useState(false);
@@ -592,6 +605,8 @@ export default function App() {
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [recipeInfoOpen, setRecipeInfoOpen] = useState(false);
+  const [recipeSort, setRecipeSort] = useState("naam"); // "naam" | "laatst" — sorteren op laatst gegeten (ADR-018), vluchtig
+  const [sortMenuOpen, setSortMenuOpen] = useState(false); // sorteer-dropdown open (ADR-018)
   const [tagDraft, setTagDraft] = useState(""); // tag-invoer bij het openstaande bewerkte recept
   const [daySheetRecipe, setDaySheetRecipe] = useState(null); // recept waarvoor de dagkiezer (deze week) open is
   const [weekToast, setWeekToast] = useState(""); // melding na toevoegen aan het weekmenu
@@ -829,6 +844,61 @@ export default function App() {
       return { ...r, ingredients: ings };
     }));
   }
+  // "Nieuw recept" (ADR-018): ingrediënt-rijen net als bij bewerken — operate op newRecipe ipv recipes
+  function setNewIngAmount(idx, v) {
+    const a = v === "" ? null : Number(String(v).replace(",", "."));
+    setNewRecipe((nr) => ({ ...nr, ingredients: (nr.ingredients || []).map((x, i) => (i === idx ? { ...(x || {}), amount: Number.isFinite(a) ? a : null } : x)) }));
+  }
+  function commitNewIngAmount(idx) {
+    setNewRecipe((nr) => ({
+      ...nr,
+      ingredients: (nr.ingredients || []).map((x, i) => {
+        if (i !== idx || !x || x.amount == null) return x;
+        const p = x.pid ? prodById[x.pid] : null;
+        const n = normalizeAmountUnit(x.amount, ingUnit(x, p) || null);
+        return { ...x, amount: n.amount, unit: n.unit };
+      }),
+    }));
+  }
+  function setNewIngUnit(idx, newUnit) {
+    setNewRecipe((nr) => ({
+      ...nr,
+      ingredients: (nr.ingredients || []).map((x, i) => {
+        if (i !== idx || !x) return x;
+        const p = x.pid ? prodById[x.pid] : null;
+        const oldUnit = ingUnit(x, p) || null;
+        let amount = x.amount;
+        if (amount != null && oldUnit && newUnit && UNIT_FACTOR[oldUnit] && UNIT_FACTOR[newUnit]) {
+          const c = convertAmount(amount, oldUnit, newUnit);
+          if (c != null) amount = roundAmt(c);
+        }
+        return { ...x, amount, unit: newUnit || null };
+      }),
+    }));
+  }
+  function resolveNewIng(idx, text) {
+    const t = String(text || "").trim();
+    const prod = t ? ensureProduct(t) : null;
+    setNewRecipe((nr) => {
+      const ings = [...(nr.ingredients || [])];
+      if (!t) { ings.splice(idx, 1); return { ...nr, ingredients: ings }; }
+      const cur = ings[idx] || {};
+      ings[idx] = { pid: prod ? prod.id : null, amount: cur.amount != null ? cur.amount : null, unit: cur.unit || (prod && prod.unit) || null, name: prod ? prod.name : t };
+      return { ...nr, ingredients: ings };
+    });
+    setIngDrafts((d) => { const o = { ...d }; delete o["new:" + idx]; return o; });
+    setIngSuggest(null);
+  }
+  function selectNewIngProduct(idx, prod) {
+    setNewRecipe((nr) => {
+      const ings = [...(nr.ingredients || [])];
+      const cur = ings[idx] || {};
+      ings[idx] = { pid: prod.id, amount: cur.amount != null ? cur.amount : null, unit: cur.unit || prod.unit || null, name: prod.name };
+      return { ...nr, ingredients: ings };
+    });
+    setIngDrafts((d) => { const o = { ...d }; delete o["new:" + idx]; return o; });
+    setIngSuggest(null);
+  }
   function deleteProduct(i) {
     setStock(stock.filter((_, j) => j !== i));
   }
@@ -989,21 +1059,13 @@ export default function App() {
         cat: newRecipe.cat,
         timeCat: newRecipe.timeCat || "normaal",
         tags: newRecipe.tags || [],
-        ingredients: newRecipe.ingredients.split("\n").map((s) => s.trim()).filter(Boolean).map((line) => {
-          const x = parseIngredientLabel(line);
-          const key = productKey(x.name);
-          if (!key) return line;
-          let prod = products.find((p) => productKey(p.name) === key);
-          if (!prod) {
-            prod = { id: newId("p"), name: x.name, cat: "overig", market: null, unit: x.unit || null };
-            setProducts((ps) => [...ps, prod]);
-          }
-          return { pid: prod.id, amount: x.amount, unit: x.unit || prod.unit || null, name: prod.name };
-        }),
+        ingredients: (newRecipe.ingredients || [])
+          .filter((x) => x && (x.name || x.pid))
+          .map((x) => ({ pid: x.pid || null, amount: x.amount != null ? x.amount : null, unit: x.unit || null, name: x.name || "" })),
         bereiding: newRecipe.bereiding.trim(),
       }),
     ]);
-    setNewRecipe({ name: "", cat: "vega", timeCat: "normaal", tags: [], tagDraft: "", ingredients: "", bereiding: "" });
+    setNewRecipe({ name: "", cat: "vega", timeCat: "normaal", tags: [], tagDraft: "", ingredients: [], bereiding: "" });
     setAddSheetOpen(false);
   }
 
@@ -1037,6 +1099,7 @@ export default function App() {
       return out;
     });
     setOpenRecipe(null);
+    setEditRecipe(null);
   }
 
   function exportRecipes() {
@@ -1109,10 +1172,25 @@ export default function App() {
   }, [menuByDate, byId, scopeKeys, shopDaysEff, prodById, prodByKey, catOf, marketOf]);
 
   const activeMenuIds = weekEntries.filter(Boolean).map((d) => d.id);
+  // recepten-tab: sorteren op "laatst gegeten" (ADR-018) — alleen vergrendelde dagen t/m vandaag tellen; nooit = Onbekend = bovenaan
+  const lastEaten = {};
+  Object.entries(menuByDate).forEach(([k, e]) => {
+    if (e && e.id && e.locked && k <= todayKey && (!lastEaten[e.id] || k > lastEaten[e.id])) lastEaten[e.id] = k;
+  });
+  const sortLast = recipeSort === "laatst";
+  const byLastEaten = (a, b) => {
+    const la = lastEaten[a.id] || null;
+    const lb = lastEaten[b.id] || null;
+    if (la === null && lb === null) return a.name.localeCompare(b.name, "nl");
+    if (la === null) return -1;
+    if (lb === null) return 1;
+    return la.localeCompare(lb) || a.name.localeCompare(b.name, "nl");
+  };
   // recepten-tab: zoeken/filteren (ADR-013) — alle filters combineren met AND
   const rq = recipeQuery.trim().toLowerCase();
   const ingQ = ingFilter.trim().toLowerCase();
   const hasRecipeFilters = !!rq || timeFilter !== "alle" || !!ingQ || tagFilters.length > 0;
+  const showFlatList = hasRecipeFilters || sortLast; // sorteren op "laatst" -> altijd platte lijst (ADR-018)
   const filteredRecipes = recipes.filter((r) => {
     if (rq && !r.name.toLowerCase().includes(rq)) return false;
     if (timeFilter !== "alle" && (r.timeCat || "normaal") !== timeFilter) return false;
@@ -1276,14 +1354,100 @@ export default function App() {
     );
   };
 
+  // ingrediënt-rij in het "Nieuw recept"-sheet (ADR-018): zelfde inline rij + autocomplete als bij bewerken, maar op newRecipe
+  const renderNewIngRow = (ing, idx) => {
+    const key = "new:" + idx;
+    const p = ing && ing.pid ? prodById[ing.pid] : null;
+    const draft = ingDrafts[key];
+    const nameVal = draft !== undefined ? draft : p ? p.name : (ing && ing.name) || "";
+    const q = nameVal.trim().toLowerCase();
+    const sugg = ingSuggest === key && q.length >= 2 ? matchProducts(products, q) : [];
+    const unit = ingUnit(ing, p) || null;
+    const amountVal = ing && ing.amount != null ? String(ing.amount).replace(".", ",") : "";
+    return (
+      <div key={idx} className="ingrow">
+        <input
+          className="qty"
+          style={{ width: "2.4rem" }}
+          value={amountVal}
+          placeholder="#"
+          title="Aantal"
+          onChange={(e) => setNewIngAmount(idx, e.target.value)}
+          onBlur={() => commitNewIngAmount(idx)}
+        />
+        {unit ? (
+          UNIT_GROUP[unit] ? (
+            <select
+              className="border rounded-lg px-1 py-1.5 text-xs text-stone-600 shrink-0"
+              style={{ width: "4.4rem" }}
+              value={unit}
+              title="Eenheid (alleen converteerbare eenheden wijzigbaar)"
+              onChange={(e) => setNewIngUnit(idx, e.target.value)}
+            >
+              {UNIT_GROUP[unit].map((u) => (<option key={u} value={u}>{u}</option>))}
+            </select>
+          ) : (
+            <span className="text-xs text-stone-500 shrink-0" title="Eenheid van het product">{unit}</span>
+          )
+        ) : null}
+        <span className="grow suggest-wrap">
+          <input
+            className="name"
+            value={nameVal}
+            placeholder="Productnaam…"
+            onChange={(e) => {
+              setIngDrafts((d) => ({ ...d, [key]: e.target.value }));
+              setIngSuggest(e.target.value.trim().length >= 2 ? key : null);
+              setActiveIngSuggest(0);
+            }}
+            onBlur={() => resolveNewIng(idx, nameVal)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                if (sugg.length && sugg[activeIngSuggest]) selectNewIngProduct(idx, sugg[activeIngSuggest]);
+                else resolveNewIng(idx, nameVal);
+              } else if (e.key === "Escape") setIngSuggest(null);
+              else if (e.key === "ArrowDown" && sugg.length) { e.preventDefault(); setActiveIngSuggest((s2) => Math.min(s2 + 1, sugg.length - 1)); }
+              else if (e.key === "ArrowUp" && sugg.length) { e.preventDefault(); setActiveIngSuggest((s2) => Math.max(s2 - 1, 0)); }
+            }}
+          />
+          {sugg.length > 0 && (
+            <div className="suggest-list">
+              {sugg.map((s2, si) => (
+                <div
+                  key={s2.id}
+                  className={`suggest-item${si === activeIngSuggest ? " active" : ""}`}
+                  onMouseDown={(e) => { e.preventDefault(); selectNewIngProduct(idx, s2); }}
+                >
+                  <span>{highlightMatch(s2.name, q)}</span>
+                  <span className="text-[10px] text-stone-400 shrink-0">{s2.cat}{s2.unit ? ` · ${s2.unit}` : ""}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </span>
+        <button
+          type="button"
+          className="text-stone-300 hover:text-red-500 text-sm"
+          title="Ingrediënt verwijderen"
+          onClick={() => setNewRecipe((nr) => ({ ...nr, ingredients: (nr.ingredients || []).filter((_, j) => j !== idx) }))}
+        >
+          ✕
+        </button>
+      </div>
+    );
+  };
+
   const renderRecipeRow = (r) => {
     const inMenu = activeMenuIds.includes(r.id);
-    const isOpen = openRecipe === r.id;
+    const isOpen = openRecipe === r.id; // readonly-detail open (ADR-018)
+    const isEdit = editRecipe === r.id; // bewerkmodus via ✏️ (ADR-018)
+    const lastKey = lastEaten[r.id] || null;
     return (
       <div key={r.id} className="bg-white rounded-xl shadow-sm overflow-hidden">
         <div className="flex items-center gap-1 px-3 py-2.5">
           <button
-            onClick={() => { setOpenRecipe(isOpen ? null : r.id); setTagDraft(""); }}
+            onClick={() => { setOpenRecipe(isOpen ? null : r.id); if (!isOpen) setEditRecipe(null); setTagDraft(""); }}
             className="flex-1 text-left min-w-0"
           >
             <div className="flex items-center justify-between gap-2">
@@ -1294,7 +1458,7 @@ export default function App() {
                   <span className="ml-1.5 text-[10px] bg-stone-100 text-stone-500 px-1.5 py-0.5 rounded-full">geen ingredienten bekend</span>
                 )}
               </span>
-              <span className="text-stone-400 text-xs shrink-0">{isOpen ? "▴" : "▾"}</span>
+              <span className="text-stone-400 text-xs shrink-0">{isOpen || isEdit ? "▴" : "▾"}</span>
             </div>
             <div className="metarow">
               <span className={`text-[10px] px-1.5 rounded ${CAT_STYLE[r.cat]}`}>{CAT_LABEL[r.cat]}</span>
@@ -1302,33 +1466,59 @@ export default function App() {
               {(r.tags || []).map((t) => (
                 <span key={t} className="tag">{t}</span>
               ))}
+              {sortLast && (
+                <span className={`last${lastKey ? "" : " unknown"}`} title={lastKey ? `Laatst gegeten: ${lastKey}` : "Nog nooit vergrendeld gegeten"}>
+                  {`🕒 ${agoLabel(lastKey, todayKey)}`}
+                </span>
+              )}
             </div>
+          </button>
+          <button className="iconbtn" title="Recept bewerken" onClick={() => { setEditRecipe(isEdit ? null : r.id); setOpenRecipe(null); setTagDraft(""); }}>
+            ✏️
           </button>
           <button className="iconbtn" title="Toevoegen aan een onvergrendelde dag van deze week" onClick={() => setDaySheetRecipe(r)}>📅</button>
         </div>
-        {isOpen && (
+        {isOpen && !isEdit && (
           <div className="px-3 pb-3 border-t border-stone-100">
-            <div className="grid grid-cols-2 gap-2 mt-3">
-              <label className="text-xs">
-                <span className="text-stone-500">Naam</span>
-                <input
-                  value={r.name}
-                  onChange={(e) => updateRecipe(r.id, { name: e.target.value })}
-                  className="w-full border rounded-lg px-2 py-1.5 mt-0.5"
-                />
-              </label>
-              <label className="text-xs">
-                <span className="text-stone-500">Categorie</span>
-                <select
-                  value={r.cat}
-                  onChange={(e) => updateRecipe(r.id, { cat: e.target.value })}
-                  className="w-full border rounded-lg px-2 py-1.5 mt-0.5"
-                >
-                  {["vega", "vis", "vlees", "extra"].map((c) => (
-                    <option key={c} value={c}>{CAT_LABEL[c]}</option>
-                  ))}
-                </select>
-              </label>
+            <div className="text-xs font-semibold text-stone-700 mb-1 mt-2">Ingrediënten</div>
+            {(r.ingredients || []).filter(Boolean).length > 0 ? (
+              <div className="flex flex-wrap gap-1 mb-2">
+                {(r.ingredients || []).filter(Boolean).map((ing, ii) => {
+                  const p = typeof ing === "object" && ing && ing.pid ? prodById[ing.pid] : null;
+                  return (
+                    <button key={ii} type="button" className="prodchip" onClick={() => p && openProdCard("rec-" + r.id, p.id)}>
+                      {ingLabel(ing, prodById)}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-xs text-stone-400 mb-2">geen ingrediënten bekend</div>
+            )}
+            {renderProductCard("rec-" + r.id)}
+            <div className="text-xs font-semibold text-stone-700 mb-1">Bereiding</div>
+            <div className="text-xs text-stone-600">{r.bereiding || "—"}</div>
+          </div>
+        )}
+        {isEdit && (
+          <div className="px-3 pb-3 border-t border-stone-100">
+            <div className="mt-3 text-xs">
+              <span className="text-stone-500">Naam</span>
+              <input
+                value={r.name}
+                onChange={(e) => updateRecipe(r.id, { name: e.target.value })}
+                className="w-full border rounded-lg px-2 py-1.5 mt-0.5"
+              />
+            </div>
+            <div className="mt-3 text-xs">
+              <span className="text-stone-500">Categorie</span>
+              <div className="filterrow" style={{ marginTop: ".25rem" }}>
+                {["vega", "vis", "vlees", "extra"].map((c) => (
+                  <button key={c} className={`chip${r.cat === c ? " on" : ""}`} onClick={() => updateRecipe(r.id, { cat: c })}>
+                    {CAT_LABEL[c]}
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="mt-3 text-xs">
               <span className="text-stone-500">Bereidingstijd</span>
@@ -1701,10 +1891,28 @@ export default function App() {
         {allTags.length > topTags.length && (
           <button className="chip" onClick={() => setFilterSheetOpen(true)}>{`＋${allTags.length - topTags.length} meer ▾`}</button>
         )}
-        <button className="chip" style={{ marginLeft: "auto" }} onClick={() => setFilterSheetOpen(true)}>⚙ Filters ▾</button>
+        <span className="sortwrap" style={{ marginLeft: "auto" }}>
+          <button className="chip" title="Sorteren" onClick={() => setSortMenuOpen((v) => !v)}>
+            ⇅ Sorteer ▾
+          </button>
+          {sortMenuOpen && (
+            <div className="sortmenu">
+              <button className={recipeSort === "naam" ? "on" : ""} onClick={() => { setRecipeSort("naam"); setSortMenuOpen(false); }}>
+                ✓ Naam (A–Z)
+              </button>
+              <button className={recipeSort === "laatst" ? "on" : ""} onClick={() => { setRecipeSort("laatst"); setSortMenuOpen(false); }}>
+                🕒 Laatst gegeten (langst geleden eerst)
+              </button>
+            </div>
+          )}
+        </span>
+        <button className="chip" onClick={() => setFilterSheetOpen(true)}>⚙ Filters ▾</button>
       </div>
-      {hasRecipeFilters && (
+      {(hasRecipeFilters || sortLast) && (
         <div className="afilterrow">
+          {sortLast && (
+            <span className="afilter">{`🕒 Laatst gegeten `}<button className="x" onClick={() => setRecipeSort("naam")}>×</button></span>
+          )}
           {rq !== "" && (
             <span className="afilter">{`🔍 “${recipeQuery.trim()}” `}<button className="x" onClick={() => setRecipeQuery("")}>×</button></span>
           )}
@@ -1721,7 +1929,7 @@ export default function App() {
           <span className="count">{`${filteredRecipes.length} van ${recipes.length} recepten`}</span>
         </div>
       )}
-      {!hasRecipeFilters && ["vega", "vis", "vlees", "extra"].map((c) => {
+      {!showFlatList && ["vega", "vis", "vlees", "extra"].map((c) => {
         const list = recipes.filter((r) => r.cat === c).sort((a, b) => a.name.localeCompare(b.name, "nl"));
         if (!list.length) return null;
         return (
@@ -1733,9 +1941,9 @@ export default function App() {
           </div>
         );
       })}
-      {hasRecipeFilters && (
+      {showFlatList && (
         <div className="space-y-1.5">
-          {[...filteredRecipes].sort((a, b) => a.name.localeCompare(b.name, "nl")).map((r) => renderRecipeRow(r))}
+          {[...filteredRecipes].sort(sortLast ? byLastEaten : (a, b) => a.name.localeCompare(b.name, "nl")).map((r) => renderRecipeRow(r))}
         </div>
       )}
       <div className="mutedrow">
@@ -1864,14 +2072,17 @@ export default function App() {
                 </div>
               </div>
               <div className="text-xs mb-3">
-                <span className="text-stone-500">Ingrediënten (één per regel)</span>
-                <textarea
-                  rows={3}
-                  className="w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm"
-                  value={newRecipe.ingredients}
-                  placeholder="Ingrediënten, één per regel…"
-                  onChange={(e) => setNewRecipe({ ...newRecipe, ingredients: e.target.value })}
-                />
+                <span className="text-stone-500">Ingrediënten</span>
+                <div className="mt-1">
+                  {(newRecipe.ingredients || []).map((ing, idx) => renderNewIngRow(ing, idx))}
+                </div>
+                <button
+                  className="addrow"
+                  style={{ border: "1px dashed var(--stone-300)", borderRadius: ".75rem", marginTop: ".4rem" }}
+                  onClick={() => setNewRecipe({ ...newRecipe, ingredients: [...(newRecipe.ingredients || []), { pid: null, amount: null, unit: null, name: "" }] })}
+                >
+                  ＋ Ingrediënt toevoegen
+                </button>
               </div>
               <div className="text-xs mb-3">
                 <span className="text-stone-500">Bereiding (optioneel)</span>

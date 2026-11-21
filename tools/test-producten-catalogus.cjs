@@ -97,7 +97,7 @@ const SEED = {
 {
   const t = make(SEED);
   t.findTab("Recepten").props.onClick();
-  t.btnByText("Testsoep").props.onClick(); // bewerkformulier open
+  t.btnByTitle("Recept bewerken").props.onClick(); // ✏️ opent bewerkmodus (ADR-018; rij-klik opent readonly)
   let h = t.html();
   check("bewerkformulier toont inline ingrediënt-rijen (ingrow)", h.indexOf("ingrow") !== -1);
   check("geen textarea meer voor ingrediënten", !t.inputByPlaceholder("Ingrediënten, één per regel") || true);
@@ -136,7 +136,7 @@ const SEED = {
 {
   const t = make(SEED);
   t.findTab("Recepten").props.onClick();
-  t.btnByText("Testsoep").props.onClick();
+  t.btnByTitle("Recept bewerken").props.onClick(); // bewerkmodus via ✏️ (ADR-018)
   const rowSperz = t.findRow("sperziebonen");
   const qty = t.childIn(rowSperz, (n) => n && n.type === "input" && n.props.title === "Aantal");
   check("aantalveld per rij aanwezig (sperziebonen)", !!qty && qty.props.value === "200");
