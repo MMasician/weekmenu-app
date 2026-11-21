@@ -248,6 +248,18 @@ function weekDateKeys(weekStartDay, offset) {
   const start = weekStartFor(weekStartDay, offset);
   return Array.from({ length: 7 }, (_, i) => dateKey(addDays(start, i)));
 }
+// "hoelang geleden" voor een datum-sleutel (ADR-018): null -> "Onbekend"
+function agoLabel(isoKey, todayK) {
+  if (!isoKey) return "Onbekend";
+  const p = (k) => { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d); };
+  const days = Math.round((p(todayK).getTime() - p(isoKey).getTime()) / 86400000);
+  if (days <= 0) return "vandaag";
+  if (days === 1) return "gisteren";
+  if (days < 7) return `${days} dagen geleden`;
+  if (days < 56) return `${Math.floor(days / 7)} wk geleden`;
+  if (days < 365) return `${Math.floor(days / 30)} mnd geleden`;
+  return `${Math.floor(days / 365)} jr geleden`;
+}
 // aantal weken tussen de week van fromDate en de week van toDate
 function weeksBetween(fromDate, toDate, weekStartDay) {
   return Math.round((startOfWeek(toDate, weekStartDay).getTime() - startOfWeek(fromDate, weekStartDay).getTime()) / (7 * 24 * 3600 * 1000));
@@ -551,7 +563,7 @@ function App() {
   const [menuByDate, setMenuByDate] = useState((stored && stored.menuByDate) || {}); // per datum (YYYY-MM-DD): {id, locked}
   const [weekOffset, setWeekOffset] = useState(0); // 0 = week van vandaag; bij openen start de app automatisch in de huidige week
   const [recipes, setRecipes] = useState(() => migrateRecipesIngredients(loadRecipes(stored), catalog0)); // receptenpool (ADR-006); string-ingrediënten gemigreerd naar producten (ADR-017)
-  const [newRecipe, setNewRecipe] = useState({ name: "", cat: "vega", timeCat: "normaal", tags: [], tagDraft: "", ingredients: "", bereiding: "" });
+  const [newRecipe, setNewRecipe] = useState({ name: "", cat: "vega", timeCat: "normaal", tags: [], tagDraft: "", ingredients: [], bereiding: "" });
   const [checked, setChecked] = useState((stored && stored.checked) || {});
   const [extraItems, setExtraItems] = useState(() => normalizeExtras(stored && stored.extraItems).map((x) => ({ ...x, pid: pidOfName(catalog0, x.name), amount: x.amount != null ? x.amount : 1, unit: x.unit || null })));
   const [stockLocations, setStockLocations] = useState(() => normalizeLocations(stored && stored.stockLocations));
@@ -576,7 +588,8 @@ function App() {
   const [shopDays, setShopDays] = useState(null); // null = default min(4, max aaneengesloten gelockte dagen)
   const [shopMarkets, setShopMarkets] = useState(null); // null = default uit settings (defaultShop per winkel)
   const [shopDone, setShopDone] = useState(false); // "Klaar met winkelen" geklikt -> melding tonen
-  const [openRecipe, setOpenRecipe] = useState(null);
+  const [openRecipe, setOpenRecipe] = useState(null); // recept met open readonly-detail (ADR-018)
+  const [editRecipe, setEditRecipe] = useState(null); // recept-id in bewerkmodus via ✏️ (ADR-018)
   // weekmenu-tab v2 (ADR-012): datum-sheet, regels-sheet, eters per dag, getypte invoer
   const [dateSheetOpen, setDateSheetOpen] = useState(false);
   const [rulesSheetOpen, setRulesSheetOpen] = useState(false);
@@ -592,6 +605,8 @@ function App() {
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [recipeInfoOpen, setRecipeInfoOpen] = useState(false);
+  const [recipeSort, setRecipeSort] = useState("naam"); // "naam" | "laatst" — sorteren op laatst gegeten (ADR-018), vluchtig
+  const [sortMenuOpen, setSortMenuOpen] = useState(false); // sorteer-dropdown open (ADR-018)
   const [tagDraft, setTagDraft] = useState(""); // tag-invoer bij het openstaande bewerkte recept
   const [daySheetRecipe, setDaySheetRecipe] = useState(null); // recept waarvoor de dagkiezer (deze week) open is
   const [weekToast, setWeekToast] = useState(""); // melding na toevoegen aan het weekmenu
@@ -829,6 +844,61 @@ function App() {
       return { ...r, ingredients: ings };
     }));
   }
+  // "Nieuw recept" (ADR-018): ingrediënt-rijen net als bij bewerken — operate op newRecipe ipv recipes
+  function setNewIngAmount(idx, v) {
+    const a = v === "" ? null : Number(String(v).replace(",", "."));
+    setNewRecipe((nr) => ({ ...nr, ingredients: (nr.ingredients || []).map((x, i) => (i === idx ? { ...(x || {}), amount: Number.isFinite(a) ? a : null } : x)) }));
+  }
+  function commitNewIngAmount(idx) {
+    setNewRecipe((nr) => ({
+      ...nr,
+      ingredients: (nr.ingredients || []).map((x, i) => {
+        if (i !== idx || !x || x.amount == null) return x;
+        const p = x.pid ? prodById[x.pid] : null;
+        const n = normalizeAmountUnit(x.amount, ingUnit(x, p) || null);
+        return { ...x, amount: n.amount, unit: n.unit };
+      }),
+    }));
+  }
+  function setNewIngUnit(idx, newUnit) {
+    setNewRecipe((nr) => ({
+      ...nr,
+      ingredients: (nr.ingredients || []).map((x, i) => {
+        if (i !== idx || !x) return x;
+        const p = x.pid ? prodById[x.pid] : null;
+        const oldUnit = ingUnit(x, p) || null;
+        let amount = x.amount;
+        if (amount != null && oldUnit && newUnit && UNIT_FACTOR[oldUnit] && UNIT_FACTOR[newUnit]) {
+          const c = convertAmount(amount, oldUnit, newUnit);
+          if (c != null) amount = roundAmt(c);
+        }
+        return { ...x, amount, unit: newUnit || null };
+      }),
+    }));
+  }
+  function resolveNewIng(idx, text) {
+    const t = String(text || "").trim();
+    const prod = t ? ensureProduct(t) : null;
+    setNewRecipe((nr) => {
+      const ings = [...(nr.ingredients || [])];
+      if (!t) { ings.splice(idx, 1); return { ...nr, ingredients: ings }; }
+      const cur = ings[idx] || {};
+      ings[idx] = { pid: prod ? prod.id : null, amount: cur.amount != null ? cur.amount : null, unit: cur.unit || (prod && prod.unit) || null, name: prod ? prod.name : t };
+      return { ...nr, ingredients: ings };
+    });
+    setIngDrafts((d) => { const o = { ...d }; delete o["new:" + idx]; return o; });
+    setIngSuggest(null);
+  }
+  function selectNewIngProduct(idx, prod) {
+    setNewRecipe((nr) => {
+      const ings = [...(nr.ingredients || [])];
+      const cur = ings[idx] || {};
+      ings[idx] = { pid: prod.id, amount: cur.amount != null ? cur.amount : null, unit: cur.unit || prod.unit || null, name: prod.name };
+      return { ...nr, ingredients: ings };
+    });
+    setIngDrafts((d) => { const o = { ...d }; delete o["new:" + idx]; return o; });
+    setIngSuggest(null);
+  }
   function deleteProduct(i) {
     setStock(stock.filter((_, j) => j !== i));
   }
@@ -989,21 +1059,13 @@ function App() {
         cat: newRecipe.cat,
         timeCat: newRecipe.timeCat || "normaal",
         tags: newRecipe.tags || [],
-        ingredients: newRecipe.ingredients.split("\n").map((s) => s.trim()).filter(Boolean).map((line) => {
-          const x = parseIngredientLabel(line);
-          const key = productKey(x.name);
-          if (!key) return line;
-          let prod = products.find((p) => productKey(p.name) === key);
-          if (!prod) {
-            prod = { id: newId("p"), name: x.name, cat: "overig", market: null, unit: x.unit || null };
-            setProducts((ps) => [...ps, prod]);
-          }
-          return { pid: prod.id, amount: x.amount, unit: x.unit || prod.unit || null, name: prod.name };
-        }),
+        ingredients: (newRecipe.ingredients || [])
+          .filter((x) => x && (x.name || x.pid))
+          .map((x) => ({ pid: x.pid || null, amount: x.amount != null ? x.amount : null, unit: x.unit || null, name: x.name || "" })),
         bereiding: newRecipe.bereiding.trim(),
       }),
     ]);
-    setNewRecipe({ name: "", cat: "vega", timeCat: "normaal", tags: [], tagDraft: "", ingredients: "", bereiding: "" });
+    setNewRecipe({ name: "", cat: "vega", timeCat: "normaal", tags: [], tagDraft: "", ingredients: [], bereiding: "" });
     setAddSheetOpen(false);
   }
 
@@ -1037,6 +1099,7 @@ function App() {
       return out;
     });
     setOpenRecipe(null);
+    setEditRecipe(null);
   }
 
   function exportRecipes() {
@@ -1109,10 +1172,25 @@ function App() {
   }, [menuByDate, byId, scopeKeys, shopDaysEff, prodById, prodByKey, catOf, marketOf]);
 
   const activeMenuIds = weekEntries.filter(Boolean).map((d) => d.id);
+  // recepten-tab: sorteren op "laatst gegeten" (ADR-018) — alleen vergrendelde dagen t/m vandaag tellen; nooit = Onbekend = bovenaan
+  const lastEaten = {};
+  Object.entries(menuByDate).forEach(([k, e]) => {
+    if (e && e.id && e.locked && k <= todayKey && (!lastEaten[e.id] || k > lastEaten[e.id])) lastEaten[e.id] = k;
+  });
+  const sortLast = recipeSort === "laatst";
+  const byLastEaten = (a, b) => {
+    const la = lastEaten[a.id] || null;
+    const lb = lastEaten[b.id] || null;
+    if (la === null && lb === null) return a.name.localeCompare(b.name, "nl");
+    if (la === null) return -1;
+    if (lb === null) return 1;
+    return la.localeCompare(lb) || a.name.localeCompare(b.name, "nl");
+  };
   // recepten-tab: zoeken/filteren (ADR-013) — alle filters combineren met AND
   const rq = recipeQuery.trim().toLowerCase();
   const ingQ = ingFilter.trim().toLowerCase();
   const hasRecipeFilters = !!rq || timeFilter !== "alle" || !!ingQ || tagFilters.length > 0;
+  const showFlatList = hasRecipeFilters || sortLast; // sorteren op "laatst" -> altijd platte lijst (ADR-018)
   const filteredRecipes = recipes.filter((r) => {
     if (rq && !r.name.toLowerCase().includes(rq)) return false;
     if (timeFilter !== "alle" && (r.timeCat || "normaal") !== timeFilter) return false;
@@ -1193,18 +1271,70 @@ function App() {
     );
   };
 
+  // ingrediënt-rij in het "Nieuw recept"-sheet (ADR-018): zelfde inline rij + autocomplete als bij bewerken, maar op newRecipe
+  const renderNewIngRow = (ing, idx) => {
+    const key = "new:" + idx;
+    const p = ing && ing.pid ? prodById[ing.pid] : null;
+    const draft = ingDrafts[key];
+    const nameVal = draft !== undefined ? draft : p ? p.name : (ing && ing.name) || "";
+    const q = nameVal.trim().toLowerCase();
+    const sugg = ingSuggest === key && q.length >= 2 ? matchProducts(products, q) : [];
+    const unit = ingUnit(ing, p) || null;
+    const amountVal = ing && ing.amount != null ? String(ing.amount).replace(".", ",") : "";
+    return (
+      /*#__PURE__*/React.createElement("div", { "key": idx, "className": "ingrow" }, /*#__PURE__*/React.createElement("input", { "className": "qty", "style": { width: "2.4rem" }, "value": amountVal, "placeholder": "#", "title": "Aantal", "onChange": (e) => setNewIngAmount(idx, e.target.value), "onBlur": () => commitNewIngAmount(idx) }), unit ? (
+          UNIT_GROUP[unit] ? (
+            /*#__PURE__*/React.createElement("select", { "className": "border rounded-lg px-1 py-1.5 text-xs text-stone-600 shrink-0", "style": { width: "4.4rem" }, "value": unit, "title": "Eenheid (alleen converteerbare eenheden wijzigbaar)", "onChange": (e) => setNewIngUnit(idx, e.target.value) }, UNIT_GROUP[unit].map((u) => (/*#__PURE__*/React.createElement("option", { "key": u, "value": u }, u))))
+          ) : (
+            /*#__PURE__*/React.createElement("span", { "className": "text-xs text-stone-500 shrink-0", "title": "Eenheid van het product" }, unit)
+          )
+        ) : null, /*#__PURE__*/React.createElement("span", { "className": "grow suggest-wrap" }, /*#__PURE__*/React.createElement("input", { "className": "name", "value": nameVal, "placeholder": "Productnaam…", "onChange": (e) => {
+              setIngDrafts((d) => ({ ...d, [key]: e.target.value }));
+              setIngSuggest(e.target.value.trim().length >= 2 ? key : null);
+              setActiveIngSuggest(0);
+            }, "onBlur": () => resolveNewIng(idx, nameVal), "onKeyDown": (e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                if (sugg.length && sugg[activeIngSuggest]) selectNewIngProduct(idx, sugg[activeIngSuggest]);
+                else resolveNewIng(idx, nameVal);
+              } else if (e.key === "Escape") setIngSuggest(null);
+              else if (e.key === "ArrowDown" && sugg.length) { e.preventDefault(); setActiveIngSuggest((s2) => Math.min(s2 + 1, sugg.length - 1)); }
+              else if (e.key === "ArrowUp" && sugg.length) { e.preventDefault(); setActiveIngSuggest((s2) => Math.max(s2 - 1, 0)); }
+            } }), sugg.length > 0 && (
+            /*#__PURE__*/React.createElement("div", { "className": "suggest-list" }, sugg.map((s2, si) => (
+                /*#__PURE__*/React.createElement("div", { "key": s2.id, "className": `suggest-item${si === activeIngSuggest ? " active" : ""}`, "onMouseDown": (e) => { e.preventDefault(); selectNewIngProduct(idx, s2); } }, /*#__PURE__*/React.createElement("span", null, highlightMatch(s2.name, q)), /*#__PURE__*/React.createElement("span", { "className": "text-[10px] text-stone-400 shrink-0" }, s2.cat, s2.unit ? ` · ${s2.unit}` : ""))
+              )))
+          )), /*#__PURE__*/React.createElement("button", { "type": "button", "className": "text-stone-300 hover:text-red-500 text-sm", "title": "Ingrediënt verwijderen", "onClick": () => setNewRecipe((nr) => ({ ...nr, ingredients: (nr.ingredients || []).filter((_, j) => j !== idx) })) }, "✕"))
+    );
+  };
+
   const renderRecipeRow = (r) => {
     const inMenu = activeMenuIds.includes(r.id);
-    const isOpen = openRecipe === r.id;
+    const isOpen = openRecipe === r.id; // readonly-detail open (ADR-018)
+    const isEdit = editRecipe === r.id; // bewerkmodus via ✏️ (ADR-018)
+    const lastKey = lastEaten[r.id] || null;
     return (
-      /*#__PURE__*/React.createElement("div", { "key": r.id, "className": "bg-white rounded-xl shadow-sm overflow-hidden" }, /*#__PURE__*/React.createElement("div", { "className": "flex items-center gap-1 px-3 py-2.5" }, /*#__PURE__*/React.createElement("button", { "onClick": () => { setOpenRecipe(isOpen ? null : r.id); setTagDraft(""); }, "className": "flex-1 text-left min-w-0" }, /*#__PURE__*/React.createElement("div", { "className": "flex items-center justify-between gap-2" }, /*#__PURE__*/React.createElement("span", { "className": "font-medium text-sm" }, r.name, inMenu && /*#__PURE__*/React.createElement("span", { "className": "ml-2 text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full" }, "deze week"), (r.ingredients || []).filter(Boolean).length === 0 && (
+      /*#__PURE__*/React.createElement("div", { "key": r.id, "className": "bg-white rounded-xl shadow-sm overflow-hidden" }, /*#__PURE__*/React.createElement("div", { "className": "flex items-center gap-1 px-3 py-2.5" }, /*#__PURE__*/React.createElement("button", { "onClick": () => { setOpenRecipe(isOpen ? null : r.id); if (!isOpen) setEditRecipe(null); setTagDraft(""); }, "className": "flex-1 text-left min-w-0" }, /*#__PURE__*/React.createElement("div", { "className": "flex items-center justify-between gap-2" }, /*#__PURE__*/React.createElement("span", { "className": "font-medium text-sm" }, r.name, inMenu && /*#__PURE__*/React.createElement("span", { "className": "ml-2 text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full" }, "deze week"), (r.ingredients || []).filter(Boolean).length === 0 && (
                   /*#__PURE__*/React.createElement("span", { "className": "ml-1.5 text-[10px] bg-stone-100 text-stone-500 px-1.5 py-0.5 rounded-full" }, "geen ingredienten bekend")
-                )), /*#__PURE__*/React.createElement("span", { "className": "text-stone-400 text-xs shrink-0" }, isOpen ? "▴" : "▾")), /*#__PURE__*/React.createElement("div", { "className": "metarow" }, /*#__PURE__*/React.createElement("span", { "className": `text-[10px] px-1.5 rounded ${CAT_STYLE[r.cat]}` }, CAT_LABEL[r.cat]), /*#__PURE__*/React.createElement("span", { "className": `tb tb-${r.timeCat || "normaal"}` }, TIME_LABEL[r.timeCat || "normaal"]), (r.tags || []).map((t) => (
+                )), /*#__PURE__*/React.createElement("span", { "className": "text-stone-400 text-xs shrink-0" }, isOpen || isEdit ? "▴" : "▾")), /*#__PURE__*/React.createElement("div", { "className": "metarow" }, /*#__PURE__*/React.createElement("span", { "className": `text-[10px] px-1.5 rounded ${CAT_STYLE[r.cat]}` }, CAT_LABEL[r.cat]), /*#__PURE__*/React.createElement("span", { "className": `tb tb-${r.timeCat || "normaal"}` }, TIME_LABEL[r.timeCat || "normaal"]), (r.tags || []).map((t) => (
                 /*#__PURE__*/React.createElement("span", { "key": t, "className": "tag" }, t)
-              )))), /*#__PURE__*/React.createElement("button", { "className": "iconbtn", "title": "Toevoegen aan een onvergrendelde dag van deze week", "onClick": () => setDaySheetRecipe(r) }, "📅")), isOpen && (
-          /*#__PURE__*/React.createElement("div", { "className": "px-3 pb-3 border-t border-stone-100" }, /*#__PURE__*/React.createElement("div", { "className": "grid grid-cols-2 gap-2 mt-3" }, /*#__PURE__*/React.createElement("label", { "className": "text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, "Naam"), /*#__PURE__*/React.createElement("input", { "value": r.name, "onChange": (e) => updateRecipe(r.id, { name: e.target.value }), "className": "w-full border rounded-lg px-2 py-1.5 mt-0.5" })), /*#__PURE__*/React.createElement("label", { "className": "text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, "Categorie"), /*#__PURE__*/React.createElement("select", { "value": r.cat, "onChange": (e) => updateRecipe(r.id, { cat: e.target.value }), "className": "w-full border rounded-lg px-2 py-1.5 mt-0.5" }, ["vega", "vis", "vlees", "extra"].map((c) => (
-                    /*#__PURE__*/React.createElement("option", { "key": c, "value": c }, CAT_LABEL[c])
-                  ))))), /*#__PURE__*/React.createElement("div", { "className": "mt-3 text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, "Bereidingstijd"), /*#__PURE__*/React.createElement("div", { "className": "segl mt-0.5" }, TIME_CATS.map((t) => (
+              )), sortLast && (
+                /*#__PURE__*/React.createElement("span", { "className": `last${lastKey ? "" : " unknown"}`, "title": lastKey ? `Laatst gegeten: ${lastKey}` : "Nog nooit vergrendeld gegeten" }, `🕒 ${agoLabel(lastKey, todayKey)}`)
+              ))), /*#__PURE__*/React.createElement("button", { "className": "iconbtn", "title": "Recept bewerken", "onClick": () => { setEditRecipe(isEdit ? null : r.id); setOpenRecipe(null); setTagDraft(""); } }, "✏️"), /*#__PURE__*/React.createElement("button", { "className": "iconbtn", "title": "Toevoegen aan een onvergrendelde dag van deze week", "onClick": () => setDaySheetRecipe(r) }, "📅")), isOpen && !isEdit && (
+          /*#__PURE__*/React.createElement("div", { "className": "px-3 pb-3 border-t border-stone-100" }, /*#__PURE__*/React.createElement("div", { "className": "text-xs font-semibold text-stone-700 mb-1 mt-2" }, "Ingrediënten"), (r.ingredients || []).filter(Boolean).length > 0 ? (
+              /*#__PURE__*/React.createElement("div", { "className": "flex flex-wrap gap-1 mb-2" }, (r.ingredients || []).filter(Boolean).map((ing, ii) => {
+                  const p = typeof ing === "object" && ing && ing.pid ? prodById[ing.pid] : null;
+                  return (
+                    /*#__PURE__*/React.createElement("button", { "key": ii, "type": "button", "className": "prodchip", "onClick": () => p && openProdCard("rec-" + r.id, p.id) }, ingLabel(ing, prodById))
+                  );
+                }))
+            ) : (
+              /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-400 mb-2" }, "geen ingrediënten bekend")
+            ), renderProductCard("rec-" + r.id), /*#__PURE__*/React.createElement("div", { "className": "text-xs font-semibold text-stone-700 mb-1" }, "Bereiding"), /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-600" }, r.bereiding || "—"))
+        ), isEdit && (
+          /*#__PURE__*/React.createElement("div", { "className": "px-3 pb-3 border-t border-stone-100" }, /*#__PURE__*/React.createElement("div", { "className": "mt-3 text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, "Naam"), /*#__PURE__*/React.createElement("input", { "value": r.name, "onChange": (e) => updateRecipe(r.id, { name: e.target.value }), "className": "w-full border rounded-lg px-2 py-1.5 mt-0.5" })), /*#__PURE__*/React.createElement("div", { "className": "mt-3 text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, "Categorie"), /*#__PURE__*/React.createElement("div", { "className": "filterrow", "style": { marginTop: ".25rem" } }, ["vega", "vis", "vlees", "extra"].map((c) => (
+                  /*#__PURE__*/React.createElement("button", { "key": c, "className": `chip${r.cat === c ? " on" : ""}`, "onClick": () => updateRecipe(r.id, { cat: c }) }, CAT_LABEL[c])
+                )))), /*#__PURE__*/React.createElement("div", { "className": "mt-3 text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, "Bereidingstijd"), /*#__PURE__*/React.createElement("div", { "className": "segl mt-0.5" }, TIME_CATS.map((t) => (
                   /*#__PURE__*/React.createElement("button", { "key": t, "className": (r.timeCat || "normaal") === t ? "on" : "", "onClick": () => updateRecipe(r.id, { timeCat: t }) }, timeLabelCap(t))
                 )))), /*#__PURE__*/React.createElement("div", { "className": "mt-3 text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, "Tags"), /*#__PURE__*/React.createElement("div", { "className": "flex flex-wrap gap-1 mt-0.5" }, (r.tags || []).map((t) => (
                   /*#__PURE__*/React.createElement("span", { "key": t, "className": "tag" }, t, " ", /*#__PURE__*/React.createElement("button", { "className": "tagx", "onClick": () => removeRecipeTag(r.id, t) }, "×"))
@@ -1371,8 +1501,12 @@ function App() {
           /*#__PURE__*/React.createElement("button", { "key": t, "className": `chip${tagFilters.includes(t) ? " on" : ""}`, "onClick": () => toggleTagFilter(t) }, `🏷 ${t}`)
         )), allTags.length > topTags.length && (
           /*#__PURE__*/React.createElement("button", { "className": "chip", "onClick": () => setFilterSheetOpen(true) }, `＋${allTags.length - topTags.length} meer ▾`)
-        ), /*#__PURE__*/React.createElement("button", { "className": "chip", "style": { marginLeft: "auto" }, "onClick": () => setFilterSheetOpen(true) }, "⚙ Filters ▾")), hasRecipeFilters && (
-        /*#__PURE__*/React.createElement("div", { "className": "afilterrow" }, rq !== "" && (
+        ), /*#__PURE__*/React.createElement("span", { "className": "sortwrap", "style": { marginLeft: "auto" } }, /*#__PURE__*/React.createElement("button", { "className": "chip", "title": "Sorteren", "onClick": () => setSortMenuOpen((v) => !v) }, "⇅ Sorteer ▾"), sortMenuOpen && (
+            /*#__PURE__*/React.createElement("div", { "className": "sortmenu" }, /*#__PURE__*/React.createElement("button", { "className": recipeSort === "naam" ? "on" : "", "onClick": () => { setRecipeSort("naam"); setSortMenuOpen(false); } }, "✓ Naam (A–Z)"), /*#__PURE__*/React.createElement("button", { "className": recipeSort === "laatst" ? "on" : "", "onClick": () => { setRecipeSort("laatst"); setSortMenuOpen(false); } }, "🕒 Laatst gegeten (langst geleden eerst)"))
+          )), /*#__PURE__*/React.createElement("button", { "className": "chip", "onClick": () => setFilterSheetOpen(true) }, "⚙ Filters ▾")), (hasRecipeFilters || sortLast) && (
+        /*#__PURE__*/React.createElement("div", { "className": "afilterrow" }, sortLast && (
+            /*#__PURE__*/React.createElement("span", { "className": "afilter" }, `🕒 Laatst gegeten `, /*#__PURE__*/React.createElement("button", { "className": "x", "onClick": () => setRecipeSort("naam") }, "×"))
+          ), rq !== "" && (
             /*#__PURE__*/React.createElement("span", { "className": "afilter" }, `🔍 “${recipeQuery.trim()}” `, /*#__PURE__*/React.createElement("button", { "className": "x", "onClick": () => setRecipeQuery("") }, "×"))
           ), timeFilter !== "alle" && (
             /*#__PURE__*/React.createElement("span", { "className": "afilter" }, `⏱ ${TIME_LABEL[timeFilter]} `, /*#__PURE__*/React.createElement("button", { "className": "x", "onClick": () => setTimeFilter("alle") }, "×"))
@@ -1381,14 +1515,14 @@ function App() {
           ), tagFilters.map((t) => (
             /*#__PURE__*/React.createElement("span", { "key": t, "className": "afilter" }, `🏷 ${t} `, /*#__PURE__*/React.createElement("button", { "className": "x", "onClick": () => toggleTagFilter(t) }, "×"))
           )), /*#__PURE__*/React.createElement("button", { "className": "clearall", "onClick": clearRecipeFilters }, "Alles wissen"), /*#__PURE__*/React.createElement("span", { "className": "count" }, `${filteredRecipes.length} van ${recipes.length} recepten`))
-      ), !hasRecipeFilters && ["vega", "vis", "vlees", "extra"].map((c) => {
+      ), !showFlatList && ["vega", "vis", "vlees", "extra"].map((c) => {
         const list = recipes.filter((r) => r.cat === c).sort((a, b) => a.name.localeCompare(b.name, "nl"));
         if (!list.length) return null;
         return (
           /*#__PURE__*/React.createElement("div", { "key": c, "className": "mb-4" }, /*#__PURE__*/React.createElement("div", { "className": `inline-block px-2 py-0.5 rounded-full text-sm font-semibold mb-2 ${CAT_STYLE[c]}` }, CAT_LABEL[c]), /*#__PURE__*/React.createElement("div", { "className": "space-y-1.5" }, list.map((r) => renderRecipeRow(r))))
         );
-      }), hasRecipeFilters && (
-        /*#__PURE__*/React.createElement("div", { "className": "space-y-1.5" }, [...filteredRecipes].sort((a, b) => a.name.localeCompare(b.name, "nl")).map((r) => renderRecipeRow(r)))
+      }), showFlatList && (
+        /*#__PURE__*/React.createElement("div", { "className": "space-y-1.5" }, [...filteredRecipes].sort(sortLast ? byLastEaten : (a, b) => a.name.localeCompare(b.name, "nl")).map((r) => renderRecipeRow(r)))
       ), /*#__PURE__*/React.createElement("div", { "className": "mutedrow" }, /*#__PURE__*/React.createElement("button", { "className": "linkbtn", "onClick": exportRecipes }, "Exporteren"), /*#__PURE__*/React.createElement("label", { "className": "linkbtn cursor-pointer" }, "Importeren", /*#__PURE__*/React.createElement("input", { "type": "file", "accept": "application/json,.json", "className": "hidden", "onChange": (e) => { if (e.target.files[0]) importRecipes(e.target.files[0]); e.target.value = ""; } })), /*#__PURE__*/React.createElement("button", { "className": "linkbtn", "onClick": resetRecipes }, "Standaardlijst terug")), filterSheetOpen && (
         /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", { "className": "backdrop", "onClick": () => setFilterSheetOpen(false) }), /*#__PURE__*/React.createElement("div", { "className": "sheet" }, /*#__PURE__*/React.createElement("div", { "className": "handle" }), /*#__PURE__*/React.createElement("div", { "className": "px-4 pb-4" }, /*#__PURE__*/React.createElement("div", { "className": "flex items-center mb-3" }, /*#__PURE__*/React.createElement("span", { "className": "text-lg font-bold" }, "Filters"), /*#__PURE__*/React.createElement("button", { "className": "ml-auto text-stone-400", "onClick": () => setFilterSheetOpen(false) }, "✕")), /*#__PURE__*/React.createElement("div", { "className": "text-xs mb-1" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, "Bereidingstijd"), /*#__PURE__*/React.createElement("div", { "className": "segl mt-0.5" }, ["alle", ...TIME_CATS].map((t) => (
                     /*#__PURE__*/React.createElement("button", { "key": t, "className": timeFilter === t ? "on" : "", "onClick": () => setTimeFilter(t) }, t === "alle" ? "Alles" : timeLabelCap(t))
@@ -1402,7 +1536,7 @@ function App() {
                     /*#__PURE__*/React.createElement("button", { "key": t, "className": newRecipe.timeCat === t ? "on" : "", "onClick": () => setNewRecipe({ ...newRecipe, timeCat: t }) }, timeLabelCap(t))
                   )))), /*#__PURE__*/React.createElement("div", { "className": "text-xs mb-3" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, "Tags"), /*#__PURE__*/React.createElement("div", { "className": "flex flex-wrap gap-1 mt-0.5" }, newRecipe.tags.map((t) => (
                     /*#__PURE__*/React.createElement("span", { "key": t, "className": "tag" }, t, " ", /*#__PURE__*/React.createElement("button", { "className": "tagx", "onClick": () => setNewRecipe({ ...newRecipe, tags: newRecipe.tags.filter((x) => x !== t) }) }, "×"))
-                  ))), /*#__PURE__*/React.createElement("div", { "className": "tagadd" }, /*#__PURE__*/React.createElement("input", { "value": newRecipe.tagDraft, "placeholder": "＋ tag toevoegen…", "onChange": (e) => setNewRecipe({ ...newRecipe, tagDraft: e.target.value }), "onKeyDown": (e) => { if (e.key === "Enter") { e.preventDefault(); addNewTag(); } } }), /*#__PURE__*/React.createElement("button", { "onClick": addNewTag }, "+"))), /*#__PURE__*/React.createElement("div", { "className": "text-xs mb-3" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, "Ingrediënten (één per regel)"), /*#__PURE__*/React.createElement("textarea", { "rows": 3, "className": "w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm", "value": newRecipe.ingredients, "placeholder": "Ingrediënten, één per regel…", "onChange": (e) => setNewRecipe({ ...newRecipe, ingredients: e.target.value }) })), /*#__PURE__*/React.createElement("div", { "className": "text-xs mb-3" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, "Bereiding (optioneel)"), /*#__PURE__*/React.createElement("textarea", { "rows": 2, "className": "w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm", "value": newRecipe.bereiding, "placeholder": "Bereiding…", "onChange": (e) => setNewRecipe({ ...newRecipe, bereiding: e.target.value }) })), /*#__PURE__*/React.createElement("button", { "className": "w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl text-sm", "onClick": addRecipe }, "Toevoegen"))))
+                  ))), /*#__PURE__*/React.createElement("div", { "className": "tagadd" }, /*#__PURE__*/React.createElement("input", { "value": newRecipe.tagDraft, "placeholder": "＋ tag toevoegen…", "onChange": (e) => setNewRecipe({ ...newRecipe, tagDraft: e.target.value }), "onKeyDown": (e) => { if (e.key === "Enter") { e.preventDefault(); addNewTag(); } } }), /*#__PURE__*/React.createElement("button", { "onClick": addNewTag }, "+"))), /*#__PURE__*/React.createElement("div", { "className": "text-xs mb-3" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, "Ingrediënten"), /*#__PURE__*/React.createElement("div", { "className": "mt-1" }, (newRecipe.ingredients || []).map((ing, idx) => renderNewIngRow(ing, idx))), /*#__PURE__*/React.createElement("button", { "className": "addrow", "style": { border: "1px dashed var(--stone-300)", borderRadius: ".75rem", marginTop: ".4rem" }, "onClick": () => setNewRecipe({ ...newRecipe, ingredients: [...(newRecipe.ingredients || []), { pid: null, amount: null, unit: null, name: "" }] }) }, "＋ Ingrediënt toevoegen")), /*#__PURE__*/React.createElement("div", { "className": "text-xs mb-3" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, "Bereiding (optioneel)"), /*#__PURE__*/React.createElement("textarea", { "rows": 2, "className": "w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm", "value": newRecipe.bereiding, "placeholder": "Bereiding…", "onChange": (e) => setNewRecipe({ ...newRecipe, bereiding: e.target.value }) })), /*#__PURE__*/React.createElement("button", { "className": "w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl text-sm", "onClick": addRecipe }, "Toevoegen"))))
       ), daySheetRecipe && (
         /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", { "className": "backdrop", "onClick": () => setDaySheetRecipe(null) }), /*#__PURE__*/React.createElement("div", { "className": "sheet" }, /*#__PURE__*/React.createElement("div", { "className": "handle" }), /*#__PURE__*/React.createElement("div", { "className": "px-4 pb-4" }, /*#__PURE__*/React.createElement("div", { "className": "flex items-center mb-1" }, /*#__PURE__*/React.createElement("span", { "className": "text-lg font-bold" }, "Kies een dag deze week"), /*#__PURE__*/React.createElement("button", { "className": "ml-auto text-stone-400", "onClick": () => setDaySheetRecipe(null) }, "✕")), /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-500 mb-2" }, "Week van ", curWeekLabel, " · alleen onvergrendelde dagen kiesbaar (🔒 = vastgezet)"), curWeekKeys.map((k, i) => {
                 const entry = menuByDate[k];

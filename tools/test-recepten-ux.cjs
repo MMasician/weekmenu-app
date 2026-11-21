@@ -229,9 +229,25 @@ function make(seed) {
 {
   const t = make({});
   t.goRecipes();
+  // ADR-018: klik op de rij opent het readonly-detail (chips + bereiding), NIET het bewerkformulier
   t.buttonsWithText("Tortelloni met spinazie")[0].props.onClick();
   let h = t.html();
-  check("bewerkte rij opent met Bereidingstijd-segmented", !!t.nodesWithClass("segl")[0]);
+  check("rij-klik opent readonly-detail (Ingrediënten + Bereiding)", h.indexOf("Ingrediënten") !== -1 && h.indexOf("Bereiding") !== -1);
+  check("readonly-detail toont prodchip-ingrediënten", h.indexOf("prodchip") !== -1);
+  check("readonly-detail heeft geen bewerkvelden", h.indexOf("Recept verwijderen") === -1);
+  // ✏️ in de rij opent het bewerkformulier inline
+  const row = (() => { let f = null; t.walk(t.render(), (n) => { if (!f && n && n.type === "div" && String(n.props.className || "").indexOf("px-3 py-2.5") !== -1 && JSON.stringify(n.children || []).indexOf("Tortelloni met spinazie") !== -1) f = n; }); return f; })();
+  let editBtn = null;
+  t.walk(row, (n) => { if (!editBtn && n && n.type === "button" && n.props.title === "Recept bewerken") editBtn = n; });
+  check("✏️-knop (Recept bewerken) aanwezig in de rij", !!editBtn);
+  editBtn.props.onClick();
+  h = t.html();
+  check("✏️ opent bewerkformulier met Bereidingstijd-segmented", !!t.nodesWithClass("segl")[0]);
+  check("bewerkformulier bevat 'Recept verwijderen'", h.indexOf("Recept verwijderen") !== -1);
+  check("categorie in bewerkformulier als chips (Vlees-klik wijzigt cat)", t.chipButtons("Vlees").length >= 1);
+  t.chipButtons("Vlees")[0].props.onClick();
+  check("categorie van r17 gewijzigd naar vlees via chip", t.recipesState().find((r) => r.id === "r17").cat === "vlees");
+  t.chipButtons("Vega")[0].props.onClick();
   check("geen 'Wie kan dit koken'-veld bij bewerken", h.indexOf("Wie kan dit koken") === -1);
   check("geen minuten-veld bij bewerken", h.indexOf("Bereidingstijd (min)") === -1);
   t.seglButton("Lang").props.onClick();
