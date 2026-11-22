@@ -76,11 +76,48 @@ class AgentRunOutput(BaseModel):
     summary: str = ""
 
 
+def _mistral_api_key() -> str:
+    """Mistral API key: env MISTRAL_API_KEY, anders de service-account token van de deployment."""
+    key = os.environ.get("MISTRAL_API_KEY", "").strip()
+    if not key:
+        sa_path = os.environ.get("MISTRAL_SA_TOKEN_PATH", "").strip()
+        if sa_path and os.path.exists(sa_path):
+            with open(sa_path, encoding="utf-8") as fh:
+                key = fh.read().strip()
+    return key
+
+
+def _workspace_secret(name: str) -> str:
+    """Leest een workspace secret via de Mistral API (service-account token van de deployment)."""
+    api_key = _mistral_api_key()
+    if not api_key:
+        return ""
+    base = (os.environ.get("MISTRAL_BASE_URL") or "https://api.mistral.ai").rstrip("/")
+
+    def _get(path: str, query: dict[str, str] | None = None) -> Any:
+        url = base + path + (f"?{urllib.parse.urlencode(query, safe=':,')}" if query else "")
+        req = urllib.request.Request(url, headers={"Authorization": f"Bearer {api_key}", "Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return json.load(resp)
+
+    try:
+        workspace_id = _get("/v1/users/me")["workspace"]["id"]
+        page = _get(f"/v1/secrets/workspaces/{urllib.parse.quote(workspace_id, safe='')}", {"limit": "100"})
+        names = {item["name"].lower() for item in page.get("items", [])}
+        if name.lower() not in names:
+            return ""
+        ref = f"secret:workspace:{name.lower()}"
+        for secret in _get("/v1/secrets/values", {"names": ref}):
+            if secret["name"].lower() == ref:
+                return str(secret["value"])
+    except Exception:
+        return ""
+    return ""
+
+
 def _github_token() -> str:
     token = os.environ.get(TOKEN_ENV_VAR, "").strip()
     if not token:
-        from worker.workflows.ci_guardian import _workspace_secret
-
         token = _workspace_secret(TOKEN_ENV_VAR.lower())
     if not token:
         raise RuntimeError(
@@ -90,12 +127,7 @@ def _github_token() -> str:
 
 
 def _mistral_token() -> str:
-    token = os.environ.get("MISTRAL_API_KEY", "").strip()
-    if not token:
-        sa_path = os.environ.get("MISTRAL_SA_TOKEN_PATH", "").strip()
-        if sa_path and os.path.exists(sa_path):
-            with open(sa_path, encoding="utf-8") as fh:
-                token = fh.read().strip()
+    token = _mistral_api_key()
     if not token:
         raise RuntimeError("geen Mistral API key: zet MISTRAL_API_KEY of MISTRAL_SA_TOKEN_PATH")
     return token
