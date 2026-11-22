@@ -1,6 +1,6 @@
 # UX-voorstel: boodschappenlijst — "Verwerk update" verwerkt afgevinkte artikelen (issue #34)
 
-**Status: ronde 1 — mocks ter review (label `needs-review` op issue #34).** Nog geen app-code in deze PR.
+**Status: ronde 1 goedgekeurd in issue #34 (reactie eigenaar): versie B (afgevinkte rijen verborgen na "Verwerk update" + chip "n afgevinkt · toon ▾", melding inline).** Goedgekeurde werking in deze PR geïmplementeerd (zelfde branch).
 
 ## Aanleiding (wens uit issue #34)
 
@@ -25,9 +25,7 @@ Scenario: "3 appels" en "Chips" zijn afgevinkt; zichtbare rest: 500 g aardappele
 - `02-lijst-versie-B-verborgen-met-chip.svg` — **versie B**: afgevinkte rijen direct verborgen; chip bovenaan "2 afgevinkt · toon ▾" zet ze terug; melding inline.
 - `03-lijst-versie-C-doorgehaald-met-toast.svg` — **versie C**: afgevinkte rijen blijven in de lijst staan (doorgehaald, grijze achtergrond); melding als toast onderin.
 
-## Na goedkeuring (implementatie, zelfde PR)
+## Implementatie (deze PR, na goedkeuring ronde 1)
 
-`docs/SPECS.md` (sectie Boodschappen) bijwerken, tests in `tools/test-boodschappen-lijst.cjs`
-(Verwerk update: have=want / have += aantal, verborgen rijen, melding, Vinkjes wissen, teller),
-implementatie in `src/App.jsx`, `npm run build` (`src/app.js` synchroon), `npm run verify` groen,
-CI groen (ADR-014), cache-bump (`CACHE_VERSION` in `sw.js` + `?v=` in `index.html`).
+- `src/App.jsx`: `processChecked()` (have=want bij afgevinkt tekort; have += aantal bij afgevinkt ingrediënt met product in voorraad; melding live; afgevinkte rijen verborgen) + chip "n afgevinkt · toon ▾" + "Vinkjes wissen" reset alles.
+- `docs/SPECS.md` (sectie Boodschappen), tests in `tools/test-boodschappen-lijst.cjs` (sectie 9), `npm run build` (`src/app.js` synchroon), `npm run verify` groen, cache-bump (`CACHE_VERSION` v14 in `sw.js` + `?v=13` in `index.html`).

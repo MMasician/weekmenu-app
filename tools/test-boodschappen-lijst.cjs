@@ -1,6 +1,6 @@
 // Functionele tests voor ADR-016: boodschappenlijst van vandaag — dagenbereik (0..max gelockte dagen,
 // default min(4,max)), supermarktkeuze (verborgen bij andere winkelvoorkeur), één platte categorie-lijst,
-// datumchip bij groente/zuivel, afvinken + "Klaar met winkelen" + gerechtstatus (✅/❗) in het weekmenu.
+// datumchip bij groente/zuivel, afvinken + "Verwerk update" (#34) + gerechtstatus (✅/❗) in het weekmenu.
 // Prijzen-tab en boodschappenmomenten (runs) zijn vervallen.
 const path = require("path");
 const { loadApp, serialize } = require(path.join(__dirname, "render-harness.cjs"));
@@ -167,11 +167,11 @@ const baseSeed = () => ({
   check("vandaag in scope + alles gecheckt: ✅ met title 'in huis' (en geen ❗)", h.indexOf("✅") !== -1 && h.indexOf("Alle ingrediënten van dit gerecht zijn in huis") !== -1 && h.indexOf("❗") === -1);
   t.findTab("Boodschappen").props.onClick();
   t.setRowChecked("Melk", false); // uitverkocht
-  t.btnByText("Klaar met winkelen").props.onClick();
+  t.btnByText("Verwerk update").props.onClick();
   h = t.html();
   check("klaar-melding inline: ✅ 2 compleet · ❗ 1 mist nog (lijst blijft afvinkbaar)",
     h.indexOf("✅ 2 gerechten compleet") !== -1 && h.indexOf("❗ 1 mist nog") !== -1 && h.indexOf("lijst blijft afvinkbaar") !== -1);
-  check("klaar-knop is groen (emerald)", t.btnByText("Klaar met winkelen").props.className.indexOf("bg-emerald-600") !== -1);
+  check("verwerk-knop is groen (emerald)", t.btnByText("Verwerk update").props.className.indexOf("bg-emerald-600") !== -1);
   t.findTab("Weekmenu").props.onClick();
   t.findBtn((n) => JSON.stringify(n.children || []).indexOf("Kies een datum") !== -1).props.onClick();
   t.findBtn((n) => JSON.stringify(n.children || []).indexOf("Volgende week") !== -1).props.onClick();
@@ -179,7 +179,7 @@ const baseSeed = () => ({
   check("volgende week (morgen in scope, Melk mist): ❗ met title 'mist nog'", h.indexOf("❗") !== -1 && h.indexOf("mist nog") !== -1);
   t.findTab("Boodschappen").props.onClick();
   t.setRowChecked("Melk", true); // achteraf alsnog afvinken mag
-  t.btnByText("Klaar met winkelen").props.onClick();
+  t.btnByText("Verwerk update").props.onClick();
   h = t.html();
   check("achteraf afvinken werkt: melding live naar ✅ 3 compleet", h.indexOf("✅ 3 gerechten compleet") !== -1);
   t.btnByText("Vinkjes wissen").props.onClick();
@@ -268,6 +268,34 @@ const baseSeed = () => ({
   t.findTab("Weekmenu").props.onClick();
   h = t.html();
   check("#33: gerechtstatus werkt op de bronrijen: vandaag ❗ '1 van de 2 ingrediënten mist nog'", h.indexOf("1 van de 2") !== -1);
+}
+
+// ---------- 9. #34: "Verwerk update" — have bijwerken + afgevinkte rijen verbergen (versie B) ----------
+{
+  const t = make(baseSeed());
+  t.findTab("Boodschappen").props.onClick();
+  t.setRowChecked("2 Kaasen", true);   // voorraadtekort-rij
+  t.setRowChecked("Kroepoek", true); // ingrediënt-rij (product zit ook in voorraad)
+  let h = t.html();
+  check("#34: vóór Verwerk update blijven afgevinkte rijen zichtbaar (doorgehaald)", h.indexOf("line-through") !== -1 && h.indexOf("Kroepoek") !== -1);
+  t.btnByText("Verwerk update").props.onClick();
+  h = t.html();
+  check("#34: na Verwerk update: afgevinkte rij verborgen (Kroepoek weg) + chip '1 afgevinkt · toon ▾'",
+    h.indexOf("1 afgevinkt · toon") !== -1 && h.indexOf("Kroepoek") === -1);
+  check("#34: verwerkt tekort valt helemaal weg uit de lijst (Kaas have=want -> geen tekort meer)", h.indexOf("Kaas") === -1);
+  check("#34: melding over gerechtvolledigheid na Verwerk update", h.indexOf("mist nog") !== -1);
+  const stockState = t.m.hooks.state.find((x) => Array.isArray(x) && x.length && x[0] && "have" in x[0] && "want" in x[0]);
+  const kaas = stockState.find((s) => s.name === "Kaas");
+  const kroepoek = stockState.find((s) => s.name === "Kroepoek");
+  check("#34: afgevinkt tekort -> have = want (Kaas 0 -> 2)", !!kaas && kaas.have === 2);
+  check("#34: afgevinkt ingrediënt met product in voorraad -> have += aantal (Kroepoek 1 -> 2)", !!kroepoek && kroepoek.have === 2);
+  t.chipBtn("1 afgevinkt · toon ▾").props.onClick();
+  h = t.html();
+  check("#34: chip 'toon' zet afgevinkte rijen terug (zichtbaar + doorgestreept)", h.indexOf("Kroepoek") !== -1 && h.indexOf("line-through") !== -1);
+  t.btnByText("Vinkjes wissen").props.onClick();
+  h = t.html();
+  check("#34: 'Vinkjes wissen' -> alle rijen zichtbaar, geen chip, geen melding",
+    h.indexOf("Kroepoek") !== -1 && h.indexOf("afgevinkt · toon") === -1 && h.indexOf("gerechten compleet") === -1 && h.indexOf("line-through") === -1);
 }
 
 console.log(fails === 0 ? "ALLE TESTS GESLAAGD" : fails + " TEST(S) GEFAALD");
