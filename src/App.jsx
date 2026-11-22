@@ -94,7 +94,7 @@ function defaultStock() {
 function normalizeLocations(arr) {
   const out = (Array.isArray(arr) ? arr : [])
     .filter((l) => l && l.id && String(l.name).trim())
-    .map((l) => ({ id: String(l.id), name: String(l.name) }));
+    .map((l) => ({ id: String(l.id), name: String(l.name), ...(typeof l.updatedAt === "number" ? { updatedAt: l.updatedAt } : {}) }));
   return out.length ? out : DEFAULT_LOCATIONS.map((l) => ({ ...l }));
 }
 function normalizeStock(arr, locs) {
@@ -111,6 +111,7 @@ function normalizeStock(arr, locs) {
         market: s.market != null && String(s.market) !== "" ? String(s.market) : null,
         want: Math.max(0, Math.floor(Number(s.want ?? s.qty ?? 1) || 0)),
         have: Math.max(0, Math.floor(Number(s.have ?? (s.qty === 0 ? 0 : s.want ?? s.qty ?? 1)) || 0)),
+        ...(typeof s.updatedAt === "number" ? { updatedAt: s.updatedAt } : {}),
       };
     });
 }
@@ -118,7 +119,7 @@ function normalizeExtras(arr) {
   return (arr || [])
     .map((x) => (typeof x === "string"
       ? { name: x, cat: "" }
-      : { name: String((x && x.name) || ""), cat: (x && x.cat) || "", amount: x && x.amount != null ? x.amount : undefined, unit: x && x.unit ? x.unit : null }))
+      : { name: String((x && x.name) || ""), cat: (x && x.cat) || "", amount: x && x.amount != null ? x.amount : undefined, unit: x && x.unit ? x.unit : null, ...(x && typeof x.updatedAt === "number" ? { updatedAt: x.updatedAt } : {}) }))
     .filter((x) => x.name);
 }
 const CAT_LABEL = { vega: "Vega", vis: "Vis", vlees: "Vlees", extra: "Extra" };
@@ -364,6 +365,7 @@ function normalizeProducts(arr) {
       cat: typeof p.cat === "string" && p.cat ? p.cat : "overig",
       market: p.market != null && String(p.market) !== "" ? String(p.market) : null,
       unit: UNITS.includes(p.unit) ? p.unit : (typeof p.unit === "string" && p.unit.trim() ? p.unit.trim().slice(0, 8) : null),
+      ...(typeof p.updatedAt === "number" ? { updatedAt: p.updatedAt } : {}),
     });
   });
   return out;
@@ -507,6 +509,149 @@ function saveState(state) {
     localStorage.setItem(LS_KEY, JSON.stringify(state));
   } catch (e) {}
 }
+// ---- Delen via bestand (ADR-019): pure helpers ----
+const SHARE_BUNDLE = "weekmenu-share-v1";
+// Vergelijk records zonder tijdstempel, zodat "nieuwste wint" alleen bij echte inhoudelijke wijzigingen aanslaat.
+const shareStrip = (o) => JSON.stringify(o, (k, v) => (k === "updatedAt" ? undefined : v));
+function shareStampArray(prevArr, nextArr, keyOf) {
+  const now = Date.now();
+  const prevMap = new Map((prevArr || []).map((r) => [keyOf(r), r]));
+  return (nextArr || []).map((r) => {
+    const p = prevMap.get(keyOf(r));
+    return !p || shareStrip(p) !== shareStrip(r) ? { ...r, updatedAt: now } : r;
+  });
+}
+function shareStampObject(prevObj, nextObj) {
+  const now = Date.now();
+  const out = {};
+  Object.entries(nextObj || {}).forEach(([k, v]) => {
+    const p = (prevObj || {})[k];
+    out[k] = !p || shareStrip(p) !== shareStrip(v) ? { ...v, updatedAt: now } : v;
+  });
+  return out;
+}
+function shareTombs(prevArr, nextArr, keyOf, prefix) {
+  const nextKeys = new Set((nextArr || []).map(keyOf));
+  const tombs = {};
+  (prevArr || []).forEach((r) => {
+    const k = keyOf(r);
+    if (!nextKeys.has(k)) tombs[prefix + k] = Date.now();
+  });
+  return tombs;
+}
+function shareTombsObject(prevObj, nextObj, prefix) {
+  const tombs = {};
+  Object.keys(prevObj || {}).forEach((k) => {
+    if (!Object.prototype.hasOwnProperty.call(nextObj || {}, k)) tombs[prefix + k] = Date.now();
+  });
+  return tombs;
+}
+function shareTs(r) {
+  return r && typeof r.updatedAt === "number" ? r.updatedAt : 0;
+}
+// Samenvoegregels (ADR-019): per record wint de nieuwste versie (updatedAt). Zit een record niet
+// meer in het deelbestand, dan geldt het daar als verwijderd (tijdstempel uit data.deleted).
+// Instellingen en vinkjes gaan als één geheel mee (updatedAt/checkedAt). Puur: geen Date.now,
+// zodat de regels deterministisch testbaar zijn.
+function mergeShareBundle(local, bundle) {
+  const chips = (bundle && bundle.chips) || {};
+  const b = (bundle && bundle.data) || {};
+  const bDel = b.deleted || {};
+  const out = { deleted: { ...((local && local.deleted) || {}) } };
+  const conflicts = [];
+  const counts = {};
+  const on = (k) => chips[k] !== false;
+  const keepC = (kind, extra) => { counts[kind] = Object.assign({ added: 0, updated: 0, kept: 0, removed: 0 }, extra || {}); };
+  const locNames = {};
+  ((local && local.stockLocations) || []).concat(b.stockLocations || []).forEach((l) => { if (l && l.id) locNames[l.id] = l.name; });
+  function mergeArr(kind, chip, prefix, keyOf, label, prevA, incA) {
+    const prev = prevA || [];
+    const incMap = new Map((incA || []).map((r) => [keyOf(r), r]));
+    const res = [];
+    const c = { added: 0, updated: 0, kept: 0, removed: 0 };
+    prev.forEach((r) => {
+      const k = keyOf(r);
+      const tomb = prefix + k;
+      const inR = incMap.get(k);
+      if (inR) incMap.delete(k);
+      const tombB = bDel[tomb];
+      const tombL = out.deleted[tomb];
+      // in de bron teruggekomen én nieuwer dan een verwijderingsmarkering? Dan leeft het weer.
+      if (inR && ((tombB != null && shareTs(inR) > tombB) || (tombL != null && shareTs(inR) > tombL))) delete out.deleted[tomb];
+      if (tombB != null && tombB >= shareTs(r)) { c.removed++; out.deleted[tomb] = tombB; return; }
+      if (tombL != null && tombL >= shareTs(r) && !(inR && shareTs(inR) > tombL)) return;
+      if (inR && shareTs(inR) > shareTs(r)) {
+        res.push(inR); c.updated++;
+        if (shareStrip(r) !== shareStrip(inR)) conflicts.push({ naam: label(r), hier: label(r), daar: label(inR) });
+      } else { res.push(r); c.kept++; }
+    });
+    incMap.forEach((r, k) => {
+      const tomb = prefix + k;
+      const tombL = out.deleted[tomb];
+      if (tombL != null && tombL >= shareTs(r)) return; // hier bewust verwijderd
+      if (tombL != null) delete out.deleted[tomb];
+      res.push(r); c.added++;
+    });
+    counts[kind] = c;
+    return res;
+  }
+  const kinds = [
+    { key: "recipes", chip: "recipes", prefix: "recipe:", keyOf: (r) => r.id, label: (r) => r.name + " (" + r.timeCat + (Array.isArray(r.tags) && r.tags.length ? ", " + r.tags.join("/") : "") + ")" },
+    { key: "products", chip: "products", prefix: "product:", keyOf: (p) => p.id, label: (p) => p.name },
+    { key: "stockLocations", chip: "stock", prefix: "location:", keyOf: (l) => l.id, label: (l) => l.name },
+    { key: "stock", chip: "stock", prefix: "stock:", keyOf: (s) => s.loc + "|" + (s.pid || s.name), label: (s) => s.name + " (" + (locNames[s.loc] || s.loc) + ", " + s.have + "×)" },
+    { key: "extraItems", chip: "menu", prefix: "extra:", keyOf: (x) => x.pid || x.name, label: (x) => x.name },
+  ];
+  kinds.forEach((m) => {
+    out[m.key] = on(m.chip)
+      ? mergeArr(m.key, m.chip, m.prefix, m.keyOf, m.label, local[m.key], b[m.key])
+      : (keepC(m.key), (local[m.key] || []));
+  });
+  if (on("menu")) {
+    const prev = local.menuByDate || {};
+    const inc = b.menuByDate || {};
+    const res = {};
+    const c = { added: 0, updated: 0, kept: 0, removed: 0 };
+    Object.keys(prev).forEach((k) => {
+      const tomb = "menu:" + k;
+      const inE = inc[k];
+      const tombL = out.deleted[tomb];
+      if (inE && tombL != null && shareTs(inE) > tombL) delete out.deleted[tomb];
+      const tombB = bDel[tomb];
+      if (tombB != null && tombB >= shareTs(prev[k])) { c.removed++; out.deleted[tomb] = tombB; return; }
+      if (tombL != null && tombL >= shareTs(prev[k]) && !(inE && shareTs(inE) > tombL)) return;
+      if (inE && shareTs(inE) > shareTs(prev[k])) { res[k] = inE; c.updated++; }
+      else { res[k] = prev[k]; c.kept++; }
+    });
+    Object.keys(inc).forEach((k) => {
+      if (k in prev || k in res) return;
+      const tomb = "menu:" + k;
+      const tombL = out.deleted[tomb];
+      if (tombL != null && tombL >= shareTs(inc[k])) return;
+      if (tombL != null) delete out.deleted[tomb];
+      res[k] = inc[k]; c.added++;
+    });
+    out.menuByDate = res;
+    counts.menuByDate = c;
+  } else { out.menuByDate = local.menuByDate || {}; keepC("menuByDate"); }
+  if (on("settings")) {
+    const ls = local.settings || {};
+    const bs = b.settings;
+    if (bs && shareTs(bs) > shareTs(ls)) { out.settings = bs; keepC("settings", { updated: 1 }); }
+    else { out.settings = ls; keepC("settings", { kept: 1 }); }
+    const lct = local.checkedAt || 0;
+    const bct = typeof b.checkedAt === "number" ? b.checkedAt : 0;
+    if (b.checked && bct > lct) { out.checked = b.checked; out.checkedAt = bct; }
+    else { out.checked = local.checked || {}; out.checkedAt = lct; }
+    Object.entries(bDel).forEach(([k, t]) => { if (!(k in out.deleted) || out.deleted[k] < t) out.deleted[k] = t; });
+  } else {
+    out.settings = local.settings || {};
+    out.checked = local.checked || {};
+    out.checkedAt = local.checkedAt || 0;
+  }
+  return { next: out, rapport: { counts, conflicts } };
+}
+
 
 // Migratie (ADR-005): oude state met `menu` als array van 7 dagen (index t.o.v. de weekstart,
 // zonder datum) wordt omgezet naar `menuByDate` keyed op de datum van de huidige week.
@@ -560,14 +705,14 @@ export default function App() {
     [stored]
   );
   const [tab, setTab] = useState("menu");
-  const [menuByDate, setMenuByDate] = useState((stored && stored.menuByDate) || {}); // per datum (YYYY-MM-DD): {id, locked}
+  const [menuByDate, setMenuByDateRaw] = useState((stored && stored.menuByDate) || {}); // per datum (YYYY-MM-DD): {id, locked}
   const [weekOffset, setWeekOffset] = useState(0); // 0 = week van vandaag; bij openen start de app automatisch in de huidige week
-  const [recipes, setRecipes] = useState(() => migrateRecipesIngredients(loadRecipes(stored), catalog0)); // receptenpool (ADR-006); string-ingrediënten gemigreerd naar producten (ADR-017)
+  const [recipes, setRecipesRaw] = useState(() => migrateRecipesIngredients(loadRecipes(stored), catalog0)); // receptenpool (ADR-006); string-ingrediënten gemigreerd naar producten (ADR-017)
   const [newRecipe, setNewRecipe] = useState({ name: "", cat: "vega", timeCat: "normaal", tags: [], tagDraft: "", ingredients: [], bereiding: "" });
-  const [checked, setChecked] = useState((stored && stored.checked) || {});
-  const [extraItems, setExtraItems] = useState(() => normalizeExtras(stored && stored.extraItems).map((x) => ({ ...x, pid: pidOfName(catalog0, x.name), amount: x.amount != null ? x.amount : 1, unit: x.unit || null })));
-  const [stockLocations, setStockLocations] = useState(() => normalizeLocations(stored && stored.stockLocations));
-  const [stock, setStock] = useState(() =>
+  const [checked, setCheckedRaw] = useState((stored && stored.checked) || {});
+  const [extraItems, setExtraItemsRaw] = useState(() => normalizeExtras(stored && stored.extraItems).map((x) => ({ ...x, pid: pidOfName(catalog0, x.name), amount: x.amount != null ? x.amount : 1, unit: x.unit || null })));
+  const [stockLocations, setStockLocationsRaw] = useState(() => normalizeLocations(stored && stored.stockLocations));
+  const [stock, setStockRaw] = useState(() =>
     stored && Array.isArray(stored.stock) && stored.stock.length > 0
       ? normalizeStock(stored.stock, normalizeLocations(stored && stored.stockLocations)).map((s) => ({ ...s, pid: pidOfName(catalog0, s.name) }))
       : defaultStock().map((s) => ({ ...s, pid: pidOfName(catalog0, s.name) }))
@@ -583,7 +728,7 @@ export default function App() {
   const [shopInfoOpen, setShopInfoOpen] = useState(false);
   const [catsOpen, setCatsOpen] = useState(false);
   const [newCat, setNewCat] = useState("");
-  const [settings, setSettings] = useState(() => normalizeSettings(stored && stored.settings)); // per huishouden, lokaal bewaard (ADR-009)
+  const [settings, setSettingsRaw] = useState(() => normalizeSettings(stored && stored.settings)); // per huishouden, lokaal bewaard (ADR-009)
   // boodschappenlijst van vandaag (ADR-016): aantal dagen + supermarktkeuze zijn vluchtig (worden niet opgeslagen)
   const [shopDays, setShopDays] = useState(null); // null = default min(4, max aaneengesloten gelockte dagen)
   const [shopMarkets, setShopMarkets] = useState(null); // null = default uit settings (defaultShop per winkel)
@@ -610,7 +755,7 @@ export default function App() {
   const [tagDraft, setTagDraft] = useState(""); // tag-invoer bij het openstaande bewerkte recept
   const [daySheetRecipe, setDaySheetRecipe] = useState(null); // recept waarvoor de dagkiezer (deze week) open is
   const [weekToast, setWeekToast] = useState(""); // melding na toevoegen aan het weekmenu
-  const [products, setProducts] = useState(() => catalog0); // productcatalogus (ADR-017), lokaal bewaard
+  const [products, setProductsRaw] = useState(() => catalog0); // productcatalogus (ADR-017), lokaal bewaard
   // productcatalogus (ADR-017): inline product-kaart, ingrediënt-rijen met autocomplete, inline add-rijen, catalogus in Instellingen
   const [openProd, setOpenProd] = useState(null); // rij-sleutel waar de product-kaart open is
   const [prodEdit, setProdEdit] = useState(null); // bewerkte velden van het open product
@@ -625,9 +770,73 @@ export default function App() {
   const [prodQuery, setProdQuery] = useState("");
   const [openDay, setOpenDay] = useState(null); // weekmenu: gelockte dag met open ingrediënt/bereiding-blok
 
+  // ---- Delen via bestand (ADR-019): extra state ----
+  // verwijderingsmarkeringen ("recipe:<id>" -> timestamp) zodat verwijderingen deelbaar zijn
+  const [deleted, setDeletedRaw] = useState((stored && stored.deleted) || {});
+  // vinkjes-set als één geheel met één stempel (net als settings.updatedAt)
+  const [checkedAt, setCheckedAtRaw] = useState(stored && typeof stored.checkedAt === "number" ? stored.checkedAt : 0);
+  const [delenOpen, setDelenOpen] = useState(null); // delen: null | "export" | "info"
+  const [deelChips, setDeelChips] = useState({ recipes: true, products: true, stock: true, menu: true, settings: true });
+  const [importReview, setImportReview] = useState(null); // ingelezen deelbestand wacht op Samenvoegen
+  const [shareToast, setShareToast] = useState("");
+
+  // ---- Delen via bestand (ADR-019): stempel-wrappers ----
+  // Gewone mutaties krijgen per record een updatedAt ("nieuwste wint") en weggevallen records
+  // komen in `deleted`. De wrapper draait als geneste updater over de actuele state, zodat
+  // opeenvolgende functionele updates in één event gewoon op de nieuwste stand bouwen.
+  // Importeren (applyImportReview) loopt via de Raw-setters zodat de tijdstempels uit het
+  // deelbestand ongewijzigd overgenomen worden.
+  function bumpDeleted(entries) {
+    if (entries && Object.keys(entries).length) setDeletedRaw((d) => ({ ...d, ...entries }));
+  }
+  const setMenuByDate = (v) => setMenuByDateRaw((prev) => {
+    const next = typeof v === "function" ? v(prev) : v;
+    bumpDeleted(shareTombsObject(prev, next, "menu:"));
+    return shareStampObject(prev, next);
+  });
+  const setRecipes = (v) => setRecipesRaw((prev) => {
+    const keyOf = (r) => r.id;
+    const next = typeof v === "function" ? v(prev) : v;
+    bumpDeleted(shareTombs(prev, next, keyOf, "recipe:"));
+    return shareStampArray(prev, next, keyOf);
+  });
+  const setChecked = (v) => setCheckedRaw((prev) => {
+    const next = typeof v === "function" ? v(prev) : v;
+    if (shareStrip(prev) !== shareStrip(next)) setCheckedAtRaw(Date.now());
+    return next;
+  });
+  const setExtraItems = (v) => setExtraItemsRaw((prev) => {
+    const keyOf = (x) => x.pid || x.name;
+    const next = typeof v === "function" ? v(prev) : v;
+    bumpDeleted(shareTombs(prev, next, keyOf, "extra:"));
+    return shareStampArray(prev, next, keyOf);
+  });
+  const setStockLocations = (v) => setStockLocationsRaw((prev) => {
+    const keyOf = (l) => l.id;
+    const next = typeof v === "function" ? v(prev) : v;
+    bumpDeleted(shareTombs(prev, next, keyOf, "location:"));
+    return shareStampArray(prev, next, keyOf);
+  });
+  const setStock = (v) => setStockRaw((prev) => {
+    const keyOf = (s) => s.loc + "|" + (s.pid || s.name);
+    const next = typeof v === "function" ? v(prev) : v;
+    bumpDeleted(shareTombs(prev, next, keyOf, "stock:"));
+    return shareStampArray(prev, next, keyOf);
+  });
+  const setSettings = (v) => setSettingsRaw((prev) => {
+    const next = normalizeSettings(typeof v === "function" ? v(prev) : v);
+    return shareStrip(prev) !== shareStrip(next) ? { ...next, updatedAt: Date.now() } : next;
+  });
+  const setProducts = (v) => setProductsRaw((prev) => {
+    const keyOf = (x) => x.id;
+    const next = typeof v === "function" ? v(prev) : v;
+    bumpDeleted(shareTombs(prev, next, keyOf, "product:"));
+    return shareStampArray(prev, next, keyOf);
+  });
+
   useEffect(() => {
-    saveState({ menuByDate, recipes, checked, extraItems, settings, stock, stockLocations, products });
-  }, [menuByDate, recipes, checked, extraItems, settings, stock, stockLocations, products]);
+    saveState({ menuByDate, recipes, checked, extraItems, settings, stock, stockLocations, products, deleted, checkedAt });
+  }, [menuByDate, recipes, checked, extraItems, settings, stock, stockLocations, products, deleted, checkedAt]);
 
   const markets = settings.markets;
   const days = useMemo(
@@ -1100,6 +1309,130 @@ export default function App() {
     });
     setOpenRecipe(null);
     setEditRecipe(null);
+  }
+
+  // ---- Delen via bestand (ADR-019): exporteren, inlezen, samenvoegen ----
+  function buildShareName() {
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    return `weekmenu-delen-v1-${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${pad(d.getHours())}u${pad(d.getMinutes())}.json`;
+  }
+  function exportShare() {
+    const c = deelChips;
+    const data = {
+      ...(c.recipes ? { recipes } : {}),
+      ...(c.products ? { products } : {}),
+      ...(c.stock ? { stock, stockLocations } : {}),
+      ...(c.menu ? { menuByDate, extraItems } : {}),
+      ...(c.settings ? { settings, checked, checkedAt, deleted } : {}),
+    };
+    const payload = { bundle: SHARE_BUNDLE, v: 1, exportedAt: Date.now(), chips: c, data };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = buildShareName();
+    a.click();
+    URL.revokeObjectURL(url);
+    setDelenOpen(null);
+    setShareToast("✅ Deelbestand gemaakt. Deel het bestand zelf, bv. via WhatsApp of e-mail (tik om te sluiten).");
+  }
+  function importShareFile(file) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        reviewImport(JSON.parse(String(reader.result)), file && file.name);
+      } catch (e) {
+        setShareToast("⚠️ Dit bestand kon niet worden gelezen.");
+      }
+    };
+    if (typeof reader.readAsText === "function") reader.readAsText(file);
+    else setShareToast("⚠️ Levering via de app: kies het .json-deelbestand.");
+  }
+  // Bundel-data normaliseren naar app-vorm (zelfde paden als bij het laden), updatedAt bewaren.
+  function prepareImport(parsed) {
+    const b = parsed && parsed.data && typeof parsed.data === "object" ? parsed.data : {};
+    const norm = {};
+    if (Array.isArray(b.products)) norm.products = normalizeProducts(b.products);
+    if (Array.isArray(b.recipes)) {
+      const catalog = norm.products || products;
+      norm.recipes = migrateRecipesIngredients(
+        b.recipes.filter((r) => r && r.id && r.name).map((r) => normalizeRecipe({ ...r })),
+        catalog
+      );
+    }
+    const bLocs = Array.isArray(b.stockLocations) ? normalizeLocations(b.stockLocations) : null;
+    if (Array.isArray(b.stock)) {
+      const locs = bLocs || stockLocations;
+      norm.stock = normalizeStock(b.stock, locs.length ? locs : undefined);
+    }
+    if (Array.isArray(b.stockLocations)) norm.stockLocations = bLocs.length ? bLocs : normalizeLocations(null);
+    if (Array.isArray(b.extraItems)) {
+      norm.extraItems = normalizeExtras(b.extraItems).map((x) => ({
+        ...x,
+        pid: pidOfName(norm.products || products, x.name),
+        amount: x.amount != null ? x.amount : 1,
+        unit: x.unit || null,
+      }));
+    }
+    if (b.menuByDate && typeof b.menuByDate === "object" && !Array.isArray(b.menuByDate)) norm.menuByDate = b.menuByDate;
+    if (b.settings && typeof b.settings === "object") norm.settings = normalizeSettings(b.settings);
+    if (b.checked && typeof b.checked === "object") norm.checked = b.checked;
+    if (typeof b.checkedAt === "number") norm.checkedAt = b.checkedAt;
+    if (b.deleted && typeof b.deleted === "object") norm.deleted = b.deleted;
+    return norm;
+  }
+  function reviewImport(parsed, fileName) {
+    if (!parsed || parsed.bundle !== SHARE_BUNDLE) {
+      setShareToast("⚠️ Dit is geen deelbestand van de weekmenu-app.");
+      return;
+    }
+    const merge = mergeShareBundle(
+      { recipes, products, stock, stockLocations, extraItems, menuByDate, checked, checkedAt, settings, deleted },
+      { chips: parsed.chips || {}, data: prepareImport(parsed) }
+    );
+    setImportReview({ merge, fileName: fileName || "weekmenu-delen.json" });
+    setDelenOpen(null);
+  }
+  function deelRapportLines(merge) {
+    const c = (merge && merge.rapport && merge.rapport.counts) || {};
+    const LBL = [
+      ["recipes", "Recepten"], ["products", "Producten"], ["stock", "Voorraad"], ["stockLocations", "Locaties"],
+      ["extraItems", "Extra's"], ["menuByDate", "Weekmenu"], ["settings", "Instellingen"],
+    ];
+    const lines = [];
+    LBL.forEach(([k, lbl]) => {
+      const x = c[k];
+      if (!x) return;
+      const parts = [];
+      if (x.added) parts.push(`${x.added} nieuw`);
+      if (x.updated) parts.push(`${x.updated} nieuwer uit bestand`);
+      if (x.removed) parts.push(`${x.removed} verwijderd`);
+      if (x.kept) parts.push(`${x.kept} blijft`);
+      if (!lines.length || parts.length > 1 || x.added || x.updated || x.removed) lines.push({ lbl, parts, active: !!(x.added || x.updated || x.removed) });
+      else lines.push({ lbl, parts, active: false });
+    });
+    return lines;
+  }
+  function applyImportReview() {
+    if (!importReview) return;
+    const n = importReview.merge.next;
+    const catalog = normalizeProducts(n.products);
+    const withPid = (arr) => (arr || []).map((x) => ({ ...x, pid: x.pid || pidOfName(catalog, x.name) }));
+    // Raw-setters: tijdstempels uit het deelbestand 1-op-1 overnemen (geen nieuwe stempels).
+    setRecipesRaw(n.recipes || []);
+    setProductsRaw(n.products || []);
+    setStockRaw(withPid(n.stock));
+    setStockLocationsRaw(n.stockLocations || stockLocations);
+    setExtraItemsRaw(withPid(n.extraItems));
+    setMenuByDateRaw(n.menuByDate || {});
+    setCheckedRaw(n.checked || {});
+    setCheckedAtRaw(n.checkedAt || 0);
+    setSettingsRaw(n.settings);
+    setDeletedRaw(n.deleted || {});
+    const actives = deelRapportLines(importReview.merge).filter((l) => l.active);
+    setImportReview(null);
+    setShareToast("✅ Samengevoegd" + (actives.length ? ": " + actives.map((l) => `${l.lbl.toLowerCase()} ${l.parts[0]}`).join(" · ") : " — niets nieuws in het bestand") + " (tik om te sluiten).");
   }
 
   function exportRecipes() {
@@ -2568,6 +2901,100 @@ export default function App() {
     </div>
   );
 
+  // Delen via bestand (ADR-019): deelsheet (export/uitleg) + import-rapport + toast
+  const renderDelenSheets = () => {
+    const chipDefs = [
+      ["recipes", `Recepten (${recipes.length})`],
+      ["products", `Producten (${products.length})`],
+      ["stock", `Voorraad (${stock.length})`],
+      ["menu", `Weekmenu (${Object.keys(menuByDate).length} dagen)`],
+      ["settings", "Instellingen · vinkjes · verwijderingen"],
+    ];
+    return (
+      <div>
+        {delenOpen && (
+          <div>
+            <div className="backdrop" onClick={() => setDelenOpen(null)}></div>
+            <div className="sheet">
+              <div className="handle"></div>
+              <div className="px-4 pb-4">
+                <div className="flex items-center mb-3">
+                  <span className="text-lg font-bold">{delenOpen === "info" ? "Delen: hoe werkt het?" : "Delen via bestand"}</span>
+                  <button className="ml-auto text-stone-400" onClick={() => setDelenOpen(null)}>✕</button>
+                </div>
+                {delenOpen === "export" ? (
+                  <div>
+                    <div className="text-xs text-stone-500 mb-1">Wat gaat er mee? (tik om aan/uit te zetten)</div>
+                    <div className="flex flex-wrap gap-1.5 mb-3">
+                      {chipDefs.map(([k, label]) => (
+                        <button
+                          key={k}
+                          className={"chip" + (deelChips[k] ? " on" : "")}
+                          onClick={() => setDeelChips((c) => ({ ...c, [k]: !c[k] }))}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    <button className="w-full bg-stone-800 text-white rounded-xl py-2.5 text-sm font-medium mb-2" onClick={exportShare}>
+                      📤 Maak deelbestand
+                    </button>
+                    <div className="text-xs text-stone-400">Bestandsnaam: weekmenu-delen-v1-….json — daarna deel je het bestand zelf (WhatsApp, e-mail, AirDrop). Buiten het huishouden delen? Zet dan alles uit behalve Recepten.</div>
+                  </div>
+                ) : (
+                  <div className="text-xs text-stone-600 leading-relaxed">
+                    <div className="mb-2">📤 maakt een bestand met jouw data. 📥 leest zo’n bestand in en voegt het samen met wat hier al staat.</div>
+                    <div className="mb-2">Samenvoegen gebeurt automatisch ("nieuwste wint" per onderdeel). Vooraf zie je een rapport van wat er verandert; iets dat niet klopt, kun je daarna zelf herstellen.</div>
+                    <div>Recepten, producten, voorraad en weekmenu zijn los te kiezen. Vinkjes, verwijderingen en instellingen horen bij elkaar en gaan samen als één chip mee.</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+        {importReview && (
+          <div>
+            <div className="backdrop" onClick={() => setImportReview(null)}></div>
+            <div className="sheet">
+              <div className="handle"></div>
+              <div className="px-4 pb-4">
+                <div className="flex items-center mb-3">
+                  <span className="text-lg font-bold">Bestand overnemen</span>
+                  <button className="ml-auto text-stone-400" onClick={() => setImportReview(null)}>✕</button>
+                </div>
+                <div className="text-xs text-stone-500 mb-2">📄 {importReview.fileName}</div>
+                <div className="text-sm mb-2">Dit verandert er als je samenvoegt:</div>
+                <div className="text-xs leading-relaxed mb-3">
+                  {deelRapportLines(importReview).length === 0 && <div>➖ Niets nieuws in dit bestand.</div>}
+                  {deelRapportLines(importReview).map((l) => (
+                    <div key={l.lbl}>{l.active ? "✅" : "➖"} {l.lbl}: {l.parts.join(" · ")}</div>
+                  ))}
+                </div>
+                {importReview.merge.rapport.conflicts.length > 0 && (
+                  <div className="rounded-lg bg-amber-50 border border-amber-200 p-2 text-xs mb-3">
+                    <div className="font-medium text-amber-800 mb-1">
+                      ⚠️ {importReview.merge.rapport.conflicts.length}× nieuwste wint — zo nodig hierna zelf herstellen:
+                    </div>
+                    {importReview.merge.rapport.conflicts.slice(0, 8).map((cf, i) => (
+                      <div key={i} className="text-amber-900">{cf.naam.split(" (")[0]}: hier "{cf.hier}" → uit bestand "{cf.daar}"</div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <button className="flex-1 rounded-xl border border-stone-300 py-2.5 text-sm" onClick={() => setImportReview(null)}>Annuleren</button>
+                  <button className="flex-1 bg-stone-800 text-white rounded-xl py-2.5 text-sm font-medium" onClick={applyImportReview}>Samenvoegen</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        {shareToast !== "" && (
+          <div className="toast" onClick={() => setShareToast("")}>{shareToast}</div>
+        )}
+      </div>
+    );
+  };
+
   const renderSettingsTab = () => (
     <div>
       <div className="mb-2 text-xs text-stone-500">
@@ -2673,6 +3100,22 @@ export default function App() {
         >
           + Supermarkt toevoegen
         </button>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm p-4 mb-4">
+        <div className="flex items-center gap-2">
+          <button className="iconbtn" title="Deelbestand maken (exporteren)" onClick={() => setDelenOpen("export")}>📤</button>
+          <label className="iconbtn cursor-pointer" title="Bestand overnemen (importeren)">
+            📥
+            <input
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              onChange={(e) => { if (e.target.files && e.target.files[0]) importShareFile(e.target.files[0]); e.target.value = ""; }}
+            />
+          </label>
+          <button className="iconbtn" title="Uitleg over delen via bestand" onClick={() => setDelenOpen("info")}>ℹ️</button>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm p-4 mb-4">
@@ -2895,6 +3338,7 @@ export default function App() {
         {tab === "shopping" && renderShoppingTab()}
 
         {tab === "settings" && renderSettingsTab()}
+        {tab === "settings" && renderDelenSheets()}
         {tab === "menu" && dateSheetOpen && renderDateSheet()}
 
         {tab === "menu" && rulesSheetOpen && renderRulesSheet()}

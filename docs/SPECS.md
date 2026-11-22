@@ -94,6 +94,15 @@ Zie INTENT.md voor doel en principes; ADR-009 t/m ADR-011 voor configuratie, pri
 - `prices` en `shopRuns` worden niet meer opgeslagen (ADR-016); oude waarden worden bij laden genegeerd.
 - Nooit iets naar een server of GitHub (ADR-010).
 
+## Delen via bestand (ADR-019)
+- Export/import van data tussen huishoudelijke apparaten via een JSON-bestand (geen server/cloud/netwerkstack; ADR-010 onverlet).
+- Instellingen-tab: kaart met alleen iconen 📤 (deelbestand maken), 📥 (bestand overnemen, verborgen file input) en ℹ️ (uitleg-sheet).
+- Export-sheet met togglebare chips: Recepten, Producten, Voorraad, Weekmenu-dagen en "Instellingen · vinkjes · verwijderingen" (default aan); bestandsnaam `weekmenu-delen-v1-<dd-mm>-<HHuMM>.json`, payload `bundle: "weekmenu-share-v1"` met `v` en `exportedAt`.
+- Import = automerge met rapport vóór toepassen: per record wint de nieuwste versie (`updatedAt`); rapportblok toont nieuw / nieuwer uit bestand / verwijderd / blijft en de automatische conflicten ("hier: X → uit bestand: Y"); "Samenvoegen" past de *Raw*-setters toe zodat tijdstempels uit het bestand intact blijven.
+- Verwijderingen delen via `deleted`-markeringen (`"recipe:<id>" → timestamp` e.d.); vinkjes en instellingen als één geheel (`checkedAt` / settings `updatedAt`).
+- Nieuwe opslagvelden: `deleted` (map) en `checkedAt` (number) in `weekmenu-app-v1`; ontbrekende velden defaulten naar `{}`/`0`.
+- Normalizers (`normalizeStock`, `normalizeExtras`, `normalizeLocations`, `normalizeProducts`) bewaren een aanwezige `updatedAt`.
+
 ## Build & tests (ADR-011)
 - Bron: `src/App.jsx`; build: `npm run build` (→ `src/app.js`, meegecommit; CI controleert synchroniteit).
 - Tests: `npm test` draait alle `tools/test-*.cjs` via `tools/run-tests.cjs` tegen de gecompileerde `src/app.js` met `tools/render-harness.cjs`.
