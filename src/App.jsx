@@ -27,6 +27,7 @@ const DEFAULT_SETTINGS = {
   markets: MARKETS.map((m) => ({ ...m, defaultShop: true })),
   shopCats: [...SHOP_CATS_DEFAULT],
   tagRules: [], // #37: [{ kind: "product" | "recipe", tag, days }]
+  dishRepeatDays: 7, // #38: aantal dagen wachten voordat een gerecht opnieuw gepland mag (0 = volgende dag mag al)
 };
 
 function normalizeDayList(arr, fallback) {
@@ -65,6 +66,8 @@ function normalizeSettings(s) {
     }))
     .filter((r) => r.tag)
     .filter((r, i, arr) => arr.findIndex((x) => x.kind === r.kind && x.tag === r.tag) === i);
+  // #38: herhaalregel per gerecht (0..30, standaard 7 = niet vaker dan 1× per week)
+  out.dishRepeatDays = Math.min(30, Math.max(0, Math.floor(Number(out.dishRepeatDays) || 0)));
   return out;
 }
 // Voorraad (ADR-015): per-huishouden locaties; per product een locatie, categorie (shopCats),
@@ -1225,6 +1228,12 @@ export default function App() {
     const planned = Object.entries(menuByDate || {})
       .filter(([, e]) => e && e.id)
       .map(([key, e]) => ({ key, id: e.id }));
+    const repeatDays = Math.min(30, Math.max(0, Number(settings.dishRepeatDays) || 0)); // #38: herhaalregel per gerecht
+    const dayDiff = (a, b) => Math.abs(Math.round((new Date(a + "T00:00:00").getTime() - new Date(b + "T00:00:00").getTime()) / 86400000));
+    // ids die deze week al vastliggen: gelockte dagen van de getoonde week + keuzes in deze run
+    const weekPickIds = new Set(
+      planned.filter((pe) => weekKeys.includes(pe.key) && menuByDate[pe.key] && menuByDate[pe.key].locked).map((pe) => pe.id)
+    );
     const pickFrom = (cats, dayKey) => {
       const avail = (list) =>
         shuffle(
@@ -1232,7 +1241,8 @@ export default function App() {
             (r) =>
               list.includes(r.cat) &&
               (r.ingredients || []).filter(Boolean).length > 0 &&
-              !planned.some((pe) => pe.id === r.id) && // niet dubbel in de week
+              !weekPickIds.has(r.id) && // niet dubbel in de week (incl. gelockte dagen)
+              !(repeatDays > 0 && planned.some((pe) => pe.id === r.id && dayDiff(pe.key, dayKey) < repeatDays)) && // #38: niet binnen N dagen opnieuw
               !blockedByRules(r, dayKey, planned) // #37: tag-regels
           )
         );
@@ -1241,6 +1251,7 @@ export default function App() {
       if (!pool.length) return null;
       const r = pool[0];
       planned.push({ key: dayKey, id: r.id });
+      weekPickIds.add(r.id);
       return r.id;
     };
 
@@ -3620,6 +3631,20 @@ export default function App() {
               <button className="px-2.5 py-1.5 border rounded-lg text-xs text-stone-600 bg-white shrink-0" onClick={addTagRule} title="Regel toevoegen">
                 ＋
               </button>
+            </div>
+          </div>
+          <div className="mb-3">
+            <div className="text-xs font-medium text-stone-500 mb-1">Hetzelfde gerecht opnieuw plannen na</div>
+            <div className="segl">
+              {[[0, "altijd"], [3, "3 dagen"], [7, "7 dagen"], [14, "14 dagen"], [30, "30 dagen"]].map(([v, label]) => (
+                <button
+                  key={v}
+                  className={Math.min(30, Math.max(0, Number(settings.dishRepeatDays) || 0)) === v ? "on" : ""}
+                  onClick={() => updateSettings({ dishRepeatDays: v })}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
           <button

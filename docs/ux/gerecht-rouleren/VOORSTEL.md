@@ -1,6 +1,8 @@
 # UX-voorstel: gerechtregel op basis van datum — rouleren instelbaar (issue #38)
 
-**Status: ronde 1 — mocks ter review (label `needs-review` op issue #38).** Nog geen app-code in deze PR.
+**Status: goedgekeurd in issue #38 — geïmplementeerd in deze PR.**
+
+Goedkeuring (reactie in issue #38): "Versie 3", met de volgorde **altijd, 3 dagen, 7 dagen, 14 dagen, 30 dagen**, default **7 dagen**, en de beschrijvende tekst onder de opties weg. De opgegeven aanpassingen ("volgorde van de opties" + "beschrijvende tekst onder de opties") passen bij de **segmented-chips variant (mock `02-regelsheet-versie-B-segmented-chips.svg`)** — die is geïmplementeerd met de aangepaste volgorde, default 7 en zonder hinttekst (zie ook de notitie in issue #38).
 
 ## Aanleiding (wens uit issue #38)
 

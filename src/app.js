@@ -27,6 +27,7 @@ const DEFAULT_SETTINGS = {
   markets: MARKETS.map((m) => ({ ...m, defaultShop: true })),
   shopCats: [...SHOP_CATS_DEFAULT],
   tagRules: [], // #37: [{ kind: "product" | "recipe", tag, days }]
+  dishRepeatDays: 7, // #38: aantal dagen wachten voordat een gerecht opnieuw gepland mag (0 = volgende dag mag al)
 };
 
 function normalizeDayList(arr, fallback) {
@@ -65,6 +66,8 @@ function normalizeSettings(s) {
     }))
     .filter((r) => r.tag)
     .filter((r, i, arr) => arr.findIndex((x) => x.kind === r.kind && x.tag === r.tag) === i);
+  // #38: herhaalregel per gerecht (0..30, standaard 7 = niet vaker dan 1× per week)
+  out.dishRepeatDays = Math.min(30, Math.max(0, Math.floor(Number(out.dishRepeatDays) || 0)));
   return out;
 }
 // Voorraad (ADR-015): per-huishouden locaties; per product een locatie, categorie (shopCats),
@@ -1225,6 +1228,12 @@ function App() {
     const planned = Object.entries(menuByDate || {})
       .filter(([, e]) => e && e.id)
       .map(([key, e]) => ({ key, id: e.id }));
+    const repeatDays = Math.min(30, Math.max(0, Number(settings.dishRepeatDays) || 0)); // #38: herhaalregel per gerecht
+    const dayDiff = (a, b) => Math.abs(Math.round((new Date(a + "T00:00:00").getTime() - new Date(b + "T00:00:00").getTime()) / 86400000));
+    // ids die deze week al vastliggen: gelockte dagen van de getoonde week + keuzes in deze run
+    const weekPickIds = new Set(
+      planned.filter((pe) => weekKeys.includes(pe.key) && menuByDate[pe.key] && menuByDate[pe.key].locked).map((pe) => pe.id)
+    );
     const pickFrom = (cats, dayKey) => {
       const avail = (list) =>
         shuffle(
@@ -1232,7 +1241,8 @@ function App() {
             (r) =>
               list.includes(r.cat) &&
               (r.ingredients || []).filter(Boolean).length > 0 &&
-              !planned.some((pe) => pe.id === r.id) && // niet dubbel in de week
+              !weekPickIds.has(r.id) && // niet dubbel in de week (incl. gelockte dagen)
+              !(repeatDays > 0 && planned.some((pe) => pe.id === r.id && dayDiff(pe.key, dayKey) < repeatDays)) && // #38: niet binnen N dagen opnieuw
               !blockedByRules(r, dayKey, planned) // #37: tag-regels
           )
         );
@@ -1241,6 +1251,7 @@ function App() {
       if (!pool.length) return null;
       const r = pool[0];
       planned.push({ key: dayKey, id: r.id });
+      weekPickIds.add(r.id);
       return r.id;
     };
 
@@ -2345,7 +2356,9 @@ function App() {
                   , "className": `chip fish${fishDays.includes(i) ? " on" : ""}` }, d.slice(0, 2))
               )))), /*#__PURE__*/React.createElement("div", { "className": "mb-3" }, /*#__PURE__*/React.createElement("div", { "className": "text-xs font-medium text-stone-500 mb-1" }, "Vega-dagen op de overige ", otherDays.length, " dagen"), /*#__PURE__*/React.createElement("div", { "className": "flex items-center gap-3" }, /*#__PURE__*/React.createElement("div", { "className": "stepper" }, /*#__PURE__*/React.createElement("button", { "onClick": () => updateSettings({ vegaTarget: Math.max(0, vegaCount - 1) }) }, "−"), /*#__PURE__*/React.createElement("span", null, vegaCount), /*#__PURE__*/React.createElement("button", { "onClick": () => updateSettings({ vegaTarget: Math.min(otherDays.length, vegaCount + 1) }) }, "+")), /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-600" }, vegaCount, " vega · ", otherDays.length - vegaCount, " vlees"))), /*#__PURE__*/React.createElement("div", { "className": "mb-3" }, /*#__PURE__*/React.createElement("div", { "className": "text-xs font-medium text-stone-500 mb-1" }, "Tag-regels (bij automatisch plannen)"), (settings.tagRules || []).length === 0 && /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-400 mb-1" }, "nog geen tag-regels"), (settings.tagRules || []).map((rule, i) => (
               /*#__PURE__*/React.createElement("div", { "key": i, "className": "flex items-center gap-2 mb-1.5" }, /*#__PURE__*/React.createElement("span", { "className": "chip" }, rule.kind === "product" ? "🏷️" : "🍽️", " ", rule.tag), /*#__PURE__*/React.createElement("div", { "className": "stepctrl" }, /*#__PURE__*/React.createElement("button", { "onClick": () => setTagRuleDays(i, rule.days - 1), "disabled": rule.days <= 0 }, "−"), /*#__PURE__*/React.createElement("span", null, rule.days), /*#__PURE__*/React.createElement("button", { "onClick": () => setTagRuleDays(i, rule.days + 1), "disabled": rule.days >= 30 }, "+")), /*#__PURE__*/React.createElement("span", { "className": "text-xs text-stone-500 shrink-0" }, "dagen"), /*#__PURE__*/React.createElement("button", { "className": "ml-auto text-stone-300 hover:text-red-500 text-sm", "onClick": () => removeTagRule(i), "title": "Regel verwijderen" }, "✕"))
-            )), /*#__PURE__*/React.createElement("div", { "className": "flex items-center gap-1.5 mt-2" }, /*#__PURE__*/React.createElement("select", { "className": "border rounded-lg px-1.5 py-1.5 text-xs text-stone-600 shrink-0", "value": ruleDraft.kind, "onChange": (e) => setRuleDraft({ ...ruleDraft, kind: e.target.value }) }, /*#__PURE__*/React.createElement("option", { "value": "product" }, "🏷️ product"), /*#__PURE__*/React.createElement("option", { "value": "recipe" }, "🍽️ gerecht")), /*#__PURE__*/React.createElement("input", { "className": "w-full min-w-0 border rounded-lg px-2 py-1.5 text-xs", "value": ruleDraft.tag, "placeholder": "tag…", "list": "tagrules-tags", "onChange": (e) => setRuleDraft({ ...ruleDraft, tag: e.target.value }), "onKeyDown": (e) => { if (e.key === "Enter") { e.preventDefault(); addTagRule(); } } }), /*#__PURE__*/React.createElement("datalist", { "id": "tagrules-tags" }, allRuleTags.map((t) => (/*#__PURE__*/React.createElement("option", { "key": t, "value": t })))), /*#__PURE__*/React.createElement("div", { "className": "stepctrl shrink-0" }, /*#__PURE__*/React.createElement("button", { "onClick": () => setRuleDraft({ ...ruleDraft, days: Math.max(0, ruleDraft.days - 1) }) }, "−"), /*#__PURE__*/React.createElement("span", null, ruleDraft.days), /*#__PURE__*/React.createElement("button", { "onClick": () => setRuleDraft({ ...ruleDraft, days: Math.min(30, ruleDraft.days + 1) }) }, "+")), /*#__PURE__*/React.createElement("button", { "className": "px-2.5 py-1.5 border rounded-lg text-xs text-stone-600 bg-white shrink-0", "onClick": addTagRule, "title": "Regel toevoegen" }, "＋"))), /*#__PURE__*/React.createElement("button", { "onClick": () => { setRulesSheetOpen(false); setTab("settings"); }, "className": "block text-xs text-emerald-700 font-medium mb-3" }, "Eters & supermarkten → Instellingen"), /*#__PURE__*/React.createElement("button", { "onClick": () => setRulesSheetOpen(false), "className": "w-full bg-stone-800 text-white rounded-xl py-2.5 text-sm font-medium" }, "Klaar"))))
+            )), /*#__PURE__*/React.createElement("div", { "className": "flex items-center gap-1.5 mt-2" }, /*#__PURE__*/React.createElement("select", { "className": "border rounded-lg px-1.5 py-1.5 text-xs text-stone-600 shrink-0", "value": ruleDraft.kind, "onChange": (e) => setRuleDraft({ ...ruleDraft, kind: e.target.value }) }, /*#__PURE__*/React.createElement("option", { "value": "product" }, "🏷️ product"), /*#__PURE__*/React.createElement("option", { "value": "recipe" }, "🍽️ gerecht")), /*#__PURE__*/React.createElement("input", { "className": "w-full min-w-0 border rounded-lg px-2 py-1.5 text-xs", "value": ruleDraft.tag, "placeholder": "tag…", "list": "tagrules-tags", "onChange": (e) => setRuleDraft({ ...ruleDraft, tag: e.target.value }), "onKeyDown": (e) => { if (e.key === "Enter") { e.preventDefault(); addTagRule(); } } }), /*#__PURE__*/React.createElement("datalist", { "id": "tagrules-tags" }, allRuleTags.map((t) => (/*#__PURE__*/React.createElement("option", { "key": t, "value": t })))), /*#__PURE__*/React.createElement("div", { "className": "stepctrl shrink-0" }, /*#__PURE__*/React.createElement("button", { "onClick": () => setRuleDraft({ ...ruleDraft, days: Math.max(0, ruleDraft.days - 1) }) }, "−"), /*#__PURE__*/React.createElement("span", null, ruleDraft.days), /*#__PURE__*/React.createElement("button", { "onClick": () => setRuleDraft({ ...ruleDraft, days: Math.min(30, ruleDraft.days + 1) }) }, "+")), /*#__PURE__*/React.createElement("button", { "className": "px-2.5 py-1.5 border rounded-lg text-xs text-stone-600 bg-white shrink-0", "onClick": addTagRule, "title": "Regel toevoegen" }, "＋"))), /*#__PURE__*/React.createElement("div", { "className": "mb-3" }, /*#__PURE__*/React.createElement("div", { "className": "text-xs font-medium text-stone-500 mb-1" }, "Hetzelfde gerecht opnieuw plannen na"), /*#__PURE__*/React.createElement("div", { "className": "segl" }, [[0, "altijd"], [3, "3 dagen"], [7, "7 dagen"], [14, "14 dagen"], [30, "30 dagen"]].map(([v, label]) => (
+                /*#__PURE__*/React.createElement("button", { "key": v, "className": Math.min(30, Math.max(0, Number(settings.dishRepeatDays) || 0)) === v ? "on" : "", "onClick": () => updateSettings({ dishRepeatDays: v }) }, label)
+              )))), /*#__PURE__*/React.createElement("button", { "onClick": () => { setRulesSheetOpen(false); setTab("settings"); }, "className": "block text-xs text-emerald-700 font-medium mb-3" }, "Eters & supermarkten → Instellingen"), /*#__PURE__*/React.createElement("button", { "onClick": () => setRulesSheetOpen(false), "className": "w-full bg-stone-800 text-white rounded-xl py-2.5 text-sm font-medium" }, "Klaar"))))
   );
 
   return (
