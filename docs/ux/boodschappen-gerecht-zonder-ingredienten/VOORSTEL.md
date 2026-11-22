@@ -1,6 +1,6 @@
 # UX-voorstel: gerecht zonder ingrediënten → 1 regel op de boodschappenlijst (issue #43)
 
-**Status: ronde 1 — mocks ter review (label `needs-review` op issue #43).** Nog geen app-code in deze PR.
+**Status: ronde 1 goedgekeurd in issue #43 (reactie eigenaar): versie A (afvinkbare regel; weekmenu toont ✅ zodra afgevinkt).** Goedgekeurde werking in deze PR geïmplementeerd (zelfde branch). Let op: deze branch is gestackt op #34 (PR #46) — merge #46 vóór #47.
 
 ## Aanleiding (wens uit issue #43)
 
@@ -27,9 +27,7 @@ Er moet 1 regel "ingrediënten voor x" komen, waarbij x de naam van het gerecht 
 - `05-weekmenu-versie-B-status-warn.svg` — **versie B**: dag toont ❗ zolang de regel niet is afgevinkt.
 - `06-weekmenu-versie-C-geen-status.svg` — **versie C**: dag toont 🛒 "zelf regelen"; geen ✅/❗.
 
-## Na goedkeuring (implementatie, zelfde PR)
+## Implementatie (deze PR, na goedkeuring ronde 1)
 
-`docs/SPECS.md` (secties Boodschappen + Weekmenu) bijwerken, tests in `tools/test-boodschappen-lijst.cjs`
-(regel in scope, 1 per gerecht, nooit mergen, afvinken) en `tools/test-weekmenu-ux.cjs` (dagstatus),
-implementatie in `src/App.jsx` (`listRows` + `mealStatus`), `npm run build` (`src/app.js` synchroon),
-`npm run verify` groen, CI groen (ADR-014), cache-bump (`CACHE_VERSION` in `sw.js` + `?v=` in `index.html`).
+- `src/App.jsx`: no-ing-rij in `listRows` (categorie overig, afvinkbaar, nooit gemerged, datumchip), `mealStatus` telt de regel mee (afgevinkt → ✅).
+- `docs/SPECS.md` (Boodschappen + Weekmenu), tests in `tools/test-boodschappen-lijst.cjs` (sectie 10), `npm run build` (`src/app.js` synchroon), `npm run verify` groen, cache-bump (`CACHE_VERSION` v15 in `sw.js` + `?v=14` in `index.html`).

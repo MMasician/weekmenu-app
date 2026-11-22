@@ -1721,10 +1721,33 @@ function App() {
         cat: (p && p.cat) || s.cat || null,
       });
     });
+    // #43: gelockt gerecht in scope zonder bekende ingrediënten -> 1 regel "Ingrediënten voor <gerecht>"
+    scopeKeys.slice(0, shopDaysEff).forEach((k) => {
+      const entry = menuByDate[k];
+      if (!entry || !entry.id) return;
+      const r = byId[entry.id];
+      if (!r || (r.ingredients || []).filter(Boolean).length) return;
+      rows.push({
+        key: `${k}-${r.id}-noing`,
+        src: "noing",
+        label: `Ingrediënten voor ${r.name}`,
+        amount: null,
+        unit: null,
+        name: r.name,
+        pid: null,
+        dayKey: k,
+        mkt: null,
+        cat: "overig",
+      });
+    });
     // #33: zelfde product (pid, fallback productKey) met gelijke/converteerbare eenheid -> 1 regel met de
     // som van de aantallen. Schaling per afwijkende eters (ADR-012) eerst per bronddag, daarna samenvoegen.
     const groups = new Map();
     rows.forEach((r0) => {
+      if (r0.src === "noing") { // #43: regel "ingrediënten voor x" nooit mergen met product-rijen
+        groups.set("noing:" + r0.key, { unit: null, parts: [{ ...r0, amount: null, unit: null, name: r0.name }] });
+        return;
+      }
       const p = r0.pid ? prodById[r0.pid] : null;
       let r = r0;
       let amount = r.amount != null && r.amount !== "" ? Number(r.amount) : null;
@@ -1787,7 +1810,7 @@ function App() {
       const mkt0 = parts[0].mkt;
       const mkt = parts.every((pp) => pp.mkt === mkt0) ? mkt0 : null;
       const cat = parts.map((pp) => pp.cat).find(Boolean) || null;
-      const label = ingLabel({ pid, amount, unit, name }, prodById);
+      const label = parts[0].src === "noing" ? parts[0].label : ingLabel({ pid, amount, unit, name }, prodById); // #43
       return {
         ...(single || parts[0]),
         key: parts.map((pp) => pp.key).join("+"),
@@ -1817,7 +1840,9 @@ function App() {
     scopeKeys.slice(0, shopDaysEff).forEach((k) => {
       const entry = menuByDate[k];
       if (!entry || !entry.id) return;
-      const rowsK = shoppingRows.filter((r) => r.dayKey === k && rowVisible(r));
+      const rec = byId[entry.id];
+      let rowsK = shoppingRows.filter((r) => r.dayKey === k && rowVisible(r));
+      if (rec && !(rec.ingredients || []).filter(Boolean).length) rowsK = [{ key: `${k}-${rec.id}-noing` }]; // #43
       if (!rowsK.length) return;
       const doneK = rowsK.filter((r) => checked[r.key]).length;
       if (doneK === rowsK.length) st[k] = { icon: "\u2705", title: "Alle ingrediënten van dit gerecht zijn in huis" };
@@ -2102,7 +2127,7 @@ function App() {
         /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm divide-y divide-stone-100" }, visibleRows.map((r) => {
             const keys = r.keys || [r.key];
             const isChecked = keys.every((k) => checked[k]);
-            const showDate = r.dayKeys && r.dayKeys.length > 0 && (r.cat === "groente" || r.cat === "zuivel");
+            const showDate = r.dayKeys && r.dayKeys.length > 0 && (r.cat === "groente" || r.cat === "zuivel" || r.src === "noing");
             return (
               /*#__PURE__*/React.createElement("div", { "key": r.key }, /*#__PURE__*/React.createElement("label", { "className": "flex items-center gap-3 px-3 py-2 cursor-pointer" }, /*#__PURE__*/React.createElement("input", { "type": "checkbox", "checked": isChecked, "onChange": (e) => setChecked({ ...checked, ...Object.fromEntries(keys.map((k) => [k, e.target.checked])) }), "className": "w-4 h-4 accent-emerald-600" }), /*#__PURE__*/React.createElement("span", { "className": `text-sm ${isChecked ? "line-through text-stone-300" : ""}` }, r.origLabel ? (
                       /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("span", { "className": "line-through text-stone-300" }, r.origLabel), " → ", /*#__PURE__*/React.createElement("span", { "className": "font-semibold" }, r.label))

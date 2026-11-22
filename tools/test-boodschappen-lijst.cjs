@@ -298,5 +298,33 @@ const baseSeed = () => ({
     h.indexOf("Kroepoek") !== -1 && h.indexOf("afgevinkt · toon") === -1 && h.indexOf("gerechten compleet") === -1 && h.indexOf("line-through") === -1);
 }
 
+// ---------- 10. #43: gerecht zonder ingrediënten -> 1 regel "Ingrediënten voor x" (versie A) ----------
+{
+  const seed = {
+    settings: { householdSize: 4, weekStartDay: 0, markets: [{ key: "ah", label: "Albert Heijn", defaultShop: true }] },
+    recipes: [
+      { id: "rA", name: "Gerecht A", cat: "vlees", ingredients: ["400 g kipgehakt"], bereiding: "", timeCat: "normaal", tags: [] },
+      { id: "rB", name: "Pasta pesto", cat: "vega", ingredients: [], bereiding: "", timeCat: "kort", tags: [] },
+    ],
+    menuByDate: { [todayK]: { id: "rA", locked: true }, [d1K]: { id: "rB", locked: true } },
+    stock: [],
+    extraItems: [],
+    checked: {},
+  };
+  const t = make(seed);
+  t.findTab("Boodschappen").props.onClick();
+  let h = t.html();
+  check("#43: 1 regel 'Ingrediënten voor Pasta pesto' op de lijst", h.indexOf("Ingrediënten voor Pasta pesto") !== -1);
+  check("#43: regel merge niet met product-rijen (2 checkboxes: kipgehakt + regel)", t.checkboxes().length === 2);
+  t.findTab("Weekmenu").props.onClick();
+  h = t.html();
+  check("#43: vóór afvinken geen ✅/❗ bij de dag zonder ingrediënten", h.indexOf("✅") === -1 && h.indexOf("❗") === -1);
+  t.findTab("Boodschappen").props.onClick();
+  t.setRowChecked("Ingrediënten voor Pasta pesto", true);
+  t.findTab("Weekmenu").props.onClick();
+  h = t.html();
+  check("#43: na afvinken toont de dag ✅ 'in huis' (versie A)", h.indexOf("✅") !== -1 && h.indexOf("Alle ingrediënten van dit gerecht zijn in huis") !== -1);
+}
+
 console.log(fails === 0 ? "ALLE TESTS GESLAAGD" : fails + " TEST(S) GEFAALD");
 process.exit(fails === 0 ? 0 : 1);
