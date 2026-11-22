@@ -732,7 +732,9 @@ function App() {
   // boodschappenlijst van vandaag (ADR-016): aantal dagen + supermarktkeuze zijn vluchtig (worden niet opgeslagen)
   const [shopDays, setShopDays] = useState(null); // null = default min(4, max aaneengesloten gelockte dagen)
   const [shopMarkets, setShopMarkets] = useState(null); // null = default uit settings (defaultShop per winkel)
-  const [shopDone, setShopDone] = useState(false); // "Klaar met winkelen" geklikt -> melding tonen
+  const [shopDone, setShopDone] = useState(false); // "Verwerk update" geklikt -> melding tonen (#34)
+  const [hiddenChecked, setHiddenChecked] = useState(false); // #34: na "Verwerk update" zijn afgevinkte rijen verborgen
+  const [showChecked, setShowChecked] = useState(false); // #34: chip "n afgevinkt · toon" zet ze tijdelijk terug
   const [openRecipe, setOpenRecipe] = useState(null); // recept met open readonly-detail (ADR-018)
   const [editRecipe, setEditRecipe] = useState(null); // recept-id in bewerkmodus via ✏️ (ADR-018)
   // weekmenu-tab v2 (ADR-012): datum-sheet, regels-sheet, eters per dag, getypte invoer
@@ -2027,9 +2029,45 @@ function App() {
           }, "className": "py-2.5 px-4 border rounded-xl text-sm text-stone-500 hover:bg-white" }, "Standaardlijst terug")))
   );
 
+  // #34: "Verwerk update" — afgevinkte rijen verwerken: voorraad (have) bijwerken, melding tonen,
+  // en afgevinkte rijen verbergen uit de zichtbare lijst (chip "n afgevinkt · toon" zet ze terug).
+  function processChecked() {
+    const haveUpdates = {};
+    listRows.forEach((r) => {
+      const keys = r.keys || [r.key];
+      if (!keys.every((k) => checked[k])) return;
+      keys.forEach((k) => {
+        if (k.startsWith("stock-")) {
+          const s = stock.find((x) => "stock-" + x.name === k);
+          if (s) haveUpdates[s.name] = s.want; // tekort gehaald -> have = want
+        } else if (r.src === "ing" && r.pid) {
+          const s = stock.find((x) => x.pid === r.pid || productKey(x.name) === productKey(r.name || ""));
+          if (s) {
+            const p = prodById[r.pid];
+            let add = r.amount != null && Number.isFinite(r.amount) ? r.amount : 1;
+            if (r.unit && p && p.unit && r.unit !== p.unit) {
+              const c = convertAmount(add, r.unit, p.unit);
+              if (c != null) add = c;
+            }
+            haveUpdates[s.name] = (s.name in haveUpdates ? haveUpdates[s.name] : s.have) + add;
+          }
+        }
+      });
+    });
+    if (Object.keys(haveUpdates).length) {
+      setStock((st) => st.map((s) => (s.name in haveUpdates ? { ...s, have: haveUpdates[s.name] } : s)));
+    }
+    setHiddenChecked(true);
+    setShowChecked(false);
+    setShopDone(true);
+  }
+  const isRowChecked = (r) => (r.keys || [r.key]).every((k) => checked[k]);
+  // #34 versie B: na "Verwerk update" zijn afgevinkte rijen verborgen (chip zet ze terug)
+  const visibleRows = hiddenChecked && !showChecked ? listRows.filter((r) => !isRowChecked(r)) : listRows;
+
   const renderShoppingTab = () => (
     /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", { "className": "flex items-center justify-between mb-2" }, /*#__PURE__*/React.createElement("span", { "className": "text-sm font-semibold text-stone-700" }, `Boodschappenlijst · ${todayLabel}`), /*#__PURE__*/React.createElement("span", { "className": "flex gap-1.5 relative" }, /*#__PURE__*/React.createElement("button", { "className": `iconbtn${shopInfoOpen ? " on" : ""}`, "title": "Hoe werkt de boodschappenlijst?", "onClick": () => setShopInfoOpen((v) => !v) }, "ℹ️"), /*#__PURE__*/React.createElement("button", { "className": `iconbtn${catsOpen ? " on" : ""}`, "title": "Categorieën beheren", "onClick": () => setCatsOpen((v) => !v) }, "⚙️"), shopInfoOpen && (
-            /*#__PURE__*/React.createElement("div", { "className": "pop" }, /*#__PURE__*/React.createElement("b", null, "Hoe werkt de boodschappenlijst?"), /*#__PURE__*/React.createElement("ul", null, /*#__PURE__*/React.createElement("li", null, "Bovenaan kies je voor hoeveel dagen je boodschappen doet en bij welke supermarkt(en). Artikelen met een winkelvoorkeur voor een andere supermarkt zie je niet."), /*#__PURE__*/React.createElement("li", null, "De lijst is één platte lijst op categorie-volgorde (zie ⚙️) — ingrediënt, voorraad of extra artikel maakt niet uit."), /*#__PURE__*/React.createElement("li", null, "Afvinken maar. \"Klaar met winkelen\" toont per gerecht in het weekmenu of alles in huis is; \"Vinkjes wissen\" zet alles terug."), /*#__PURE__*/React.createElement("li", null, "Bij groente/zuivel zie je de datum waarop het nodig is (beperkt houdbaar). Tekorten uit de voorraad (\"n van want\") staan automatisch in de lijst.")))
+            /*#__PURE__*/React.createElement("div", { "className": "pop" }, /*#__PURE__*/React.createElement("b", null, "Hoe werkt de boodschappenlijst?"), /*#__PURE__*/React.createElement("ul", null, /*#__PURE__*/React.createElement("li", null, "Bovenaan kies je voor hoeveel dagen je boodschappen doet en bij welke supermarkt(en). Artikelen met een winkelvoorkeur voor een andere supermarkt zie je niet."), /*#__PURE__*/React.createElement("li", null, "De lijst is één platte lijst op categorie-volgorde (zie ⚙️) — ingrediënt, voorraad of extra artikel maakt niet uit."), /*#__PURE__*/React.createElement("li", null, "Afvinken maar. \"Verwerk update\" verwerkt de afgevinkte artikelen (voorraad wordt bijgewerkt, rijen verborgen) en toont per gerecht in het weekmenu of alles in huis is; \"Vinkjes wissen\" zet alles terug."), /*#__PURE__*/React.createElement("li", null, "Bij groente/zuivel zie je de datum waarop het nodig is (beperkt houdbaar). Tekorten uit de voorraad (\"n van want\") staan automatisch in de lijst.")))
           ))), /*#__PURE__*/React.createElement("div", { "className": "flex items-center gap-2 mb-4 px-1" }, /*#__PURE__*/React.createElement("div", { "className": "stepper" }, /*#__PURE__*/React.createElement("button", { "onClick": () => setShopDays(Math.max(0, shopDaysEff - 1)), "disabled": shopDaysEff <= 0 }, "−"), /*#__PURE__*/React.createElement("span", null, shopDaysEff), /*#__PURE__*/React.createElement("button", { "onClick": () => setShopDays(Math.min(maxShopDays, shopDaysEff + 1)), "disabled": shopDaysEff >= maxShopDays }, "+")), /*#__PURE__*/React.createElement("span", { "className": "text-xs text-stone-500 shrink-0" }, "dagen"), /*#__PURE__*/React.createElement("div", { "className": "flex gap-1 ml-auto overflow-x-auto" }, markets.map((m) => (
             /*#__PURE__*/React.createElement("button", { "key": m.key, "className": `chip${shopMarketsEff.includes(m.key) ? " on" : ""}`, "title": m.label, "onClick": () =>
                 setShopMarkets(
@@ -2056,8 +2094,12 @@ function App() {
         /*#__PURE__*/React.createElement("div", { "className": "text-center text-stone-400 text-sm py-10 bg-white rounded-xl shadow-sm" }, `Niets te halen bij ${shopMarketsEff.map((k) => marketChip(k)).join(", ") || "de geselecteerde supermarkt"}`, /*#__PURE__*/React.createElement("div", { "className": "text-xs mt-1" }, "alle artikelen hebben een winkelvoorkeur voor een andere supermarkt"), /*#__PURE__*/React.createElement("button", { "className": "chip on mt-2", "onClick": () => setShopMarkets(markets.map((m) => m.key)) }, "Toon alle supermarkten"))
       ), listRows.length === 0 && unfilteredCount === 0 && (
         /*#__PURE__*/React.createElement("div", { "className": "text-center text-stone-400 text-sm py-10" }, "Stel eerst een weekmenu samen; de ingrediënten verschijnen dan hier automatisch.")
-      ), listRows.length > 0 && (
-        /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm divide-y divide-stone-100" }, listRows.map((r) => {
+      ), listRows.length > 0 && doneItems > 0 && (
+        /*#__PURE__*/React.createElement("div", { "className": "mb-2" }, /*#__PURE__*/React.createElement("button", { "className": "chip", "onClick": () => setShowChecked((v) => !v) }, `${doneItems} afgevinkt · ${showChecked ? "verberg" : "toon"} ▾`))
+      ), listRows.length > 0 && visibleRows.length === 0 && (
+        /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm text-center text-stone-400 text-sm py-8" }, "Alles afgevinkt — toon de rijen met de chip hierboven.")
+      ), visibleRows.length > 0 && (
+        /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm divide-y divide-stone-100" }, visibleRows.map((r) => {
             const keys = r.keys || [r.key];
             const isChecked = keys.every((k) => checked[k]);
             const showDate = r.dayKeys && r.dayKeys.length > 0 && (r.cat === "groente" || r.cat === "zuivel");
@@ -2080,9 +2122,11 @@ function App() {
       ), anyScaled && (
         /*#__PURE__*/React.createElement("p", { "className": "text-[10px] text-stone-400 mt-1" }, `Hoeveelheden geschaald voor afwijkende eters (×${scaledFactors.join(", ")} t.o.v. standaard ${settings.householdSize} eters); regels zonder getal blijven gelijk.`)
       ), totalItems > 0 && (
-        /*#__PURE__*/React.createElement("div", { "className": "mt-4" }, /*#__PURE__*/React.createElement("div", { "className": "flex gap-2" }, /*#__PURE__*/React.createElement("button", { "onClick": () => setShopDone(true), "className": "flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl text-sm" }, "Klaar met winkelen"), /*#__PURE__*/React.createElement("button", { "onClick": () => {
+        /*#__PURE__*/React.createElement("div", { "className": "mt-4" }, /*#__PURE__*/React.createElement("div", { "className": "flex gap-2" }, /*#__PURE__*/React.createElement("button", { "onClick": processChecked, "className": "flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl text-sm" }, "Verwerk update"), /*#__PURE__*/React.createElement("button", { "onClick": () => {
                 setChecked({});
                 setShopDone(false);
+                setHiddenChecked(false);
+                setShowChecked(false);
               }, "className": "py-2.5 px-4 border rounded-xl text-sm text-stone-500 hover:bg-white" }, "Vinkjes wissen")), shopDone && (
             /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-500 mt-2 text-center" }, mealOk + mealWarn > 0
                 ? `✅ ${mealOk} gerechten compleet${mealWarn > 0 ? ` · ❗ ${mealWarn} mist nog iets` : ""} — zie weekmenu (lijst blijft afvinkbaar)`

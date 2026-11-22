@@ -732,7 +732,9 @@ export default function App() {
   // boodschappenlijst van vandaag (ADR-016): aantal dagen + supermarktkeuze zijn vluchtig (worden niet opgeslagen)
   const [shopDays, setShopDays] = useState(null); // null = default min(4, max aaneengesloten gelockte dagen)
   const [shopMarkets, setShopMarkets] = useState(null); // null = default uit settings (defaultShop per winkel)
-  const [shopDone, setShopDone] = useState(false); // "Klaar met winkelen" geklikt -> melding tonen
+  const [shopDone, setShopDone] = useState(false); // "Verwerk update" geklikt -> melding tonen (#34)
+  const [hiddenChecked, setHiddenChecked] = useState(false); // #34: na "Verwerk update" zijn afgevinkte rijen verborgen
+  const [showChecked, setShowChecked] = useState(false); // #34: chip "n afgevinkt · toon" zet ze tijdelijk terug
   const [openRecipe, setOpenRecipe] = useState(null); // recept met open readonly-detail (ADR-018)
   const [editRecipe, setEditRecipe] = useState(null); // recept-id in bewerkmodus via ✏️ (ADR-018)
   // weekmenu-tab v2 (ADR-012): datum-sheet, regels-sheet, eters per dag, getypte invoer
@@ -2759,6 +2761,42 @@ export default function App() {
     </div>
   );
 
+  // #34: "Verwerk update" — afgevinkte rijen verwerken: voorraad (have) bijwerken, melding tonen,
+  // en afgevinkte rijen verbergen uit de zichtbare lijst (chip "n afgevinkt · toon" zet ze terug).
+  function processChecked() {
+    const haveUpdates = {};
+    listRows.forEach((r) => {
+      const keys = r.keys || [r.key];
+      if (!keys.every((k) => checked[k])) return;
+      keys.forEach((k) => {
+        if (k.startsWith("stock-")) {
+          const s = stock.find((x) => "stock-" + x.name === k);
+          if (s) haveUpdates[s.name] = s.want; // tekort gehaald -> have = want
+        } else if (r.src === "ing" && r.pid) {
+          const s = stock.find((x) => x.pid === r.pid || productKey(x.name) === productKey(r.name || ""));
+          if (s) {
+            const p = prodById[r.pid];
+            let add = r.amount != null && Number.isFinite(r.amount) ? r.amount : 1;
+            if (r.unit && p && p.unit && r.unit !== p.unit) {
+              const c = convertAmount(add, r.unit, p.unit);
+              if (c != null) add = c;
+            }
+            haveUpdates[s.name] = (s.name in haveUpdates ? haveUpdates[s.name] : s.have) + add;
+          }
+        }
+      });
+    });
+    if (Object.keys(haveUpdates).length) {
+      setStock((st) => st.map((s) => (s.name in haveUpdates ? { ...s, have: haveUpdates[s.name] } : s)));
+    }
+    setHiddenChecked(true);
+    setShowChecked(false);
+    setShopDone(true);
+  }
+  const isRowChecked = (r) => (r.keys || [r.key]).every((k) => checked[k]);
+  // #34 versie B: na "Verwerk update" zijn afgevinkte rijen verborgen (chip zet ze terug)
+  const visibleRows = hiddenChecked && !showChecked ? listRows.filter((r) => !isRowChecked(r)) : listRows;
+
   const renderShoppingTab = () => (
     <div>
       <div className="flex items-center justify-between mb-2">
@@ -2772,7 +2810,7 @@ export default function App() {
               <ul>
                 <li>Bovenaan kies je voor hoeveel dagen je boodschappen doet en bij welke supermarkt(en). Artikelen met een winkelvoorkeur voor een andere supermarkt zie je niet.</li>
                 <li>De lijst is één platte lijst op categorie-volgorde (zie ⚙️) — ingrediënt, voorraad of extra artikel maakt niet uit.</li>
-                <li>Afvinken maar. "Klaar met winkelen" toont per gerecht in het weekmenu of alles in huis is; "Vinkjes wissen" zet alles terug.</li>
+                <li>Afvinken maar. "Verwerk update" verwerkt de afgevinkte artikelen (voorraad wordt bijgewerkt, rijen verborgen) en toont per gerecht in het weekmenu of alles in huis is; "Vinkjes wissen" zet alles terug.</li>
                 <li>Bij groente/zuivel zie je de datum waarop het nodig is (beperkt houdbaar). Tekorten uit de voorraad ("n van want") staan automatisch in de lijst.</li>
               </ul>
             </div>
@@ -2900,9 +2938,23 @@ export default function App() {
         </div>
       )}
 
-      {listRows.length > 0 && (
+      {listRows.length > 0 && doneItems > 0 && (
+        <div className="mb-2">
+          <button className="chip" onClick={() => setShowChecked((v) => !v)}>
+            {`${doneItems} afgevinkt · ${showChecked ? "verberg" : "toon"} ▾`}
+          </button>
+        </div>
+      )}
+
+      {listRows.length > 0 && visibleRows.length === 0 && (
+        <div className="bg-white rounded-xl shadow-sm text-center text-stone-400 text-sm py-8">
+          Alles afgevinkt — toon de rijen met de chip hierboven.
+        </div>
+      )}
+
+      {visibleRows.length > 0 && (
         <div className="bg-white rounded-xl shadow-sm divide-y divide-stone-100">
-          {listRows.map((r) => {
+          {visibleRows.map((r) => {
             const keys = r.keys || [r.key];
             const isChecked = keys.every((k) => checked[k]);
             const showDate = r.dayKeys && r.dayKeys.length > 0 && (r.cat === "groente" || r.cat === "zuivel");
@@ -2964,15 +3016,17 @@ export default function App() {
         <div className="mt-4">
           <div className="flex gap-2">
             <button
-              onClick={() => setShopDone(true)}
+              onClick={processChecked}
               className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl text-sm"
             >
-              Klaar met winkelen
+              Verwerk update
             </button>
             <button
               onClick={() => {
                 setChecked({});
                 setShopDone(false);
+                setHiddenChecked(false);
+                setShowChecked(false);
               }}
               className="py-2.5 px-4 border rounded-xl text-sm text-stone-500 hover:bg-white"
             >
