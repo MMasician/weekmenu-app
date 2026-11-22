@@ -51,3 +51,9 @@
 
 ### Prijzen — vervallen (ADR-016 deprecate ADR-008)
 - Geen Prijzen-tab, geen prijsvelden, geen totalen/"goedkoopste"-badge; `prices` staat niet meer in de opslag. Gedekt in `tools/test-boodschappen-lijst.cjs` en `tools/test-instellingen.cjs`.
+
+### Delen via bestand (ADR-019, `tools/test-delen-bestand.cjs`)
+- Instellingen-tab: 📤/📥/ℹ️-iconen aanwezig (vindbaar op title-attributen, géén beschrijvende tekst in beeld).
+- Export-sheet: titel "Delen via bestand", chips Recepten/Producten/Voorraad/Weekmenu/Instellingen·vinkjes·verwijderingen met aantallen, chip-toggle werkt, "Maak deelbestand"-knop.
+- Info-sheet ("Delen: hoe werkt het?") legt het nieuwste-wint-principe uit.
+- Pure samenvoegregels (`mergeShareBundle` uit `src/app.js`): nieuwer uit bestand wint (+conflict met hier/daar), gelijke ts blijft, nieuwe records toegevoegd, bron-verwijdering verwijdert lokaal en bewaart de markering, lokaal verwijderde blijft weg tenzij nieuwer uit bron, chips-gates (chip uit = soort blijft lokaal), weekmenu per dag, instellingen/vinkjes als geheel, puur/deterministisch.
