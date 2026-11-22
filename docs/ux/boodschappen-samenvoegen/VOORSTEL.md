@@ -1,6 +1,6 @@
-# UX-voorstel: boodschappenlijst —zelfde product samenvoegen op 1 regel (issue #33)
+# UX-voorstel: boodschappenlijst — zelfde product samenvoegen op 1 regel (issue #33)
 
-**Status: ronde 1 — mocks ter review (label `needs-review` op issue #33).** Nog geen app-code in deze PR.
+**Status: ronde 1 goedgekeurd in issue #33 (reactie eigenaar): versie A (plat, geen bron-note); alle datumchips tonen, de laatste datum het belangrijkst (prominent via `.datechip.last`).** Goedgekeurde werking in deze PR geïmplementeerd (zelfde branch).
 
 ## Aanleiding (wens uit issue #33)
 
@@ -27,13 +27,11 @@ de aantallen bij elkaar opgeteld worden op 1 regel: voor Boboti 1 appel halen + 
 ### 1. Boodschappen-tab: platte lijst met samengevoegde productregels
 Scenario: za 22-11 Boboti 🔒 (1 appel, 400 g kipgehakt, 1 blik gepelde tomaten), zo 23-11 Hutspot 🔒
 (500 g aardappelen), voorraadtekort appels "(2 van 3)", extra artikel "Chips".
-- `01-lijst-versie-A-plat-zonder-bronnote.svg` — **versie A**: plat; "3 appels" als enige appel-regel, zonder bron-note. Further rijen ongewijzigd.
+- `01-lijst-versie-A-plat-zonder-bronnote.svg` — **versie A**: plat; "3 appels" als enige appel-regel, zonder bron-note. De overige rijen ongewijzigd.
 - `02-lijst-versie-B-met-bronnote.svg` — **versie B**: samengevoegde regel met grijze bron-note erachter ("3 appels  boboti · voorraadtekort"); enkele-bron regels krijgen een korte note ("boboti").
 - `03-lijst-versie-C-uitklapbare-bronrijen.svg` — **versie C**: samengevoegde regel uitklapbaar ("3 appels ▾") met sub-rijen per bron ("1 appel · za 22-11 · Boboti", "(2 van 3) appels · voorraadtekort").
 
-## Na goedkeuring (implementatie, zelfde PR)
+## Implementatie (deze PR, na goedkeuring ronde 1)
 
-`docs/SPECS.md` (sectie Boodschappen) bijwerken, tests in `tools/test-boodschappen-lijst.cjs`
-(merge op pid/productKey, eenheid-conversie, eters-schaling vóór merge, teller, gerechtstatus op bronrijen),
-implementatie in `src/App.jsx` (`listRows`), `npm run build` (`src/app.js` synchroon), `npm run verify` groen,
-CI groen (ADR-014), cache-bump (`CACHE_VERSION` in `sw.js` + `?v=` in `index.html`).
+- `src/App.jsx` (`listRows`): rijen normaliseren (amount/unit/naam), schaling per eters per bronddag, groeperen op `pid`/`productKey` + eenheid (conversie binnen g↔kg / ml↔cl↔l) en som per groep; afvinken zet alle bronrijen (`keys`); datumchips per bronddag (laatste prominent); teller telt samengevoegde regels.
+- `docs/SPECS.md` (sectie Boodschappen), tests in `tools/test-boodschappen-lijst.cjs` (sectie 8), `npm run build` (`src/app.js` synchroon), `npm run verify` groen, cache-bump (`CACHE_VERSION` v13 in `sw.js` + `?v=12` in `index.html`).

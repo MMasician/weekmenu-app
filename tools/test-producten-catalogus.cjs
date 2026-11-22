@@ -185,7 +185,8 @@ const SEED = {
   const t = make({ ...SEED, menuByDate: { [today]: { id: "t1", locked: true } } });
   t.findTab("Boodschappen").props.onClick();
   let h = t.html();
-  check("lijst toont productnamen als prodlink", h.indexOf("prodlink") !== -1 && h.indexOf("2 Paprika's") !== -1);
+  check("lijst toont productnamen als prodlink; '2 paprika's' + '1 paprika' samengevoegd tot 1 regel '3 Paprika's' (#33)",
+    h.indexOf("prodlink") !== -1 && h.indexOf("3 Paprika's") !== -1 && h.indexOf("2 Paprika's") === -1);
   const link = t.findBtn((n) => n.props.className === "prodlink" && JSON.stringify(n.children || []).indexOf("kokosmelk") !== -1);
   check("prodlink gevonden voor kokosmelk", !!link);
   link.props.onClick();
