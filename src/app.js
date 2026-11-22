@@ -1692,6 +1692,8 @@ function App() {
         key: "extra-" + x.name,
         src: "extra",
         label: ingLabel({ pid: x.pid || null, amount: x.amount, unit: x.unit, name: x.name }, prodById),
+        amount: x.amount != null && x.amount !== "" ? Number(x.amount) : null,
+        unit: x.unit || (p && p.unit) || null,
         name: x.name,
         pid: x.pid || (p && p.id) || null,
         dayKey: null,
@@ -1707,6 +1709,9 @@ function App() {
         key: "stock-" + s.name,
         src: "stock",
         label: p ? p.name : s.name,
+        amount: s.want - s.have,
+        unit: (p && p.unit) || null,
+        name: p ? p.name : s.name,
         pid: s.pid || (p && p.id) || null,
         dayKey: null,
         note: s.want > 1 ? `(${s.want - s.have} van ${s.want})` : "",
@@ -1714,10 +1719,95 @@ function App() {
         cat: (p && p.cat) || s.cat || null,
       });
     });
-    return sortRowsByCat(rows, (x) => x.label);
-  }, [shoppingRows, extraItems, stockShort, shopMarketsEff, prodById, prodByKey, catOf, marketOf, prodOfLabel, rowVisible, sortRowsByCat]);
+    // #33: zelfde product (pid, fallback productKey) met gelijke/converteerbare eenheid -> 1 regel met de
+    // som van de aantallen. Schaling per afwijkende eters (ADR-012) eerst per bronddag, daarna samenvoegen.
+    const groups = new Map();
+    rows.forEach((r0) => {
+      const p = r0.pid ? prodById[r0.pid] : null;
+      let r = r0;
+      let amount = r.amount != null && r.amount !== "" ? Number(r.amount) : null;
+      let unit = r.unit || (p && p.unit) || null;
+      let name = r.name || "";
+      if (r.src === "ing") {
+        const ing = r.ing && typeof r.ing === "object" ? r.ing : null;
+        name = p ? p.name : (ing && ing.name) || r.label;
+        if (ing) {
+          amount = ing.amount != null && ing.amount !== "" ? Number(ing.amount) : null;
+          unit = ingUnit(ing, p) || null;
+          const entry = r.dayKey ? menuByDate[r.dayKey] : null;
+          const factor = entry && entry.eaters != null && settings.householdSize > 0 ? entry.eaters / settings.householdSize : 1;
+          const sc = scaleIng(ing, factor, prodById);
+          if (sc && sc.amount != null && Number.isFinite(Number(sc.amount))) {
+            amount = Number(sc.amount);
+            r = { ...r, scaled: true, origLabel: r.label };
+          }
+        }
+      }
+      let nn = { amount, unit };
+      if (amount != null) nn = normalizeAmountUnit(amount, unit);
+      amount = nn.amount != null && Number.isFinite(nn.amount) ? nn.amount : null;
+      unit = nn.unit || null;
+      const idK = r.pid || productKey(name || r.label);
+      let gk = idK + "|" + (unit || "");
+      let g = groups.get(gk);
+      if (!g && unit) {
+        for (const [k, gg] of groups) {
+          if (!k.startsWith(idK + "|")) continue;
+          const gu = k.slice(idK.length + 1);
+          if (gu && UNIT_GROUP[gu] && UNIT_GROUP[gu].includes(unit)) {
+            const c = convertAmount(amount, unit, gu);
+            if (c != null) { amount = c; unit = gu; gk = k; g = gg; }
+            break;
+          }
+        }
+      }
+      if (!g) {
+        g = { unit, parts: [] };
+        groups.set(gk, g);
+      } else if (g.unit && unit && g.unit !== unit) {
+        const c = convertAmount(amount, unit, g.unit);
+        if (c != null) amount = c;
+      }
+      g.parts.push({ ...r, amount, unit, name: name || r.label });
+    });
+    const merged = [...groups.values()].map((g) => {
+      const parts = g.parts;
+      const single = parts.length === 1 ? parts[0] : null;
+      const sum = parts.some((pp) => Number.isFinite(pp.amount))
+        ? roundAmt(parts.reduce((s, pp) => s + (Number.isFinite(pp.amount) ? pp.amount : 0), 0))
+        : null;
+      const sumN = sum != null ? normalizeAmountUnit(sum, g.unit) : null;
+      const amount = sumN ? sumN.amount : null;
+      const unit = sumN ? sumN.unit : g.unit;
+      const pid = parts.map((pp) => pp.pid).find(Boolean) || null;
+      const name = (pid && prodById[pid] && prodById[pid].name) || parts.map((pp) => pp.name).find(Boolean) || parts[0].label;
+      const dayKeys = [...new Set(parts.map((pp) => pp.dayKey).filter(Boolean))].sort();
+      const mkt0 = parts[0].mkt;
+      const mkt = parts.every((pp) => pp.mkt === mkt0) ? mkt0 : null;
+      const cat = parts.map((pp) => pp.cat).find(Boolean) || null;
+      const label = ingLabel({ pid, amount, unit, name }, prodById);
+      return {
+        ...(single || parts[0]),
+        key: parts.map((pp) => pp.key).join("+"),
+        keys: parts.map((pp) => pp.key),
+        label,
+        origLabel: single && single.scaled ? single.origLabel : null,
+        pid,
+        name,
+        amount,
+        unit,
+        dayKey: dayKeys[0] || null,
+        dayKeys,
+        note: single ? single.note || "" : "",
+        mkt,
+        cat,
+        src: parts.every((pp) => pp.src === "extra") ? "extra" : parts[0].src,
+      };
+    });
+    return sortRowsByCat(merged, (x) => x.label);
+  }, [shoppingRows, extraItems, stockShort, shopMarketsEff, prodById, prodByKey, catOf, marketOf, prodOfLabel, rowVisible, sortRowsByCat, menuByDate, settings.householdSize]);
   const totalItems = listRows.length;
-  const doneItems = listRows.filter((r) => checked[r.key]).length;
+  const doneItems = listRows.filter((r) => (r.keys || [r.key]).every((k) => checked[k])).length;
   // Gerechtstatus per dag in scope (ADR-016), over de zichtbare ingrediënten: alles gecheckt -> ✅,
   // iets gecheckt -> ❗, niets gecheckt -> geen icoon. Zichtbaar in het weekmenu bij die datum.
   const mealStatus = useMemo(() => {
@@ -1968,21 +2058,21 @@ function App() {
         /*#__PURE__*/React.createElement("div", { "className": "text-center text-stone-400 text-sm py-10" }, "Stel eerst een weekmenu samen; de ingrediënten verschijnen dan hier automatisch.")
       ), listRows.length > 0 && (
         /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm divide-y divide-stone-100" }, listRows.map((r) => {
-            const entry = r.dayKey ? menuByDate[r.dayKey] : null;
-            const factor = entry && entry.eaters != null && settings.householdSize > 0 ? entry.eaters / settings.householdSize : 1;
-            const sc = r.src === "ing" ? scaleIng(r.ing, factor, prodById) : null;
-            const scLabel = sc ? ingLabel(sc, prodById) : null;
-            const showDate = r.src === "ing" && (r.cat === "groente" || r.cat === "zuivel");
+            const keys = r.keys || [r.key];
+            const isChecked = keys.every((k) => checked[k]);
+            const showDate = r.dayKeys && r.dayKeys.length > 0 && (r.cat === "groente" || r.cat === "zuivel");
             return (
-              /*#__PURE__*/React.createElement("div", { "key": r.key }, /*#__PURE__*/React.createElement("label", { "className": "flex items-center gap-3 px-3 py-2 cursor-pointer" }, /*#__PURE__*/React.createElement("input", { "type": "checkbox", "checked": !!checked[r.key], "onChange": (e) => setChecked({ ...checked, [r.key]: e.target.checked }), "className": "w-4 h-4 accent-emerald-600" }), /*#__PURE__*/React.createElement("span", { "className": `text-sm ${checked[r.key] ? "line-through text-stone-300" : ""}` }, sc ? (
-                      /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("span", { "className": "line-through text-stone-300" }, r.label), " → ", /*#__PURE__*/React.createElement("span", { "className": "font-semibold" }, scLabel))
+              /*#__PURE__*/React.createElement("div", { "key": r.key }, /*#__PURE__*/React.createElement("label", { "className": "flex items-center gap-3 px-3 py-2 cursor-pointer" }, /*#__PURE__*/React.createElement("input", { "type": "checkbox", "checked": isChecked, "onChange": (e) => setChecked({ ...checked, ...Object.fromEntries(keys.map((k) => [k, e.target.checked])) }), "className": "w-4 h-4 accent-emerald-600" }), /*#__PURE__*/React.createElement("span", { "className": `text-sm ${isChecked ? "line-through text-stone-300" : ""}` }, r.origLabel ? (
+                      /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("span", { "className": "line-through text-stone-300" }, r.origLabel), " → ", /*#__PURE__*/React.createElement("span", { "className": "font-semibold" }, r.label))
                     ) : r.pid ? (
                       /*#__PURE__*/React.createElement("button", { "type": "button", "className": "prodlink", "onClick": () => openProdCard(r.key, r.pid) }, r.label)
                     ) : (
                       r.label
-                    ), r.note && /*#__PURE__*/React.createElement("span", { "className": "text-stone-400" }, ` ${r.note}`), showDate && /*#__PURE__*/React.createElement("span", { "className": "datechip" }, `${dayShortOf(r.dayKey)} ${fmtDay(r.dayKey)}`)), r.mkt && (
+                    ), r.note && /*#__PURE__*/React.createElement("span", { "className": "text-stone-400" }, ` ${r.note}`), showDate && r.dayKeys.map((dk, i) => (
+                      /*#__PURE__*/React.createElement("span", { "key": dk, "className": `datechip${i === r.dayKeys.length - 1 ? " last" : ""}` }, `${dayShortOf(dk)} ${fmtDay(dk)}`)
+                    ))), r.mkt && (
                     /*#__PURE__*/React.createElement("span", { "className": "ml-auto chip mkt", "title": "Winkelvoorkeur: dit artikel wordt daar gehaald" }, marketChip(r.mkt))
-                  ), r.src === "extra" && (
+                  ), r.src === "extra" && keys.length === 1 && (
                     /*#__PURE__*/React.createElement("button", { "onClick": () => setExtraItems(extraItems.filter((x) => x.name !== r.name)), "className": "text-stone-300 hover:text-red-500 text-sm", "title": "Artikel verwijderen" }, "✕")
                   )), renderProductCard(r.key))
             );

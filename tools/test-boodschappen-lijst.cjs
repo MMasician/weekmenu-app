@@ -243,5 +243,32 @@ const baseSeed = () => ({
   check("dagen- en winkelkeuze zijn vluchtig: niet in settings (ADR-016)", !("shopDays" in st) && !("shopMarkets" in st) && !("shopRuns" in st));
 }
 
+// ---------- 8. #33: zelfde product samenvoegen op 1 regel ----------
+{
+  const seed = {
+    settings: { householdSize: 4, weekStartDay: 0, markets: [{ key: "ah", label: "Albert Heijn", defaultShop: true }] },
+    recipes: [
+      { id: "rA", name: "Gerecht A", cat: "vlees", ingredients: ["1 appel", "400 g kipgehakt"], bereiding: "", timeCat: "normaal", tags: [] },
+      { id: "rB", name: "Gerecht B", cat: "vis", ingredients: ["0,6 kg kipgehakt"], bereiding: "", timeCat: "normaal", tags: [] },
+    ],
+    menuByDate: { [todayK]: { id: "rA", locked: true }, [d1K]: { id: "rB", locked: true } },
+    stock: [{ name: "Appel", loc: "loc-fruit", cat: "fruit", want: 3, have: 1 }],
+    extraItems: [{ name: "Kipgehakt", amount: 1, unit: "stuks" }],
+    checked: {},
+  };
+  const t = make(seed);
+  t.findTab("Boodschappen").props.onClick();
+  let h = t.html();
+  check("#33: 1 appel (gerecht A) + tekort (2 van 3) -> 1 regel met de som ('3 appel...')", h.toLowerCase().indexOf("3 appel") !== -1);
+  check("#33: 400 g + 0,6 kg kipgehakt -> eenheid geconverteerd + samengevoegd tot '1 kg'", h.indexOf("1 kg") !== -1);
+  check("#33: afwijkende eenheid (stuks) merge NIET mee -> aparte regel", h.indexOf("stuks") !== -1);
+  check("#33: 3 rijen totaal (appels / kipgehakt in kg / kipgehakt in stuks)", t.checkboxes().length === 3);
+  t.checkboxes()[0].props.onChange({ target: { checked: true } }); // appel-rij (fruit staat eerst op categorie-volgorde)
+  check("#33: afvinken samengevoegde regel zet alle bronrijen -> teller (1/3) in de tab", JSON.stringify(t.findTab("Boodschappen").children).indexOf("(1/3)") !== -1);
+  t.findTab("Weekmenu").props.onClick();
+  h = t.html();
+  check("#33: gerechtstatus werkt op de bronrijen: vandaag ❗ '1 van de 2 ingrediënten mist nog'", h.indexOf("1 van de 2") !== -1);
+}
+
 console.log(fails === 0 ? "ALLE TESTS GESLAAGD" : fails + " TEST(S) GEFAALD");
 process.exit(fails === 0 ? 0 : 1);

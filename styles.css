@@ -244,6 +244,7 @@ input, select, textarea { font: inherit; }
 /* --- boodschappenlijst van vandaag (ADR-016): datumchip bij groente/zuivel, chips-rij op 1 regel --- */
 .datechip { display: inline-block; font-size: 10px; padding: .125rem .375rem; border-radius: .25rem;
   background: var(--stone-100); color: var(--stone-500); font-weight: 600; white-space: nowrap; margin-left: .25rem; }
+.datechip.last { background: var(--stone-300); color: var(--stone-700); }
 .overflow-x-auto { overflow-x: auto; }
 
 /* --- productcatalogus (ADR-017): klikbare productnamen, ingrediënt-rijen, product-chips --- */
