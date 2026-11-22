@@ -37,11 +37,29 @@ onderdeel van het proces: de agent maakt de mocks, de eigenaar reageert daarop.
 3. **Elaboration + mocks-eerst**: de agent verrijkt het issue tot volledige DoR
    en maakt mocks in `docs/ux/<onderwerp>/` met `VOORSTEL.md` op branch
    `vibe/<slug>`; label `in-progress`.
-4. **Review**: label `needs-review`; de eigenaar geeft feedback op mocks én issue;
-   de agent itereert zo vaak als nodig.
+4. **Review**: label `needs-review`; de eigenaar reageert op mocks én issue:
+   - **Akkoord**: label `ready` + comment "akkoord" → ga naar stap 5.
+   - **Feedback**: label `needs-rework` + comment met wat er aangepast moet
+     worden → de agent past mocks/DoR aan en zet het issue terug op
+     `needs-review`. Herhaalt zich zo vaak als nodig.
 5. **Implementatie**: na accordering van mocks + volledige DoR werkt de agent de
-   code uit in dezelfde branch (tests, SPECS/ADR, `src/app.js` regenereren).
+   code uit in dezelfde branch (tests, SPECS/ADR, `src/app.js` regenereren);
+   label `in-progress`.
 6. **Merge**: PR met groene CI (Definition of Done) → merge → issue dicht.
+
+### Label-overzicht
+
+Labels geven alléén de **status** van een issue. De **inhoud** (wat is akkoord,
+wat moet anders en waarom) staat altijd in een comment in het issue; de agent
+leest label + comments samen.
+
+| Label | Betekenis | Actie door |
+|---|---|---|
+| `needs-approval` | Seed-voorstel wacht op approval | Eigenaar: keuren → `ready` |
+| `ready` | Geaccordeerd; agent mag starten (seed) of implementeren (na review) | Agent: oppakken → `in-progress` |
+| `in-progress` | Agent werkt eraan (elaboration/mocks of implementatie) | — |
+| `needs-review` | Mocks + DoR-volledig wachten op review | Eigenaar: `ready` (akkoord) of `needs-rework` (feedback) |
+| `needs-rework` | Feedback uit de comments moet verwerkt worden in mocks/DoR | Agent: aanpassen → `needs-review` |
 
 ### DoR-seed — minimale input om te starten (door de indiener)
 
