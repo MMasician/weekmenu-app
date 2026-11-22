@@ -9,6 +9,9 @@ labels: needs-approval
 > secties aan tot de volledige Definition of Ready en maakt de mocks
 > (`docs/ux/<onderwerp>/` + VOORSTEL.md) vóór implementatie. Na approval van de
 > seed zet de eigenaar het label `needs-approval` om in `ready`.
+> Tijdens de review (label `needs-review`): akkoord = label `ready` + comment;
+> feedback = label `needs-rework` + comment met de gewenste wijziging.
+> Zie `docs/domeinproces.md` voor het label-overzicht.
 
 ## Seed — door de indiener (mens of agent)
 
