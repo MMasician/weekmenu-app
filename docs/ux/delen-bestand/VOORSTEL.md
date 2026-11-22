@@ -1,4 +1,4 @@
-# Voorstel: Delen via bestand — exporteren + samenvoegen
+successfully downloaded text file (SHA: 3d828949b9e152fa8706cbb4ec43848d578fd644)# Voorstel: Delen via bestand — exporteren + samenvoegen
 
 ## Doel
 Huishoudenleden met de app op hun eigen toestel willen dezelfde data zien en kunnen bijwerken (recepten, voorraad, weekmenu). Zonder server of cloud: exporteer de huishouddata naar één JSON-bestand, deel het via een bestaand kanaal (WhatsApp, e-mail, AirDrop, Quick Share — keuze van de gebruiker, buiten de app om), en voeg het op het andere toestel samen met de lokale data volgens heldere merge-regels. Voldoet aan ADR-007/ADR-010: geen server, geen data buiten de deur tenzij de gebruiker zelf het bestand deelt.
@@ -35,3 +35,11 @@ Goedgekeurd/afgesproken:
 - **Bestandsnaam**: akkoord met versie + tijdstempel, bijv. `weekmenu-delen-v1-22-11-20u15.json`.
 
 Status ronde 2: r2-mocks voorgelegd ter bevestiging; na goedkeuring volgen ADR-019, SPECS.md-aanvulling, tests en implementatie (+ CACHE_VERSION/?v=-bump in dezelfde PR als de app-wijziging).
+---
+
+## Ronde 3 — vereenvoudigingen (2026-11-22)
+
+- **Scherm 1 (goedgekeurd)**: r2-01-mock zonder de tekst naast het ⓘ-knopje; alleen de drie iconen (📤, 📥, ⓘ). Zie `r3-01-instellingen-icoonen.svg`.
+- **Scherm 2 (vereenvoudigd i.v.m. r2)**: geen aparte stand "Voor het huishouden / Alleen recepten" — alleen de togglebare chips. De chip "instellingen · vinkjes · verwijderingen" staat default aan (delen binnen het huishouden); voor buiten het huishouden zet je de andere chips uit en laat je alleen "42 recepten" aan. Zie `r3-02-export-toggle-chips.svg`.
+
+Status ronde 3: r3-mocks liggen ter laatste bevestiging; daarna volgen implementatie (ADR-019, SPECS.md, tests, App.jsx) + CACHE_VERSION/?v=-bump in deze PR.
