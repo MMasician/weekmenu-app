@@ -81,7 +81,7 @@ function check(label, ok) {
   const React = { createElement: () => null };
   const fn = new Function("React", "localStorage", "document", "URL", "Blob", "FileReader", "window",
     code + "\n;return { App, mergeShareBundle, shareStrip, normalizeRecipe, normalizeProducts }");
-  const { mergeShareBundle, shareStrip } = fn(React, { getItem: () => null, setItem: () => {} },
+  const { mergeShareBundle } = fn(React, { getItem: () => null, setItem: () => {} },
     { createElement: () => ({ click() {}, style: {} }) }, { createObjectURL: () => "", revokeObjectURL: () => {} },
     function () {}, function () {}, { confirm: () => true });
 
