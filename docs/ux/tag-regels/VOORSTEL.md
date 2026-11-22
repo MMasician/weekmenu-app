@@ -1,6 +1,10 @@
 # UX-voorstel: tags op producten + tag-regels voor het weekmenu (issue #37)
 
-**Status: ronde 1 — mocks ter review (label `needs-review` op issue #37).** Nog geen app-code in deze PR.
+**Status: goedgekeurd in issue #37 — geïmplementeerd in deze PR.**
+
+Goedkeuring (reactie in issue #37):
+- **Scherm 1 (product-kaart): versie C**, maar met dezelfde look & feel als het tag-bewerken bij recepten (consistente app): `.tag`-chips met `.tagx` × + `.tagadd`-veld "＋ tag toevoegen…" met autocomplete (datalist) op bestaande product-tags + "+"-knop.
+- **Scherm 2 (regels-sheet): versie A** — tag-regels inline in de regels-sheet (chip 🏷️/🍽️ + tag, stapper dagen 0–30, ✕; toevoegen via kind-select + tag-veld met datalist + stapper + ＋).
 
 ## Aanleiding (wens uit issue #37)
 

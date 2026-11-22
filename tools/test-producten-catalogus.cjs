@@ -219,5 +219,30 @@ const SEED = {
   check("koppeling valt terug op vrije tekst (pid null, naam behouden)", p1.pid === null && /paprika/i.test(p1.name));
 }
 
+// ---------- 7. #37: product-tags in de product-kaart (zelfde look & feel als bij recepten) ----------
+{
+  const today = dateKey(new Date());
+  const t = make({ ...SEED, menuByDate: { [today]: { id: "t1", locked: true } } });
+  t.findTab("Boodschappen").props.onClick();
+  const link = t.findBtn((n) => n.props.className === "prodlink" && JSON.stringify(n.children || []).indexOf("kokosmelk") !== -1);
+  link.props.onClick();
+  let tagAdd = null;
+  t.walk(t.render(), (n) => { if (!tagAdd && n && n.type === "div" && String(n.props.className || "") === "tagadd") tagAdd = n; });
+  check("#37: product-kaart heeft tagadd-veld (zelfde markup als recepten)", !!tagAdd);
+  let inp = null;
+  t.walk(tagAdd, (n) => { if (n && n.type === "input" && !inp) inp = n; });
+  inp.props.onChange({ target: { value: "TestTag" } });
+  let plus = null; // her-render + opnieuw zoeken (hooks: handler sluit over actuele state)
+  tagAdd = null;
+  t.walk(t.render(), (n) => { if (!tagAdd && n && n.type === "div" && String(n.props.className || "") === "tagadd") tagAdd = n; });
+  t.walk(tagAdd, (n) => { if (n && n.type === "button" && !plus) plus = n; });
+  plus.props.onClick();
+  let h = t.html();
+  check("#37: tag-chip verschijnt in de kaart (genormaliseerd naar lowercase)", h.indexOf("testtag") !== -1);
+  t.btnByText("Opslaan").props.onClick();
+  const prod = t.productsState().find((p) => p.name.toLowerCase().includes("kokosmelk"));
+  check("#37: tag opgeslagen op het product (tags: ['testtag'])", !!prod && (prod.tags || []).includes("testtag"));
+}
+
 console.log(fails === 0 ? "\nALLE PRODUCTCATALOGUS-TESTS GESLAAGD" : `\n${fails} TEST(S) GEFAALD`);
 process.exit(fails === 0 ? 0 : 1);

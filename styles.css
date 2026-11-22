@@ -148,9 +148,9 @@ input, select, textarea { font: inherit; }
   padding: .3rem .65rem; font-size: .75rem; background: #fff; color: var(--stone-600); }
 .chip.on { background: var(--stone-800); color: #fff; border-color: var(--stone-800); }
 .chip.fish.on { background: var(--blue-100); color: var(--blue-800); border-color: #93c5fd; }
-.stepper { display: inline-flex; align-items: center; border: 1px solid var(--stone-300); border-radius: .5rem; overflow: hidden; }
-.stepper button { width: 2rem; height: 1.9rem; font-size: 1rem; background: var(--stone-100); color: var(--stone-700); }
-.stepper span { width: 2.5rem; text-align: center; font-weight: 600; font-size: .875rem; }
+.stepper, .stepctrl { display: inline-flex; align-items: center; border: 1px solid var(--stone-300); border-radius: .5rem; overflow: hidden; }
+.stepper button, .stepctrl button { width: 2rem; height: 1.9rem; font-size: 1rem; background: var(--stone-100); color: var(--stone-700); }
+.stepper span, .stepctrl span { width: 2.5rem; text-align: center; font-weight: 600; font-size: .875rem; }
 .suggest-wrap { position: relative; }
 .dish-input { width: 100%; border: 1px solid var(--stone-300); border-radius: .5rem; padding: .375rem .5rem;
   font-size: .875rem; background: #fff; color: var(--stone-800); }
