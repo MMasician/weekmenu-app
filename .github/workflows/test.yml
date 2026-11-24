@@ -12,6 +12,10 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24
+          cache: npm
+      # npm ci is nodig sinds de tests via c8 draaien (devDependency)
+      - name: Installeer dependencies exact volgens lockfile
+        run: npm ci
       - name: Build (src/App.jsx -> src/app.js)
         run: npm run build
       - name: Controleer dat src/app.js synchroon is met src/App.jsx
