@@ -20,8 +20,9 @@ import json
 import os
 import re
 import urllib.parse
+import urllib.request
 import base64
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import mistralai.workflows as workflows
@@ -32,7 +33,6 @@ with workflow.unsafe.imports_passed_through():
     import httpx
 
 GITHUB_API = "https://api.github.com"
-MISTRAL_API = (os.environ.get("MISTRAL_BASE_URL") or "https://api.mistral.ai").rstrip("/")
 TOKEN_ENV_VAR = "WEEKMENU_GITHUB_TOKEN"
 RUNNER_MARKER = "<!-- issue-runner -->"
 RUNNABLE_LABELS = {"ready", "needs-rework"}
@@ -43,6 +43,8 @@ class IssueDispatcherInput(BaseModel):
     repo: str = Field(default="MMasician/weekmenu-app")
     dry_run: bool = Field(default=False)
     max_concurrent: int = Field(default=MAX_CONCURRENT_DEFAULT)
+    # na een mislukte run wacht de dispatcher deze tijd voor een nieuwe poging op hetzelfde issue
+    retry_cooldown_hours: float = Field(default=6.0)
 
 
 class StartedIssue(BaseModel):
@@ -56,6 +58,7 @@ class IssueDispatcherOutput(BaseModel):
     dry_run: bool
     started: list[StartedIssue]
     skipped_already_running: list[int]
+    errors: list[str] = Field(default_factory=list)
 
 
 class AgentRunInput(BaseModel):
@@ -126,13 +129,6 @@ def _github_token() -> str:
     return token
 
 
-def _mistral_token() -> str:
-    token = _mistral_api_key()
-    if not token:
-        raise RuntimeError("geen Mistral API key: zet MISTRAL_API_KEY of MISTRAL_SA_TOKEN_PATH")
-    return token
-
-
 async def _gh(method: str, path: str, body: dict[str, Any] | None = None) -> Any:
     headers = {
         "Authorization": f"Bearer {_github_token()}",
@@ -151,16 +147,19 @@ async def _gh(method: str, path: str, body: dict[str, Any] | None = None) -> Any
 
 
 async def _mistral_chat(messages: list[dict[str, str]], model: str) -> str:
-    payload = {"model": model, "messages": messages, "response_format": {"type": "json_object"}}
-    async with httpx.AsyncClient(timeout=600.0) as client:
-        response = await client.post(
-            f"{MISTRAL_API}/v1/chat/completions",
-            headers={"Authorization": f"Bearer {_mistral_token()}", "Content-Type": "application/json"},
-            json=payload,
-        )
-        response.raise_for_status()
-        data = response.json()
-    return data["choices"][0]["message"]["content"]
+    """Chat-call via de SDK-client van de app (utils.mistral): op een gedeployde worker leest die
+    het service-account token uit MISTRAL_SA_TOKEN_PATH (per call, rotatie-veilig) en anders
+    MISTRAL_API_KEY; het base-url komt uit MISTRAL_BASE_URL / de env-package."""
+    from utils.mistral import mistral_client
+
+    client = mistral_client()
+    response = await client.chat.complete_async(
+        model=model,
+        messages=messages,
+        response_format={"type": "json_object"},
+    )
+    content = response.choices[0].message.content
+    return content if isinstance(content, str) else json.dumps(content)
 
 
 def _labels_of(issue: dict[str, Any]) -> list[str]:
@@ -188,10 +187,22 @@ async def fetch_issue(repo: str, number: int) -> dict[str, Any]:
     return {"issue": issue, "comments": comments or []}
 
 
+@workflows.activity(start_to_close_timeout=timedelta(seconds=30))
+async def utc_now() -> str:
+    """Huidige UTC-tijd als ISO-string (workflow-code mag zelf geen datetime.now() gebruiken)."""
+    return datetime.now(timezone.utc).isoformat()
+
+
 @workflows.activity(start_to_close_timeout=timedelta(seconds=60))
-async def issue_has_marker(repo: str, number: int) -> bool:
+async def latest_runner_marker(repo: str, number: int) -> str | None:
+    """created_at (ISO) van de nieuwste runner-marker-comment, of None als er geen is."""
     comments = await _gh("GET", f"/repos/{repo}/issues/{number}/comments?per_page=100")
-    return any(RUNNER_MARKER in (c.get("body") or "") for c in (comments or []))
+    stamps = [
+        str(c.get("created_at"))
+        for c in (comments or [])
+        if RUNNER_MARKER in (c.get("body") or "")
+    ]
+    return max(stamps) if stamps else None
 
 
 @workflows.activity(start_to_close_timeout=timedelta(seconds=60), retry_policy_max_attempts=1)
@@ -203,8 +214,9 @@ async def set_issue_labels(repo: str, number: int, add: list[str], remove: list[
 
 
 @workflows.activity(start_to_close_timeout=timedelta(seconds=60), retry_policy_max_attempts=1)
-async def post_issue_comment(repo: str, number: int, body: str) -> None:
-    await _gh("POST", f"/repos/{repo}/issues/{number}/comments", {"body": body})
+async def post_issue_comment(repo: str, number: int, body: str) -> int:
+    data = await _gh("POST", f"/repos/{repo}/issues/{number}/comments", {"body": body})
+    return int((data or {}).get("id") or 0)
 
 
 @workflows.activity(start_to_close_timeout=timedelta(minutes=15))
@@ -257,6 +269,8 @@ async def generate_work_product(
 @workflows.activity(start_to_close_timeout=timedelta(seconds=60))
 async def main_sha(repo: str) -> str:
     ref = await _gh("GET", f"/repos/{repo}/git/ref/heads/main")
+    if not ref:
+        raise RuntimeError(f"geen ref heads/main gevonden in {repo}")
     return str((ref.get("object") or {}).get("sha"))
 
 
@@ -290,6 +304,8 @@ async def open_draft_pr(repo: str, head: str, title: str, body: str) -> int:
     data = await _gh(
         "POST", f"/repos/{repo}/pulls", {"title": title, "head": head, "base": "main", "body": body, "draft": True}
     )
+    if not data:
+        raise RuntimeError(f"PR aanmaken mislukt voor head {head}")
     return int(data.get("number"))
 
 
@@ -311,55 +327,74 @@ class IssueAgentRunWorkflow:
             f"- {c.get('user', {}).get('login', '?')}: {c.get('body', '')}" for c in fetched["comments"]
         )
         labels = _labels_of(issue)
+        # bij een mislukte run worden deze labels teruggezet zodat de dispatcher het issue opnieuw kan oppakken
+        restore_labels = [l for l in labels if l in RUNNABLE_LABELS] or ["ready"]
 
-        if not data.dry_run:
-            await set_issue_labels(
-                data.repo, data.issue_number, add=["in-progress"], remove=["ready", "needs-rework", "needs-review"]
-            )
-            await post_issue_comment(
-                data.repo,
-                data.issue_number,
-                f"{RUNNER_MARKER}\nissue-runner: agent-run gestart voor dit issue (mode `{data.mode}`, dry_run={data.dry_run}).",
-            )
-
-        product = await generate_work_product(
-            data.repo, data.issue_number, title, body, comments_text, data.mode, data.model
-        )
-
-        branch: str | None = None
-        pr_number: int | None = None
-        files_changed: list[str] = []
-        if product["files"] and not data.dry_run:
-            sha = await main_sha(data.repo)
-            branch = f"vibe/issue-{data.issue_number}-{_slug(title)}"
-            await create_branch(data.repo, branch, sha)
-            for f in product["files"]:
-                fsha = await get_file_sha(data.repo, f["path"], branch)
-                await put_file(
-                    data.repo, f["path"], branch, f["content"], f"issue #{data.issue_number}: {f['path']}", fsha
+        try:
+            if not data.dry_run:
+                await set_issue_labels(
+                    data.repo, data.issue_number, add=["in-progress"], remove=["ready", "needs-rework", "needs-review"]
                 )
-                files_changed.append(f["path"])
-            pr_body = product["pr_body"] + f"\n\nCloses #{data.issue_number}"
-            pr_number = await open_draft_pr(data.repo, branch, product["pr_title"], pr_body)
+                await post_issue_comment(
+                    data.repo,
+                    data.issue_number,
+                    f"{RUNNER_MARKER}\nissue-runner: agent-run gestart voor dit issue (mode `{data.mode}`, dry_run={data.dry_run}).",
+                )
 
-        if not data.dry_run:
-            await set_issue_labels(data.repo, data.issue_number, add=["needs-review"], remove=["in-progress"])
-            pr_line = f" Draft PR: #{pr_number} ({branch})." if pr_number else ""
-            await post_issue_comment(
-                data.repo,
-                data.issue_number,
-                f"{RUNNER_MARKER}\nissue-runner: run afgerond.{pr_line}\n\n{product['summary']}\n\nBestanden: {', '.join(files_changed) or 'geen'}",
+            product = await generate_work_product(
+                data.repo, data.issue_number, title, body, comments_text, data.mode, data.model
             )
 
-        return AgentRunOutput(
-            repo=data.repo,
-            issue_number=data.issue_number,
-            dry_run=data.dry_run,
-            branch=branch,
-            pr_number=pr_number,
-            files_changed=files_changed,
-            summary=product["summary"],
-        )
+            branch: str | None = None
+            pr_number: int | None = None
+            files_changed: list[str] = []
+            if product["files"] and not data.dry_run:
+                sha = await main_sha(data.repo)
+                branch = f"vibe/issue-{data.issue_number}-{_slug(title)}"
+                await create_branch(data.repo, branch, sha)
+                for f in product["files"]:
+                    fsha = await get_file_sha(data.repo, f["path"], branch)
+                    await put_file(
+                        data.repo, f["path"], branch, f["content"], f"issue #{data.issue_number}: {f['path']}", fsha
+                    )
+                    files_changed.append(f["path"])
+                pr_body = product["pr_body"] + f"\n\nCloses #{data.issue_number}"
+                pr_number = await open_draft_pr(data.repo, branch, product["pr_title"], pr_body)
+
+            if not data.dry_run:
+                await set_issue_labels(data.repo, data.issue_number, add=["needs-review"], remove=["in-progress"])
+                pr_line = f" Draft PR: #{pr_number} ({branch})." if pr_number else ""
+                await post_issue_comment(
+                    data.repo,
+                    data.issue_number,
+                    f"{RUNNER_MARKER}\nissue-runner: run afgerond.{pr_line}\n\n{product['summary']}\n\nBestanden: {', '.join(files_changed) or 'geen'}",
+                )
+
+            return AgentRunOutput(
+                repo=data.repo,
+                issue_number=data.issue_number,
+                dry_run=data.dry_run,
+                branch=branch,
+                pr_number=pr_number,
+                files_changed=files_changed,
+                summary=product["summary"],
+            )
+        except Exception as exc:
+            # mislukte run: label(s) terugzetten + fout melden in het issue; de marker-comment blijft
+            # staan zodat de dispatcher de retry-cooldown hanteert (zie issue_dispatcher)
+            if not data.dry_run:
+                try:
+                    await set_issue_labels(data.repo, data.issue_number, add=restore_labels, remove=["in-progress"])
+                    await post_issue_comment(
+                        data.repo,
+                        data.issue_number,
+                        f"{RUNNER_MARKER}\nissue-runner: run MISLUKT voor issue #{data.issue_number}: "
+                        f"`{type(exc).__name__}: {exc}`\nLabels teruggezet naar {', '.join(restore_labels)}; "
+                        "wordt na de retry-cooldown automatisch opnieuw opgepakt.",
+                    )
+                except Exception:
+                    pass
+            raise
 
 
 @workflow.define(
@@ -373,22 +408,49 @@ class IssueDispatcherWorkflow:
         candidates = [
             i for i in issues if RUNNABLE_LABELS.intersection(set(_labels_of(i)))
         ]
+        cooldown = timedelta(hours=max(0.0, data.retry_cooldown_hours))
+        now = datetime.fromisoformat(await utc_now())
+
+        def _marker_age(stamp: str | None) -> timedelta:
+            if not stamp:
+                return timedelta(0)  # geen timestamp -> als vers beschouwen (nooit dubbel oppakken)
+            try:
+                ts = datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+                if ts.tzinfo is None:
+                    ts = ts.replace(tzinfo=timezone.utc)
+                return now - ts
+            except ValueError:
+                return timedelta(0)
+
         started: list[StartedIssue] = []
         skipped: list[int] = []
+        errors: list[str] = []
         for issue in candidates[: max(0, data.max_concurrent)]:
             number = int(issue["number"])
-            if await issue_has_marker(data.repo, number):
-                skipped.append(number)
-                continue
-            await workflow.execute_workflow(
-                IssueAgentRunWorkflow,
-                params=AgentRunInput(repo=data.repo, issue_number=number, dry_run=data.dry_run),
-            )
-            if not data.dry_run:
-                await post_issue_comment(
-                    data.repo, number, f"{RUNNER_MARKER}\nissue-runner: dispatcher heeft een agent-run gestart."
+            try:
+                marker = await latest_runner_marker(data.repo, number)
+                if marker is not None and _marker_age(marker) < cooldown:
+                    skipped.append(number)  # recente run (geslaagd of mislukt) -> cooldown
+                    continue
+                # wait=False: een falende child-run mag de dispatcher (en daarmee de schedule) niet stoppen
+                await workflow.execute_workflow(
+                    IssueAgentRunWorkflow,
+                    params=AgentRunInput(repo=data.repo, issue_number=number, dry_run=data.dry_run),
+                    execution_id=f"issue-agent-run-{data.repo}-{number}",
+                    wait=False,
                 )
-            started.append(
-                StartedIssue(issue_number=number, title=str(issue.get("title") or ""), labels=_labels_of(issue))
-            )
-        return IssueDispatcherOutput(repo=data.repo, dry_run=data.dry_run, started=started, skipped_already_running=skipped)
+                if not data.dry_run:
+                    await post_issue_comment(
+                        data.repo, number, f"{RUNNER_MARKER}\nissue-runner: dispatcher heeft een agent-run gestart."
+                    )
+                started.append(
+                    StartedIssue(issue_number=number, title=str(issue.get("title") or ""), labels=_labels_of(issue))
+                )
+            except Exception as exc:
+                if "AlreadyStarted" in type(exc).__name__:
+                    skipped.append(number)  # child-run voor dit issue draait al
+                else:
+                    errors.append(f"#{number}: {type(exc).__name__}: {exc}")
+        return IssueDispatcherOutput(
+            repo=data.repo, dry_run=data.dry_run, started=started, skipped_already_running=skipped, errors=errors
+        )
