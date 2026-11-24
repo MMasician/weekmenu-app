@@ -1,7 +1,9 @@
 import asyncio
 import re
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
+
+import pytest
 
 from mistralai.workflows.testing import create_test_worker
 from worker.workflows import issue_runner as ir
@@ -11,7 +13,8 @@ REPO = "MMasician/weekmenu-app"
 ACTIVITIES = [
     ir.list_open_issues,
     ir.fetch_issue,
-    ir.issue_has_marker,
+    ir.latest_runner_marker,
+    ir.utc_now,
     ir.set_issue_labels,
     ir.post_issue_comment,
     ir.generate_work_product,
@@ -164,3 +167,56 @@ async def test_dispatcher_skips_issues_with_marker(temporal_env, monkeypatch) ->
         result = await asyncio.wait_for(handle.result(), timeout=35)
     assert result["started"] == []
     assert result["skipped_already_running"] == [37]
+
+
+async def test_dispatcher_retries_after_cooldown(temporal_env, monkeypatch) -> None:
+    # marker van 24 uur geleden, cooldown 6 uur -> opnieuw oppakken
+    old = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+    issues = [_issue(37, ["ready"])]
+    fake = FakeGitHub(issues=issues, comments={37: [{"body": f"{ir.RUNNER_MARKER} oud", "created_at": old}]})
+    monkeypatch.setattr(ir, "_gh", fake)
+    monkeypatch.setattr(ir, "_mistral_chat", lambda messages, model: asyncio.sleep(0, result='{"pr_title":"t","pr_body":"b","summary":"s","files":[]}'))
+    async with create_test_worker(
+        temporal_env, workflows=[ir.IssueDispatcherWorkflow, ir.IssueAgentRunWorkflow], activities=ACTIVITIES
+    ):
+        handle = await temporal_env.client.start_workflow(
+            "issue_dispatcher",
+            {"repo": REPO, "dry_run": True, "max_concurrent": 3, "retry_cooldown_hours": 6},
+            id="test-dispatcher-cooldown",
+            task_queue="test-task-queue",
+            execution_timeout=timedelta(seconds=30),
+        )
+        result = await asyncio.wait_for(handle.result(), timeout=35)
+    assert [s["issue_number"] for s in result["started"]] == [37]
+    assert result["skipped_already_running"] == []
+
+
+async def test_agent_run_failure_restores_labels_and_comments(temporal_env, monkeypatch) -> None:
+    fake = FakeGitHub(issue=_issue(37, ["ready"]), comments={37: []})
+    monkeypatch.setattr(ir, "_gh", fake)
+
+    async def _boom(messages, model):
+        raise RuntimeError("geen Mistral API key")
+
+    monkeypatch.setattr(ir, "_mistral_chat", _boom)
+    async with create_test_worker(temporal_env, workflows=[ir.IssueAgentRunWorkflow], activities=ACTIVITIES):
+        handle = await temporal_env.client.start_workflow(
+            "issue_agent_run",
+            {"repo": REPO, "issue_number": 37, "dry_run": False},
+            id="test-agent-run-fail",
+            task_queue="test-task-queue",
+            execution_timeout=timedelta(seconds=20),
+        )
+        with pytest.raises(Exception):
+            await asyncio.wait_for(handle.result(), timeout=25)
+    # label in-progress weer weg, ready teruggezet
+    label_posts = [c for c in fake.calls if c[0] == "POST" and c[1].endswith("/labels")]
+    label_dels = [c for c in fake.calls if c[0] == "DELETE" and "/labels/" in c[1]]
+    assert any("ready" in (c[2] or {}).get("labels", []) for c in label_posts)
+    assert any("in-progress" in c[1] for c in label_dels)
+    # foutcomment met marker geplaatst
+    comment_calls = [c for c in fake.calls if c[0] == "POST" and c[1].endswith("/comments")]
+    assert any(ir.RUNNER_MARKER in (c[2] or {}).get("body", "") and "MISLUKT" in (c[2] or {}).get("body", "") for c in comment_calls)
+    # geen branch/PR aangemaakt
+    assert not any(c[1] == f"/repos/{REPO}/git/refs" for c in fake.calls)
+    assert not any(c[1] == f"/repos/{REPO}/pulls" for c in fake.calls)
