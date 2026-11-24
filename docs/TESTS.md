@@ -3,6 +3,7 @@
 ## Werkwijze (ADR-011)
 - Elke in SPECS.md beschreven functionaliteit moet een automatische test hebben in een bestand `tools/test-*.cjs`.
 - Draai alles met `npm test` (runner `tools/run-tests.cjs`); elke test draait in een eigen proces tegen de gecompileerde `src/app.js` via `tools/render-harness.cjs`.
+- Coverage: `npm run test:coverage` (c8) genereert `coverage/lcov.info` + samenvatting in de log; in CI gedraaid in `test.yml` en `sonarcloud.yml` (ADR-020).
 - Build van bron naar app: `npm run build`. Alles in één keer: `npm run verify`.
 - CI: zie de workflow in ADR-011 (te plaatsen als `.github/workflows/test.yml`; vereist een token met `workflow`-scope). De CI draait: build + controle dat `src/app.js` synchroon is met `src/App.jsx` + `npm test`.
 - Agents mogen NOOIT ad-hoc scripts aanmaken om te builden of te testen. Breid een bestaand `tools/test-*.cjs` uit of voeg een bestand toe, met relatieve paden (`path.join(__dirname, "..")`). Legacy absolute paden (`/home/user/weekmenu-app/...`) worden door `tools/legacy-path-shim.cjs` automatisch naar de repo-root gemapt.
