@@ -244,5 +244,45 @@ const SEED = {
   check("#37: tag opgeslagen op het product (tags: ['testtag'])", !!prod && (prod.tags || []).includes("testtag"));
 }
 
+
+// ---------- 8. #35: inhoud per verpakking (pack) in de product-kaart + el/tl in de eenheid-select ----------
+{
+  const t = make(SEED);
+  const prods0 = t.productsState();
+  check("#35: normalizeProducts vult pack: null aan bij ontbrekend pack", prods0.every((p2) => "pack" in p2) && prods0.every((p2) => p2.pack === null));
+  t.findTab("Instellingen").props.onClick();
+  const link = t.findBtn((n) => n.props.className === "prodlink" && JSON.stringify(n.children || []).indexOf("kokosmelk") !== -1);
+  link.props.onClick();
+  let h = t.html();
+  check("#35: product-kaart heeft 'Inhoud per verpakking'-velden", h.indexOf("Inhoud per verpakking") !== -1 && h.indexOf("Eenheid van de inhoud") !== -1);
+  const packInput = t.inputByPlaceholder("bijv. 500");
+  check("#35: getalveld voor inhoud aanwezig", !!packInput);
+  packInput.props.onChange({ target: { value: "500" } });
+  let packLabel = null;
+  t.walk(t.render(), (n) => { if (!packLabel && n && n.type === "label" && JSON.stringify(serialize(n)).indexOf("Eenheid van de inhoud") !== -1) packLabel = n; });
+  const packSel = t.childIn(packLabel, (n) => n && n.type === "select");
+  check("#35: eenheid-select van de inhoud aanwezig", !!packSel);
+  packSel.props.onChange({ target: { value: "g" } });
+  t.btnByText("Opslaan").props.onClick();
+  const prod = t.productsState().find((p2) => p2.name.toLowerCase().includes("kokosmelk"));
+  check("#35: pack opgeslagen op het product ({ amount: 500, unit: 'g' })", !!prod && prod.pack && prod.pack.amount === 500 && prod.pack.unit === "g");
+}
+{
+  // el/tl in de eenheid-select van een ingrediënt-rij (ml-groep, impliciet)
+  const t = make(SEED);
+  t.findTab("Recepten").props.onClick();
+  t.btnByTitle("Recept bewerken").props.onClick();
+  const rowKomijn = t.findRow("Komijn");
+  check("rij 'Komijn' gevonden (unit tl)", !!rowKomijn);
+  const sel = t.childIn(rowKomijn, (n) => n && n.type === "select");
+  const selJson = sel ? JSON.stringify(serialize(sel)) : "";
+  check("#35: eenheid-select bij tl is een select met ml/cl/l/el/tl als opties", !!sel && sel.props.value === "tl" && ["ml", "cl", "l", "el", "tl"].every((u) => selJson.indexOf('"' + u + '"') !== -1));
+  // conversie tl -> ml rekent het aantal mee (tl = 5 ml)
+  sel.props.onChange({ target: { value: "ml" } });
+  const t1 = t.recipesState().find((r) => r.id === "t1");
+  const komijn = t1.ingredients.find((x) => typeof x === "object" && x.name && x.name.toLowerCase().indexOf("komijn") !== -1);
+  check("#35: 0,5 tl -> ml converteert amount mee (0,5 tl = 2,5 ml)", !!komijn && komijn.unit === "ml" && Math.abs(komijn.amount - 2.5) < 1e-9);
+}
+
 console.log(fails === 0 ? "\nALLE PRODUCTCATALOGUS-TESTS GESLAAGD" : `\n${fails} TEST(S) GEFAALD`);
 process.exit(fails === 0 ? 0 : 1);

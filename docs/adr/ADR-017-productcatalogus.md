@@ -15,7 +15,7 @@ met conversie g↔kg en ml↔l. UX-voorstel met mocks (3 rondes, per scherm goed
 (`docs/ux/producten-catalogus/VOORSTEL.md`).
 
 ## Besluit
-- **Productcatalogus** `products: [{ id, name, cat, market?, unit? }]` in localStorage-sleutel
+- **Productcatalogus** `products: [{ id, name, cat, market?, unit?, pack? }]` in localStorage-sleutel
   `weekmenu-app-v1` (lokaal per huishouden, ADR-009/010). `cat` = categorie uit `settings.shopCats`
   (ADR-015, "waar in de supermarkt"; default `overig`), `market` = optionele winkelvoorkeur,
   `unit` = optionele standaardeenheid (uit `UNITS`: stuks/g/kg/ml/l/cl/blik/pak/… of vrije tekst ≤ 8 tekens).
@@ -36,8 +36,8 @@ met conversie g↔kg en ml↔l. UX-voorstel met mocks (3 rondes, per scherm goed
   volgende woord = bekende eenheid → `unit`; rest → productnaam) en gekoppeld aan het product
   (`migrateRecipesIngredients`). Voorraad en extra artikelen krijgen idem een `pid`. Oude `checked`-sleutels
   keyden op `<datum>-<recept>-<index>` (index i.p.v. label).
-- **Eenheden & conversie**: in een ingrediënt-rij staat de eenheid tussen aantal en naam: bij g/kg/ml/cl/l een
-  select met alléén de converteerbare eenheden uit de groep (g↔kg, ml/cl/l), bij andere eenheden (blik, pak…)
+- **Eenheden & conversie (#35-aangevuld)**: in een ingrediënt-rij staat de eenheid tussen aantal en naam: bij g/kg/ml/cl/l/**el/tl** een
+  select met alléén de converteerbare eenheden uit de groep (g↔kg; ml/cl/l/el/tl met **el = 15 ml, tl = 5 ml**, dichtheid 1 g/ml — impliciet, geen omrekentekst aan de gebruiker), bij andere eenheden (blik, pak…)
   platte tekst (niet wijzigbaar), bij géén eenheid niets. Bij afronden van het aantal auto-conversie over de
   1000-grens (1000 g → 1 kg, 0,5 kg → 500 g, idem ml↔l); bij wijzigen van de eenheid wordt het aantal mee
   gerekend (`convertAmount`). In het product-detail (scherm 2B) is de standaardeenheid te wijzigen via een
@@ -56,6 +56,11 @@ met conversie g↔kg en ml↔l. UX-voorstel met mocks (3 rondes, per scherm goed
 - **Boodschappenlijst**: platte lijst op categorie-volgorde (ADR-015/016); artikel = product →
   categorie/winkel/eenheid uit het product; klik op de naam opent de product-kaart (mock 09).
   Schaling per dag (ADR-012) schaalt alleen `amount` mee (vaste verpakkingen blik/pak/zak/… blijven).
+- **Verpakking per product (#35)**: optioneel `pack: { amount, unit }` = inhoud per 1 product-eenheid (bijv. 1 pot = 500 g),
+  in te stellen in het product-detail ("Inhoud per verpakking": getal + eenheid-select). Op de lijst wordt per product de som
+  in basiseenheid (g/ml) naar **hele verpakkingen** afgerond (ceil; 90 g → "1 pot Kwark", eenheid van de verpakking in de
+  regel genoemd, zonder argumentatie-subtekst). Zonder `pack`: g/kg/ml/l met auto-conversie over de 1000-grens én
+  **min. 100 g/ml** (omhoog afgerond). Nooit `el`/`tl` op de lijst.
 - **Weekmenu**: klik op een **gelockt gerecht** (veld is readOnly) klapt inline onder de dag open:
   eerst de ingrediënten als klikbare product-chips, dááonder de bereiding (mock 19). Klik op 🔒 =
   ontgrendelen (ongewijzigd).

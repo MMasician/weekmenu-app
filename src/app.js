@@ -305,8 +305,9 @@ const priceKey = (s) => s.trim().toLowerCase();
 // een lokaal bewaarde catalogus (name/cat/market/unit); per recept/voorraad/extra staat alleen het
 // aantal (amount + optionele eenheid) los bij het product.
 const UNITS = ["stuks", "g", "kg", "ml", "l", "cl", "blik", "blikje", "pak", "pakje", "zak", "doos", "fles", "pot", "el", "tl", "teen"];
-const UNIT_FACTOR = { g: 1, kg: 1000, ml: 1, cl: 10, l: 1000 }; // naar basiseenheid (g / ml)
-const UNIT_GROUP = { g: ["g", "kg"], kg: ["g", "kg"], ml: ["ml", "cl", "l"], cl: ["ml", "cl", "l"], l: ["ml", "cl", "l"] };
+// #35: el = 15 ml, tl = 5 ml (impliciet; dichtheid 1 g/ml) — el/tl horen bij de ml-groep.
+const UNIT_FACTOR = { g: 1, kg: 1000, ml: 1, cl: 10, l: 1000, el: 15, tl: 5 }; // naar basiseenheid (g / ml)
+const UNIT_GROUP = { g: ["g", "kg"], kg: ["g", "kg"], ml: ["ml", "cl", "l", "el", "tl"], cl: ["ml", "cl", "l", "el", "tl"], l: ["ml", "cl", "l", "el", "tl"], el: ["ml", "cl", "l", "el", "tl"], tl: ["ml", "cl", "l", "el", "tl"] };
 // Dedup-sleutel: leading hoeveelheid/verpakking/eenheid eraf + enkelvoud (trailing 's/en/s), zodat
 // "1 paprika" en "2 paprika's" hetzelfde product zijn.
 function productKey(s) {
@@ -364,6 +365,41 @@ function normalizeAmountUnit(amount, unit) {
   if (unit === "l" && a < 1) return { amount: roundAmt(a * 1000), unit: "ml" };
   return { amount: a, unit };
 }
+// #35: optionele "inhoud per verpakking" op een product (bijv. 1 pot = 500 g -> pack { amount: 500, unit: "g" }).
+function normalizePack(pack) {
+  if (!pack || typeof pack !== "object") return null;
+  const amount = Number(pack.amount);
+  const unit = typeof pack.unit === "string" ? pack.unit.trim().toLowerCase() : "";
+  if (!Number.isFinite(amount) || amount <= 0 || !unit) return null;
+  return { amount: roundAmt(amount), unit: UNITS.includes(unit) ? unit : unit.slice(0, 8) };
+}
+// #35: weergave op de boodschappenlijst in winkel-eenheid. Som in basiseenheid (g/ml, dichtheid 1 g/ml);
+// als het product een pack heeft -> hele verpakkingen (ceil, alleen hele verpakkingen haalbaar) in de
+// product-eenheid (bijv. "1 pot Kwark"); anders g/kg/ml/l met min. 100 g/ml (afronden omhoog). Nooit el/tl.
+function shopDisplayAmount(amount, unit, product) {
+  if (amount == null || !Number.isFinite(Number(amount))) return { amount: null, unit: unit || null };
+  const a = Number(amount);
+  const pack = product && product.pack;
+  if (pack && UNIT_FACTOR[pack.unit] != null) {
+    const packBase = Number(pack.amount) * UNIT_FACTOR[pack.unit];
+    if (packBase > 0) {
+      let base = null;
+      if (unit && UNIT_FACTOR[unit] != null) base = a * UNIT_FACTOR[unit];
+      else if (!unit || unit === (product.unit || null)) base = a * packBase; // aantal verpakkingen
+      if (base != null) {
+        const n = Math.max(1, Math.ceil(roundAmt(base) / packBase - 1e-9));
+        return { amount: n, unit: product.unit || null };
+      }
+    }
+  }
+  if (unit && UNIT_FACTOR[unit] != null) {
+    const fam = unit === "g" || unit === "kg" ? "g" : "ml";
+    let base = roundAmt(a * UNIT_FACTOR[unit]);
+    if (base > 0 && base < 100) base = 100; // nooit < 100 g/ml op de lijst
+    return normalizeAmountUnit(base, fam);
+  }
+  return normalizeAmountUnit(a, unit);
+}
 function normalizeProducts(arr) {
   const out = [];
   const seen = new Set();
@@ -379,6 +415,7 @@ function normalizeProducts(arr) {
       market: p.market != null && String(p.market) !== "" ? String(p.market) : null,
       unit: UNITS.includes(p.unit) ? p.unit : (typeof p.unit === "string" && p.unit.trim() ? p.unit.trim().slice(0, 8) : null),
       tags: Array.isArray(p.tags) ? [...new Set(p.tags.map((t) => String(t || "").trim().toLowerCase()).filter(Boolean))] : [], // #37
+      pack: normalizePack(p.pack), // #35: inhoud per verpakking (bijv. { amount: 500, unit: "g" } = 1 pot)
       ...(typeof p.updatedAt === "number" ? { updatedAt: p.updatedAt } : {}),
     });
   });
@@ -715,7 +752,7 @@ function App() {
   const stored = useMemo(() => migrateStored(loadState()), []);
   // productcatalogus (ADR-017): bij eerste load/migratie uit bestaande data + BASE_RECIPES opgebouwd (dedup via productKey)
   const catalog0 = useMemo(
-    () => (stored && Array.isArray(stored.products) && stored.products.length ? normalizeProducts(stored.products) : buildCatalog(stored)),
+    () => (stored && Array.isArray(stored.products) && stored.products.length ? normalizeProducts(stored.products) : normalizeProducts(buildCatalog(stored))), // #35: pack: null aanvullen bij opbouwen
     [stored]
   );
   const [tab, setTab] = useState("menu");
@@ -1007,13 +1044,15 @@ function App() {
     const p = prodById[pid];
     if (!p) return;
     setOpenProd(openProd === rowKey ? null : rowKey);
-    setProdEdit({ id: p.id, name: p.name, cat: p.cat, market: p.market, unit: p.unit, tags: p.tags || [], tagDraft: "" }); // #37: tags meekopieren
+    setProdEdit({ id: p.id, name: p.name, cat: p.cat, market: p.market, unit: p.unit, tags: p.tags || [], tagDraft: "", packAmount: p.pack ? String(p.pack.amount).replace(".", ",") : "", packUnit: p.pack ? p.pack.unit : "" }); // #37: tags meekopieren; #35: pack meekopieren
   }
   function saveProductEdit() {
     if (!prodEdit) return;
     const name = prodEdit.name.trim();
     const tags = [...new Set((prodEdit.tags || []).map((t) => String(t).trim().toLowerCase()).filter(Boolean))];
-    setProducts((ps) => ps.map((p) => (p.id === prodEdit.id ? { ...p, name: name || p.name, cat: prodEdit.cat || "overig", market: prodEdit.market || null, unit: prodEdit.unit || null, tags } : p)));
+    // #35: inhoud per verpakking (leeg -> geen pack)
+    const pack = normalizePack({ amount: String(prodEdit.packAmount || "").replace(",", "."), unit: prodEdit.packUnit });
+    setProducts((ps) => ps.map((p) => (p.id === prodEdit.id ? { ...p, name: name || p.name, cat: prodEdit.cat || "overig", market: prodEdit.market || null, unit: prodEdit.unit || null, tags, pack } : p)));
     setProdEdit(null);
   }
   // #37: product-tags — zelfde look & feel als tags bij recepten (chip + ×, veld "+ tag toevoegen…")
@@ -1663,7 +1702,7 @@ function App() {
     return (
       /*#__PURE__*/React.createElement("div", { "className": "px-3 py-3 bg-stone-50 border-t border-stone-100" }, /*#__PURE__*/React.createElement("div", { "className": "grid grid-cols-2 gap-2" }, /*#__PURE__*/React.createElement("label", { "className": "text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, "Naam"), /*#__PURE__*/React.createElement("input", { "className": "w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm", "value": prodEdit.name, "onChange": (e) => setProdEdit({ ...prodEdit, name: e.target.value }) })), /*#__PURE__*/React.createElement("label", { "className": "text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, "Categorie"), /*#__PURE__*/React.createElement("select", { "className": "w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm text-stone-600", "value": prodEdit.cat, "onChange": (e) => setProdEdit({ ...prodEdit, cat: e.target.value }) }, shopCats.map((c) => (/*#__PURE__*/React.createElement("option", { "key": c, "value": c }, c))), prodEdit.cat !== "overig" && !shopCats.includes(prodEdit.cat) && /*#__PURE__*/React.createElement("option", { "value": prodEdit.cat }, prodEdit.cat), /*#__PURE__*/React.createElement("option", { "value": "overig" }, "overig")))), /*#__PURE__*/React.createElement("div", { "className": "grid grid-cols-2 gap-2 mt-2" }, /*#__PURE__*/React.createElement("label", { "className": "text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, "Eenheid (standaard bij dit product)"), /*#__PURE__*/React.createElement("select", { "className": "w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm text-stone-600", "value": prodEdit.unit || "", "onChange": (e) => setProdEdit({ ...prodEdit, unit: e.target.value || null }) }, /*#__PURE__*/React.createElement("option", { "value": "" }, "–"), UNITS.map((u) => (/*#__PURE__*/React.createElement("option", { "key": u, "value": u }, u))))), /*#__PURE__*/React.createElement("div", { "className": "text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, "Voorkeurssupermarkt"), /*#__PURE__*/React.createElement("div", { "className": "filterrow", "style": { marginTop: ".25rem" } }, /*#__PURE__*/React.createElement("button", { "className": `chip${!prodEdit.market ? " on" : ""}`, "onClick": () => setProdEdit({ ...prodEdit, market: null }) }, "geen"), markets.map((m) => (
                 /*#__PURE__*/React.createElement("button", { "key": m.key, "className": `chip${prodEdit.market === m.key ? " on" : ""}`, "onClick": () => setProdEdit({ ...prodEdit, market: m.key }) }, marketChip(m.key))
-              ))))), /*#__PURE__*/React.createElement("div", { "className": "mt-2 text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, "Tags"), /*#__PURE__*/React.createElement("div", { "className": "flex flex-wrap gap-1 mt-0.5" }, (prodEdit.tags || []).map((t) => (
+              ))))), /*#__PURE__*/React.createElement("div", { "className": "grid grid-cols-2 gap-2 mt-2" }, /*#__PURE__*/React.createElement("label", { "className": "text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, "Inhoud per verpakking"), /*#__PURE__*/React.createElement("input", { "className": "w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm", "type": "number", "min": "0", "step": "any", "placeholder": "bijv. 500", "value": prodEdit.packAmount || "", "onChange": (e) => setProdEdit({ ...prodEdit, packAmount: e.target.value }) })), /*#__PURE__*/React.createElement("label", { "className": "text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, "Eenheid van de inhoud"), /*#__PURE__*/React.createElement("select", { "className": "w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm text-stone-600", "value": prodEdit.packUnit || "", "onChange": (e) => setProdEdit({ ...prodEdit, packUnit: e.target.value }) }, /*#__PURE__*/React.createElement("option", { "value": "" }, "–"), UNITS.map((u) => (/*#__PURE__*/React.createElement("option", { "key": u, "value": u }, u)))))), /*#__PURE__*/React.createElement("div", { "className": "text-[10px] text-stone-400 mt-0.5" }, "#35: per 1 ", prodEdit.unit || "verpakking", " = ", prodEdit.packAmount || "…", " ", prodEdit.packUnit || "…", " — boodschappenlijst toont alleen hele verpakkingen"), /*#__PURE__*/React.createElement("div", { "className": "mt-2 text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, "Tags"), /*#__PURE__*/React.createElement("div", { "className": "flex flex-wrap gap-1 mt-0.5" }, (prodEdit.tags || []).map((t) => (
               /*#__PURE__*/React.createElement("span", { "key": t, "className": "tag" }, t, " ", /*#__PURE__*/React.createElement("button", { "className": "tagx", "onClick": () => removeProdTag(t) }, "\\u00d7"))
             ))), /*#__PURE__*/React.createElement("div", { "className": "tagadd" }, /*#__PURE__*/React.createElement("input", { "value": prodEdit.tagDraft || "", "placeholder": "\\uff0b tag toevoegen\\u2026", "list": "product-tags-list", "onChange": (e) => setProdEdit({ ...prodEdit, tagDraft: e.target.value }), "onKeyDown": (e) => { if (e.key === "Enter") { e.preventDefault(); addProdTag(); } } }), /*#__PURE__*/React.createElement("datalist", { "id": "product-tags-list" }, allProductTags.map((t) => (/*#__PURE__*/React.createElement("option", { "key": t, "value": t })))), /*#__PURE__*/React.createElement("button", { "onClick": addProdTag }, "+"))), /*#__PURE__*/React.createElement("div", { "className": "text-[10px] text-stone-400 mt-2" }, usageCount(p.id), "× gebruikt (recepten, voorraad, extra)"), /*#__PURE__*/React.createElement("div", { "className": "flex gap-2 mt-2" }, /*#__PURE__*/React.createElement("button", { "className": "flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold py-1.5 rounded-lg", "onClick": saveProductEdit }, "Opslaan"), /*#__PURE__*/React.createElement("button", { "className": "text-xs text-red-500 px-2", "title": "Uit catalogus verwijderen (koppelingen vallen terug op vrije tekst)", "onClick": () => deleteProductCatalog(p.id) }, "Verwijderen")))
     );
@@ -1912,7 +1951,10 @@ function App() {
       const mkt0 = parts[0].mkt;
       const mkt = parts.every((pp) => pp.mkt === mkt0) ? mkt0 : null;
       const cat = parts.map((pp) => pp.cat).find(Boolean) || null;
-      const label = parts[0].src === "noing" ? parts[0].label : ingLabel({ pid, amount, unit, name }, prodById); // #43
+      // #35: weergave op de lijst in winkel-eenheid — hele verpakking (pack, ceil) of g/kg/ml/l min. 100 g/ml; nooit el/tl
+      const prod = pid ? prodById[pid] : null;
+      const disp = parts[0].src === "noing" ? { amount, unit } : shopDisplayAmount(amount, unit, prod);
+      const label = parts[0].src === "noing" ? parts[0].label : ingLabel({ pid, amount: disp.amount, unit: disp.unit, name }, prodById); // #43
       return {
         ...(single || parts[0]),
         key: parts.map((pp) => pp.key).join("+"),
@@ -1921,8 +1963,8 @@ function App() {
         origLabel: single && single.scaled ? single.origLabel : null,
         pid,
         name,
-        amount,
-        unit,
+        amount: disp.amount,
+        unit: disp.unit,
         dayKey: dayKeys[0] || null,
         dayKeys,
         note: single ? single.note || "" : "",
