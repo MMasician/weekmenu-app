@@ -28,6 +28,7 @@ const DEFAULT_SETTINGS = {
   shopCats: [...SHOP_CATS_DEFAULT],
   tagRules: [], // #37: [{ kind: "product" | "recipe", tag, days }]
   dishRepeatDays: 7, // #38: aantal dagen wachten voordat een gerecht opnieuw gepland mag (0 = volgende dag mag al)
+  takeawayLinks: [], // #42: bestelsites voor afhaalmaaltijd [{ id, label, url }]
 };
 
 function normalizeDayList(arr, fallback) {
@@ -68,6 +69,14 @@ function normalizeSettings(s) {
     .filter((r, i, arr) => arr.findIndex((x) => x.kind === r.kind && x.tag === r.tag) === i);
   // #38: herhaalregel per gerecht (0..30, standaard 7 = niet vaker dan 1× per week)
   out.dishRepeatDays = Math.min(30, Math.max(0, Math.floor(Number(out.dishRepeatDays) || 0)));
+  // #42: afhaal-linkjes (bestelsites) — label/url trimmen; lege rijen (beide leeg) vallen weg
+  out.takeawayLinks = (Array.isArray(out.takeawayLinks) ? out.takeawayLinks : [])
+    .map((l, i) => ({
+      id: String((l && l.id) || "tl-" + i),
+      label: String((l && l.label) || "").trim(),
+      url: String((l && l.url) || "").trim(),
+    }))
+    .filter((l) => l.label || l.url);
   return out;
 }
 // Voorraad (ADR-015): per-huishouden locaties; per product een locatie, categorie (shopCats),
@@ -791,6 +800,9 @@ function App() {
   // weekmenu-tab v2 (ADR-012): datum-sheet, regels-sheet, eters per dag, getypte invoer
   const [dateSheetOpen, setDateSheetOpen] = useState(false);
   const [rulesSheetOpen, setRulesSheetOpen] = useState(false);
+  const [deviationKey, setDeviationKey] = useState(null); // #42: datum-sleutel met open afwijkings-sheet
+  const [devTab, setDevTab] = useState("instant"); // #42: "instant" | "afhaal"
+  const [devPick, setDevPick] = useState({}); // #42: { pid: aantal } gekozen instant-producten
   const [ruleDraft, setRuleDraft] = useState({ kind: "product", tag: "", days: 3 }); // #37: nieuwe tag-regel in de regels-sheet
   const [eatersOpen, setEatersOpen] = useState(null); // datum-sleutel waarvan de eters-regel open is
   const [drafts, setDrafts] = useState({}); // datum-sleutel -> getypte tekst in het gerechtveld
@@ -822,6 +834,8 @@ function App() {
   const [newExtra, setNewExtra] = useState({ name: "", amount: 1 }); // amount 0 = veld leeg
   const [extraSuggest, setExtraSuggest] = useState(false);
   const [prodQuery, setProdQuery] = useState("");
+  const [catOpen, setCatOpen] = useState(false); // #44: productcatalogus initieel ingeklapt (vluchtig)
+  const [catFilters, setCatFilters] = useState([]); // #44: actieve categorie-filters (leeg = alle)
   const [openDay, setOpenDay] = useState(null); // weekmenu: gelockte dag met open ingrediënt/bereiding-blok
 
   // ---- Delen via bestand (ADR-019): extra state ----
@@ -979,7 +993,11 @@ function App() {
   };
   const prodOfLabel = (label, pid) => (pid && prodById[pid]) || prodByKey.get(productKey(label)) || prodByKey.get(priceKey(label)) || null;
   const pq = prodQuery.trim().toLowerCase();
-  const filteredProducts = products.filter((p) => !pq || p.name.toLowerCase().includes(pq) || productKey(p.name).includes(pq));
+  // #44: cataloguslijst = A–Z (nl) gesorteerd, gefilterd op zoekterm + categorie-chips
+  const filteredProducts = products
+    .filter((p) => !pq || p.name.toLowerCase().includes(pq) || productKey(p.name).includes(pq))
+    .filter((p) => catFilters.length === 0 || catFilters.includes(p.cat))
+    .sort((a, b) => a.name.localeCompare(b.name, "nl") || String(a.cat || "").localeCompare(String(b.cat || ""), "nl") || String(a.id).localeCompare(String(b.id)));
   const marketChip = (key) => {
     const m = markets.find((x) => x.key === key);
     return m ? m.label.split(" ")[0] : key;
@@ -1067,6 +1085,64 @@ function App() {
   function removeProdTag(t) {
     if (!prodEdit) return;
     setProdEdit({ ...prodEdit, tags: prodEdit.tags.filter((x) => x !== t) });
+  }
+  // #42: have per product (som over voorraad-entries met dit product)
+  const haveOfProd = (p) =>
+    stock.reduce((n, s) => (s.pid === p.id || (!s.pid && productKey(s.name) === productKey(p.name)) ? n + (Number(s.have) || 0) : n), 0);
+  // #42: instant-producten = tag "instant-maaltijd" én have > 0
+  const instantProducts = products
+    .filter((p) => (p.tags || []).includes("instant-maaltijd") && haveOfProd(p) > 0)
+    .sort((a, b) => a.name.localeCompare(b.name, "nl"));
+  // #42: afwijking toepassen — dag wordt vrije tekst; alle menuByDate-entries vanaf de datum schuiven
+  // 1 dag op (cascade, aflopend); vinkjes schuiven mee; over een weekgrens heen niet meer gelocked
+  // tenzij er al vinkjes voor die dag stonden. Bij instant: voorraad (have) verlagen met de keuze.
+  function applyDeviation(fromKey, customText, picks) {
+    const parseK = (k) => new Date(Number(k.slice(0, 4)), Number(k.slice(5, 7)) - 1, Number(k.slice(8, 10)));
+    const keys = Object.keys(menuByDate).filter((k) => k >= fromKey).sort().reverse();
+    const nextMenu = { ...menuByDate };
+    const nextChecked = { ...checked };
+    keys.forEach((k) => {
+      const d = parseK(k);
+      const nk = dateKey(addDays(d, 1));
+      const hadChecked = Object.keys(checked).some((ck) => ck.startsWith(k + "-"));
+      const crossesWeek = dateKey(startOfWeek(addDays(d, 1), settings.weekStartDay)) !== dateKey(startOfWeek(d, settings.weekStartDay));
+      let ne = { ...menuByDate[k] };
+      if (crossesWeek && !hadChecked) ne = { ...ne, locked: false };
+      delete nextMenu[k];
+      nextMenu[nk] = ne;
+      Object.keys(checked).forEach((ck) => {
+        if (ck.startsWith(k + "-")) {
+          nextChecked[nk + ck.slice(k.length)] = checked[ck];
+          delete nextChecked[ck];
+        }
+      });
+    });
+    const prev = menuByDate[fromKey];
+    nextMenu[fromKey] = {
+      ...(prev && prev.eaters != null ? { eaters: prev.eaters } : {}),
+      ...(prev && prev.locked ? { locked: true } : {}),
+      custom: customText,
+    };
+    if (picks) {
+      Object.entries(picks).forEach(([pid, n]) => {
+        const cnt = Math.floor(Number(n) || 0);
+        if (cnt <= 0) return;
+        setStock((st) => {
+          let left = cnt;
+          return st.map((s) => {
+            if (s.pid !== pid || left <= 0) return s;
+            const use = Math.min(Number(s.have) || 0, left);
+            left -= use;
+            return { ...s, have: (Number(s.have) || 0) - use };
+          });
+        });
+      });
+    }
+    setMenuByDate(nextMenu);
+    setChecked(nextChecked);
+  }
+  function updateTakeawayLink(i, patch) {
+    updateSettings({ takeawayLinks: (settings.takeawayLinks || []).map((l, j) => (j === i ? { ...l, ...patch } : l)) });
   }
   function deleteProductCatalog(pid) {
     setProducts((ps) => ps.filter((p) => p.id !== pid));
@@ -2068,6 +2144,8 @@ function App() {
                     setEatersOpen(eatersOpen === key ? null : key);
                   } }, "👥", eatersOverride != null && /*#__PURE__*/React.createElement("span", { "className": "ebadge" }, eatersOverride)), mealStatus[key] && (
                   /*#__PURE__*/React.createElement("span", { "className": "shrink-0 text-sm", "title": mealStatus[key].title }, mealStatus[key].icon)
+                ), isToday && (
+                  /*#__PURE__*/React.createElement("button", { "className": "shrink-0 w-8 h-8 rounded-lg text-sm flex items-center justify-center bg-stone-100 text-stone-500", "title": "Afwijking van het weekplan (geen/weinig energie vandaag)", "onClick": () => { setDeviationKey(key); setDevTab("instant"); setDevPick({}); } }, "🪫")
                 ), /*#__PURE__*/React.createElement("button", { "title": entry && entry.locked ? "Ontgrendelen" : "Vergrendelen", "onClick": () => entry && setDay(i, { ...entry, locked: !entry.locked }), "className": `shrink-0 w-8 h-8 rounded-lg text-sm flex items-center justify-center ${entry && entry.locked ? "bg-amber-100 text-amber-700" : "bg-stone-100 text-stone-400"}` }, entry && entry.locked ? "🔒" : "🔓")), openDay === key && entry && entry.locked && r && (
                 /*#__PURE__*/React.createElement("div", { "className": "mt-2 pt-2 border-t border-stone-100" }, /*#__PURE__*/React.createElement("div", { "className": "text-xs font-semibold text-stone-700 mb-1" }, "Ingrediënten"), /*#__PURE__*/React.createElement("div", { "className": "flex flex-wrap gap-1 mb-2" }, (r.ingredients || []).filter(Boolean).map((ing, ii) => {
                       const p = typeof ing === "object" && ing && ing.pid ? prodById[ing.pid] : null;
@@ -2345,13 +2423,19 @@ function App() {
                 , "className": "accent-emerald-600" }), d)
           ))), /*#__PURE__*/React.createElement("label", { "className": "flex items-center justify-between gap-2 text-sm" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-600" }, "Aantal vega-dagen (op niet-vis-dagen)"), /*#__PURE__*/React.createElement("input", { "type": "number", "min": "0", "max": "7", "value": settings.vegaTarget, "onChange": (e) => updateSettings({ vegaTarget: Math.max(0, Number(e.target.value) || 0) }), "className": "w-20 border rounded-lg px-2 py-1.5 text-sm text-center" }))), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm p-4 mb-4" }, /*#__PURE__*/React.createElement("div", { "className": "text-sm font-medium mb-2" }, "Supermarkten"), markets.map((m, mi) => (
           /*#__PURE__*/React.createElement("div", { "key": mi, "className": "flex gap-2 mb-2" }, /*#__PURE__*/React.createElement("input", { "value": m.key, "onChange": (e) => updateMarket(mi, { key: e.target.value }), "placeholder": "sleutel…", "className": "w-20 border rounded-lg px-2 py-1.5 text-sm" }), /*#__PURE__*/React.createElement("input", { "value": m.label, "onChange": (e) => updateMarket(mi, { label: e.target.value }), "placeholder": "Naam…", "className": "flex-1 border rounded-lg px-2 py-1.5 text-sm min-w-0" }), /*#__PURE__*/React.createElement("label", { "className": "flex items-center gap-1 text-[10px] text-stone-500 shrink-0 cursor-pointer", "title": "Standaard geselecteerd op de boodschappenlijst" }, /*#__PURE__*/React.createElement("input", { "type": "checkbox", "checked": m.defaultShop !== false, "onChange": (e) => updateMarket(mi, { defaultShop: e.target.checked }), "className": "accent-emerald-600" }), "standaard"), /*#__PURE__*/React.createElement("button", { "onClick": () => updateSettings({ markets: markets.filter((_, j) => j !== mi) }), "className": "text-stone-300 hover:text-red-500 text-sm px-1" }, "✕"))
-        )), /*#__PURE__*/React.createElement("button", { "onClick": () => updateSettings({ markets: [...markets, { key: "winkel" + (markets.length + 1), label: "Nieuwe winkel", defaultShop: true }] }), "className": "w-full py-2 border rounded-xl text-sm text-stone-500 hover:bg-white" }, "+ Supermarkt toevoegen")), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm p-4 mb-4" }, /*#__PURE__*/React.createElement("div", { "className": "flex items-center gap-2" }, /*#__PURE__*/React.createElement("button", { "className": "iconbtn", "title": "Deelbestand maken (exporteren)", "onClick": () => setDelenOpen("export") }, "📤"), /*#__PURE__*/React.createElement("label", { "className": "iconbtn cursor-pointer", "title": "Bestand overnemen (importeren)" }, "📥", /*#__PURE__*/React.createElement("input", { "type": "file", "accept": "application/json,.json", "className": "hidden", "onChange": (e) => { if (e.target.files && e.target.files[0]) importShareFile(e.target.files[0]); e.target.value = ""; } })), /*#__PURE__*/React.createElement("button", { "className": "iconbtn", "title": "Uitleg over delen via bestand", "onClick": () => setDelenOpen("info") }, "ℹ️"))), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm p-4 mb-4" }, /*#__PURE__*/React.createElement("div", { "className": "text-sm font-medium mb-1" }, "Productcatalogus"), /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-500 mb-2" }, `Elk ingrediënt, voorraadproduct en extra artikel is hier een product met categorie, eenheid en optionele winkelvoorkeur. Klik op een naam om te wijzigen; ✕ verwijdert het product uit de catalogus (koppelingen vallen terug op vrije tekst — handig bij typefouten).`), /*#__PURE__*/React.createElement("div", { "className": "searchbar", "style": { boxShadow: "none" } }, /*#__PURE__*/React.createElement("span", { "className": "sicon" }, "🔍"), /*#__PURE__*/React.createElement("input", { "className": "recipe-search", "value": prodQuery, "placeholder": "Zoek product…", "onChange": (e) => setProdQuery(e.target.value) }), prodQuery !== "" && (
+        )), /*#__PURE__*/React.createElement("button", { "onClick": () => updateSettings({ markets: [...markets, { key: "winkel" + (markets.length + 1), label: "Nieuwe winkel", defaultShop: true }] }), "className": "w-full py-2 border rounded-xl text-sm text-stone-500 hover:bg-white" }, "+ Supermarkt toevoegen")), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm p-4 mb-4" }, /*#__PURE__*/React.createElement("div", { "className": "flex items-center gap-2" }, /*#__PURE__*/React.createElement("button", { "className": "iconbtn", "title": "Deelbestand maken (exporteren)", "onClick": () => setDelenOpen("export") }, "📤"), /*#__PURE__*/React.createElement("label", { "className": "iconbtn cursor-pointer", "title": "Bestand overnemen (importeren)" }, "📥", /*#__PURE__*/React.createElement("input", { "type": "file", "accept": "application/json,.json", "className": "hidden", "onChange": (e) => { if (e.target.files && e.target.files[0]) importShareFile(e.target.files[0]); e.target.value = ""; } })), /*#__PURE__*/React.createElement("button", { "className": "iconbtn", "title": "Uitleg over delen via bestand", "onClick": () => setDelenOpen("info") }, "ℹ️"))), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm p-4 mb-4" }, /*#__PURE__*/React.createElement("div", { "className": "text-sm font-medium mb-1" }, "🛵 Afhaalmaaltijden (bestelsites)"), /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-500 mb-2" }, "Deze linkjes verschijnen bij “Afwijking van het weekplan” → afhaalmaaltijd (#42). Alleen lokaal opgeslagen (ADR-010)."), (settings.takeawayLinks || []).map((l, i) => (
+          /*#__PURE__*/React.createElement("div", { "key": l.id, "className": "flex gap-2 mb-2" }, /*#__PURE__*/React.createElement("input", { "value": l.label, "onChange": (e) => updateTakeawayLink(i, { label: e.target.value }), "placeholder": "Naam…", "className": "w-32 border rounded-lg px-2 py-1.5 text-sm" }), /*#__PURE__*/React.createElement("input", { "value": l.url, "onChange": (e) => updateTakeawayLink(i, { url: e.target.value }), "placeholder": "URL…", "className": "flex-1 border rounded-lg px-2 py-1.5 text-sm min-w-0" }), /*#__PURE__*/React.createElement("button", { "onClick": () => updateSettings({ takeawayLinks: (settings.takeawayLinks || []).filter((_, j) => j !== i) }), "className": "text-stone-300 hover:text-red-500 text-sm px-1", "title": "Bestelsite verwijderen" }, "✕"))
+        )), /*#__PURE__*/React.createElement("button", { "onClick": () => updateSettings({ takeawayLinks: [...(settings.takeawayLinks || []), { id: "tl-" + Date.now().toString(36), label: "Nieuwe bestelsite", url: "" }] }), "className": "w-full py-2 border rounded-xl text-sm text-stone-500 hover:bg-white" }, "+ Bestelsite toevoegen")), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm p-4 mb-4" }, /*#__PURE__*/React.createElement("button", { "type": "button", "className": "w-full flex items-center gap-2 text-left", "onClick": () => setCatOpen((o) => !o), "title": "Productcatalogus in-/uitklappen (#44)" }, /*#__PURE__*/React.createElement("span", { "className": "text-sm font-medium" }, "📦 Productcatalogus"), /*#__PURE__*/React.createElement("span", { "className": "text-xs text-stone-400" }, products.length), /*#__PURE__*/React.createElement("span", { "className": "ml-auto text-xs text-stone-400" }, catOpen ? "▾" : "▸")), catOpen && (
+        /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-500 mb-2" }, `Elk ingrediënt, voorraadproduct en extra artikel is hier een product met categorie, eenheid en optionele winkelvoorkeur. Klik op een naam om te wijzigen; ✕ verwijdert het product uit de catalogus (koppelingen vallen terug op vrije tekst — handig bij typefouten).`), /*#__PURE__*/React.createElement("div", { "className": "searchbar", "style": { boxShadow: "none" } }, /*#__PURE__*/React.createElement("span", { "className": "sicon" }, "🔍"), /*#__PURE__*/React.createElement("input", { "className": "recipe-search", "value": prodQuery, "placeholder": "Zoek product…", "onChange": (e) => setProdQuery(e.target.value) }), prodQuery !== "" && (
             /*#__PURE__*/React.createElement("button", { "className": "sicon", "title": "Zoekopdracht wissen", "onClick": () => setProdQuery("") }, "✕")
-          )), /*#__PURE__*/React.createElement("div", { "className": "divide-y divide-stone-100 border border-stone-100 rounded-xl mt-2" }, filteredProducts.map((p) => (
+          )), /*#__PURE__*/React.createElement("div", { "className": "filterrow" }, shopCats.map((c) => (
+            /*#__PURE__*/React.createElement("button", { "key": c, "type": "button", "className": `chip${catFilters.includes(c) ? " on" : ""}`, "onClick": () => setCatFilters((f) => (f.includes(c) ? f.filter((x) => x !== c) : [...f, c])) }, c)
+          ))), /*#__PURE__*/React.createElement("div", { "className": "divide-y divide-stone-100 border border-stone-100 rounded-xl mt-2" }, filteredProducts.map((p) => (
             /*#__PURE__*/React.createElement("div", { "key": p.id }, /*#__PURE__*/React.createElement("div", { "className": "flex items-center gap-2 px-3 py-2" }, /*#__PURE__*/React.createElement("span", { "className": "flex-1 min-w-0 text-sm" }, /*#__PURE__*/React.createElement("button", { "type": "button", "className": "prodlink", "onClick": () => openProdCard("cat-" + p.id, p.id) }, p.name)), /*#__PURE__*/React.createElement("span", { "className": "chip" }, p.cat), p.unit && /*#__PURE__*/React.createElement("span", { "className": "chip", "title": "Standaardeenheid" }, p.unit), p.market && /*#__PURE__*/React.createElement("span", { "className": "chip mkt", "title": "Winkelvoorkeur" }, marketChip(p.market)), /*#__PURE__*/React.createElement("span", { "className": "text-xs text-stone-400 shrink-0", "title": "Aantal keer gebruikt" }, usageCount(p.id), "×"), /*#__PURE__*/React.createElement("button", { "className": "delbtn", "title": "Uit catalogus verwijderen (koppelingen vallen terug op vrije tekst)", "onClick": () => deleteProductCatalog(p.id) }, "✕")), renderProductCard("cat-" + p.id))
           )), filteredProducts.length === 0 && (
             /*#__PURE__*/React.createElement("div", { "className": "px-3 py-3 text-sm text-stone-400 text-center" }, "Geen producten gevonden.")
-          )), /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-400 mt-1" }, filteredProducts.length, " van ", products.length, " producten")))
+          )), /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-400 mt-1" }, filteredProducts.length, " van ", products.length, " producten · A–Z"))
+        )))
   );
 
   const renderDateSheet = () => (
@@ -2387,6 +2471,43 @@ function App() {
           )), /*#__PURE__*/React.createElement("p", { "className": "text-xs text-stone-400 mt-2" }, "Klik op een dag om naar de week van die dag te springen. 🔒 = vergrendeld gerecht, blijft per datum bewaard."))))
   );
 
+  // #42: afwijkings-sheet (🪫 op de dag van vandaag) — segmented afhaalmaaltijd / instant uit voorraad
+  const renderDeviationSheet = () => {
+    const k = deviationKey;
+    if (!k) return null;
+    const links = settings.takeawayLinks || [];
+    const inst = instantProducts;
+    const totalPicked = Object.values(devPick).reduce((a, b) => a + (Number(b) || 0), 0);
+    return (
+      /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", { "className": "backdrop", "onClick": () => setDeviationKey(null) }), /*#__PURE__*/React.createElement("div", { "className": "sheet" }, /*#__PURE__*/React.createElement("div", { "className": "handle" }), /*#__PURE__*/React.createElement("div", { "className": "px-4 pb-4" }, /*#__PURE__*/React.createElement("div", { "className": "flex items-center justify-between mb-3" }, /*#__PURE__*/React.createElement("div", { "className": "text-sm font-semibold" }, "Afwijking · ", dayShortOf(k), " ", fmtDay(k)), /*#__PURE__*/React.createElement("button", { "onClick": () => setDeviationKey(null), "className": "text-stone-400 px-1 text-lg leading-none" }, "✕")), /*#__PURE__*/React.createElement("div", { "className": "segl mb-3" }, /*#__PURE__*/React.createElement("button", { "className": devTab === "instant" ? "on" : "", "onClick": () => setDevTab("instant") }, "⚡ Instant uit voorraad"), /*#__PURE__*/React.createElement("button", { "className": devTab === "afhaal" ? "on" : "", "onClick": () => setDevTab("afhaal") }, "🍔 Afhaalmaaltijd")), devTab === "instant" ? (
+              /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-500 mb-1 flex items-center gap-1" }, /*#__PURE__*/React.createElement("span", null, "Kies uit de voorraad"), /*#__PURE__*/React.createElement("span", { "title": "Alleen producten met tag “instant-maaltijd” met have > 0 worden getoond." }, "ℹ️")), inst.length === 0 && (
+                  /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-400 py-2" }, "Nog geen producten met tag “instant-maaltijd” met have > 0 — tag toekennen via de product-kaart.")
+                ), inst.map((p2) => {
+                  const have = haveOfProd(p2);
+                  const n = Number(devPick[p2.id]) || 0;
+                  return (
+                    /*#__PURE__*/React.createElement("div", { "key": p2.id, "className": "flex items-center gap-2 py-1.5" }, /*#__PURE__*/React.createElement("span", { "className": "flex-1 min-w-0 text-sm truncate" }, p2.name), /*#__PURE__*/React.createElement("span", { "className": "text-xs text-stone-400 shrink-0" }, "have ", have), /*#__PURE__*/React.createElement("div", { "className": "stepper" }, /*#__PURE__*/React.createElement("button", { "onClick": () => setDevPick((d) => ({ ...d, [p2.id]: Math.max(0, n - 1) })) }, "−"), /*#__PURE__*/React.createElement("span", null, n), /*#__PURE__*/React.createElement("button", { "onClick": () => setDevPick((d) => ({ ...d, [p2.id]: Math.min(have, n + 1) })) }, "+")))
+                  );
+                }), /*#__PURE__*/React.createElement("button", { "className": "w-full mt-3 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-semibold disabled:opacity-40", "disabled": totalPicked === 0, "onClick": () => {
+                    const parts = inst.filter((p2) => Number(devPick[p2.id]) > 0).map((p2) => `${devPick[p2.id]}× ${p2.name}`);
+                    applyDeviation(k, "Instant-maaltijd: " + parts.join(", "), devPick);
+                    setDeviationKey(null);
+                  } }, "Bevestig · weekplan schuift 1 dag op"))
+            ) : (
+              /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-500 mb-1" }, "Kies een bestelsite (opent in browser; te beheren via Instellingen → 🛵 Afhaalmaaltijden):"), links.length === 0 && (
+                  /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-400 py-2" }, "Nog geen bestelsites geconfigureerd — voeg toe via Instellingen → 🛵 Afhaalmaaltijden.")
+                ), links.map((l) => (
+                  /*#__PURE__*/React.createElement("button", { "key": l.id, "className": "w-full flex items-center gap-2 border rounded-xl px-3 py-2 mb-2 text-left", "onClick": () => {
+                      const url = /^https?:\/\//i.test(l.url) ? l.url : "https://" + l.url;
+                      if (typeof window !== "undefined" && window.open) window.open(url, "_blank", "noopener");
+                      applyDeviation(k, "Afhaalmaaltijd", null);
+                      setDeviationKey(null);
+                    } }, /*#__PURE__*/React.createElement("span", { "className": "flex-1 min-w-0 text-sm text-emerald-700 font-medium truncate" }, l.label), /*#__PURE__*/React.createElement("span", { "className": "text-xs text-stone-400 shrink-0 max-w-40 truncate" }, l.url), /*#__PURE__*/React.createElement("span", { "className": "shrink-0" }, "↗"))
+                )), /*#__PURE__*/React.createElement("button", { "className": "w-full mt-1 py-2.5 rounded-xl bg-stone-800 text-white text-sm font-semibold", "onClick": () => { applyDeviation(k, "Afhaalmaaltijd", null); setDeviationKey(null); } }, "Afhaalmaaltijd · weekplan schuift 1 dag op"))
+            ))))
+    );
+  };
+
   const renderRulesSheet = () => (
     /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", { "className": "backdrop", "onClick": () => setRulesSheetOpen(false) }), /*#__PURE__*/React.createElement("div", { "className": "sheet" }, /*#__PURE__*/React.createElement("div", { "className": "handle" }), /*#__PURE__*/React.createElement("div", { "className": "px-4 pb-4" }, /*#__PURE__*/React.createElement("div", { "className": "flex items-center justify-between mb-3" }, /*#__PURE__*/React.createElement("div", { "className": "text-sm font-semibold" }, "Regels voor het weekmenu"), /*#__PURE__*/React.createElement("button", { "onClick": () => setRulesSheetOpen(false), "className": "text-stone-400 px-1 text-lg leading-none" }, "✕")), /*#__PURE__*/React.createElement("div", { "className": "mb-3" }, /*#__PURE__*/React.createElement("div", { "className": "text-xs font-medium text-stone-500 mb-1" }, "Weekstart"), /*#__PURE__*/React.createElement("div", { "className": "flex flex-wrap gap-1" }, DAY_NAMES.map((d, i) => (
                 /*#__PURE__*/React.createElement("button", { "key": d, "onClick": () => updateSettings({ weekStartDay: i }), "className": `chip${settings.weekStartDay === i ? " on" : ""}` }, d.slice(0, 2))
@@ -2408,7 +2529,7 @@ function App() {
             /*#__PURE__*/React.createElement("button", { "key": t.key, "onClick": () => goTab(t.key), "className": `flex-1 py-2 rounded-lg text-sm font-medium transition ${
                 tab === t.key ? "bg-stone-800 text-white" : "text-stone-500 hover:bg-stone-100"
               }` }, t.label)
-          ))), tab === "menu" && renderMenuTab(), tab === "recipes" && renderRecipesTab(), tab === "stock" && renderStockTab(), tab === "shopping" && renderShoppingTab(), tab === "settings" && renderSettingsTab(), tab === "settings" && renderDelenSheets(), tab === "menu" && dateSheetOpen && renderDateSheet(), tab === "menu" && rulesSheetOpen && renderRulesSheet()))
+          ))), tab === "menu" && renderMenuTab(), tab === "recipes" && renderRecipesTab(), tab === "stock" && renderStockTab(), tab === "shopping" && renderShoppingTab(), tab === "settings" && renderSettingsTab(), tab === "settings" && renderDelenSheets(), tab === "menu" && dateSheetOpen && renderDateSheet(), tab === "menu" && rulesSheetOpen && renderRulesSheet(), tab === "menu" && deviationKey && renderDeviationSheet()))
   );
 }
 

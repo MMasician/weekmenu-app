@@ -332,5 +332,88 @@ function make(seed) {
   check("#38: N=7 -> a1 (20 dagen geleden) mag weer (buiten de 7 dagen)", week7.filter((id) => id === "a1").length >= 1);
 }
 
+
+// ---------- #42: afwijking van het weekplan (🪫 alleen op vandaag; afhaalmaaltijd/instant; shift) ----------
+{
+  const today = new Date();
+  const todayK = dateKey(today);
+  const d1K = dateKey(addDays(today, 1));
+  const d2K = dateKey(addDays(today, 2));
+  const lastOfWeek = addDays(startOfWeek(today, 0), 6); // laatste dag van de huidige week (weekstart = za)
+  const d8K = dateKey(lastOfWeek);
+  const d9K = dateKey(addDays(lastOfWeek, 1)); // eerste dag van de volgende week -> weekgrens
+  const crossesToday = dateKey(startOfWeek(addDays(today, 1), 0)) !== dateKey(startOfWeek(today, 0));
+  const devSeed = () => ({
+    settings: { householdSize: 4, weekStartDay: 0, markets: [{ key: "ah", label: "AH", defaultShop: true }], takeawayLinks: [{ id: "tl-1", label: "Pizzeria", url: "https://pizza.example" }] },
+    products: [
+      { id: "p-soep", name: "Soep", cat: "soep", market: null, unit: "stuks", tags: ["instant-maaltijd"], pack: null },
+      { id: "p-noedel", name: "Noedels", cat: "pasta", market: null, unit: "stuks", tags: ["instant-maaltijd"], pack: null },
+      { id: "p-pizza", name: "Diepvriespizza", cat: "diepvries", market: null, unit: "stuks", tags: ["instant-maaltijd"], pack: null },
+      { id: "p-kaas", name: "Kaas", cat: "zuivel", market: null, unit: null, tags: [], pack: null },
+    ],
+    recipes: [
+      { id: "rA", name: "Gerecht A", cat: "vega", ingredients: ["200 g kaas"], bereiding: "", timeCat: "normaal", tags: [] },
+      { id: "rB", name: "Gerecht B", cat: "vlees", ingredients: ["1 blik soep"], bereiding: "", timeCat: "normaal", tags: [] },
+    ],
+    menuByDate: { [todayK]: { id: "rA", locked: true }, [d1K]: { id: "rB" }, [d8K]: { id: "rB", locked: true } },
+    stock: [
+      { name: "Soep", pid: "p-soep", loc: "loc-kast", cat: "soep", want: 2, have: 2 },
+      { name: "Noedels", pid: "p-noedel", loc: "loc-kast", cat: "pasta", want: 6, have: 6 },
+      { name: "Diepvriespizza", pid: "p-pizza", loc: "loc-vriezer", cat: "diepvries", want: 5, have: 0 },
+      { name: "Kaas", pid: "p-kaas", loc: "loc-koel", cat: "zuivel", want: 1, have: 1 },
+    ],
+    extraItems: [],
+    checked: { [todayK + "-rA-0"]: true },
+  });
+  const checkedState = (t) => t.m.hooks.state.find((x) => x && typeof x === "object" && !Array.isArray(x) && Object.keys(x).some((k) => k.indexOf("-rA-") !== -1 || k.indexOf("-rB-") !== -1));
+  const stockState = (t) => t.m.hooks.state.find((x) => Array.isArray(x) && x.length && x[0] && "have" in x[0] && "loc" in x[0]);
+  const devBtns = (t) => { const out = []; t.walk(t.render(), (n) => { if (n && n.type === "button" && String(n.props.title || "").indexOf("Afwijking van het weekplan") !== -1) out.push(n); }); return out; };
+  const devRow = (t, name) => {
+    let f = null;
+    t.walk(t.render(), (n) => {
+      if (f || !n || n.type !== "div" || !n.children) return;
+      if (n.children.some((c) => c && c.props && String(c.props.className || "") === "stepper") && JSON.stringify(serialize(n)).indexOf(name) !== -1) f = n;
+    });
+    return f;
+  };
+
+  // --- instant ---
+  const t = make(devSeed());
+  let h;
+  check("#42: 🪫-knop er is precies 1× (alleen op de dag van vandaag)", devBtns(t).length === 1);
+  devBtns(t)[0].props.onClick();
+  h = t.html();
+  check("#42: afwijkings-sheet open met segmented (Instant uit voorraad / Afhaalmaaltijd)", h.indexOf("Afwijking") !== -1 && h.indexOf("Instant uit voorraad") !== -1 && h.indexOf("Afhaalmaaltijd") !== -1);
+  check("#42: instant-lijst toont alleen tag instant-maaltijd met have>0 (Noedels, Soep; niet Diepvriespizza/Kaas)", h.indexOf("Noedels") !== -1 && h.indexOf("Soep") !== -1 && h.indexOf("Diepvriespizza") === -1 && h.indexOf("Kaas") === -1);
+  check("#42: ℹ️-info bij de instant-lijst", h.indexOf("instant-maaltijd") !== -1);
+  const rowSoep = devRow(t, "Soep");
+  check("#42: rij Soep heeft stepper (have 2)", !!rowSoep);
+  const stepSoep = rowSoep.children.find((c) => c.props.className === "stepper");
+  stepSoep.children[2].props.onClick(); // + -> 1× Soep
+  const confirm = t.findButton("Bevestig · weekplan schuift 1 dag op");
+  check("#42: Bevestig-knop gevonden en enabled na keuze", !!confirm && confirm.props.disabled !== true);
+  confirm.props.onClick();
+  let mbd = t.menuByDateState();
+  check("#42: vandaag wordt vrije tekst 'Instant-maaltijd: 1× Soep' (geen boodschappen)", mbd[todayK] && mbd[todayK].custom === "Instant-maaltijd: 1× Soep");
+  check("#42: shift: oude gerecht van vandaag staat nu op morgen (d1K = rA; locked behouden tenzij weekgrens)", mbd[d1K] && mbd[d1K].id === "rA" && mbd[d1K].locked === !crossesToday);
+  check("#42: shift: rB van d1K staat nu op d2K", mbd[d2K] && mbd[d2K].id === "rB");
+  check("#42: shift over weekgrens: rB van d8K -> d9K en niet meer gelocked (geen vinkje)", mbd[d9K] && mbd[d9K].id === "rB" && !mbd[d9K].locked && !mbd[d8K]);
+  const ck = checkedState(t) || {};
+  check("#42: vinkjes schuiven mee (todayK-rA-0 -> d1K-rA-0)", ck[d1K + "-rA-0"] === true && !ck[todayK + "-rA-0"]);
+  const soep = (stockState(t) || []).find((s2) => s2.pid === "p-soep");
+  check("#42: voorraad verlaagd: Soep have 2 -> 1", !!soep && soep.have === 1);
+
+  // --- afhaalmaaltijd via bestellinkje ---
+  const t2 = make(devSeed());
+  devBtns(t2)[0].props.onClick();
+  t2.findButton("🍔 Afhaalmaaltijd").props.onClick();
+  let h2 = t2.html();
+  check("#42: afhaal-segment toont geconfigureerde bestellinkjes (Pizzeria)", h2.indexOf("Pizzeria") !== -1 && h2.indexOf("https://pizza.example") !== -1);
+  const linkBtn = (() => { let f = null; t2.walk(t2.render(), (n) => { if (!f && n && n.type === "button" && JSON.stringify(n.children || []).indexOf("Pizzeria") !== -1) f = n; }); return f; })();
+  linkBtn.props.onClick();
+  mbd = t2.menuByDateState();
+  check("#42: klik op bestellinkje -> dag wordt 'Afhaalmaaltijd' en weekplan schuift op", mbd[todayK] && mbd[todayK].custom === "Afhaalmaaltijd" && mbd[d1K] && mbd[d1K].id === "rA");
+}
+
 console.log(fails === 0 ? "ALLE TESTS GESLAAGD" : fails + " TEST(S) GEFAALD");
 process.exit(fails === 0 ? 0 : 1);

@@ -1,6 +1,6 @@
 # UX-voorstel: productcatalogus uitklapbaar en alfabetisch gesorteerd (issue #44)
 
-**Status: ronde 2 — feedback eigenaar verwerkt (issue #44), label `needs-review`.**
+**Status: goedgekeurd in issue #44 ("Versie D is akkoord", 2026-11-24) — geïmplementeerd in PR #62 (scherm 1 = versie C, scherm 2 = versie D).**
 
 ## Aanleiding (wens uit issue #44)
 

@@ -181,5 +181,78 @@ function make(seed) {
   check("na vegaTarget=4: 4 vega / 1 vlees", cats.filter((c) => c === "vega").length === 4 && cats.filter((c) => c === "vlees").length === 1);
 }
 
+
+// ---------- #44: productcatalogus inklapbaar (accordion) + A-Z + categorie-chips (versie D) ----------
+{
+
+  const t = make({
+    products: [
+      { id: "p1", name: "Zebra", cat: "overig", market: null, unit: null, tags: [], pack: null },
+      { id: "p2", name: "Aap", cat: "overig", market: null, unit: null, tags: [], pack: null },
+      { id: "p3", name: "Middel", cat: "zuivel", market: null, unit: "pot", tags: [], pack: null },
+    ],
+    recipes: [],
+  });
+  t.findTab("Instellingen").props.onClick();
+  let h = t.html();
+  check("#44: accordion-rij 'Productcatalogus' met teller en ▸", h.indexOf("Productcatalogus") !== -1 && h.indexOf("▸") !== -1 && h.indexOf("3") !== -1);
+  check("#44: initieel ingeklapt — geen prodlink-rijen zichtbaar", !t.walk ? false : (() => { let n = 0; t.walk(t.render(), (x) => { if (x && x.props && x.props.className === "prodlink") n++; }); return n === 0; })());
+  const catBtn = (() => { let f = null; t.walk(t.render(), (n) => { if (!f && n && n.type === "button" && String(n.props.title || "").indexOf("Productcatalogus in-/uitklappen") !== -1) f = n; }); return f; })();
+  catBtn.props.onClick();
+  h = t.html();
+  const names = [];
+  t.walk(t.render(), (n) => { if (n && n.props && n.props.className === "prodlink") names.push(n.children[0]); });
+  check("#44: uitgeklapt is de lijst alfabetisch A–Z (Aap, Middel, Zebra)", JSON.stringify(names) === JSON.stringify(["Aap", "Middel", "Zebra"]));
+  check("#44: teller '3 van 3 producten · A–Z'", /3," van ",3," producten · A–Z"/.test(h));
+  // categorie-chip filter (versie D): klik 'zuivel' -> alleen Middel
+  const chipZuivel = (() => { let f = null; t.walk(t.render(), (n) => { if (!f && n && n.type === "button" && String(n.props.className || "").indexOf("chip") !== -1 && n.children && n.children[0] === "zuivel") f = n; }); return f; })();
+  check("#44: categorie-chip 'zuivel' aanwezig", !!chipZuivel);
+  chipZuivel.props.onClick();
+  const names2 = [];
+  t.walk(t.render(), (n) => { if (n && n.props && n.props.className === "prodlink") names2.push(n.children[0]); });
+  h = t.html();
+  check("#44: na categorie-filter 'zuivel' alleen Middel zichtbaar + teller '1 van 3'", JSON.stringify(names2) === JSON.stringify(["Middel"]) && /1," van ",3," producten · A–Z"/.test(h));
+  chipZuivel.props.onClick(); // weer uit
+  // zoekveld filtert binnen de A–Z lijst
+  const search = (() => { let f = null; t.walk(t.render(), (n) => { if (!f && n && n.type === "input" && String(n.props.placeholder || "").indexOf("Zoek product") !== -1) f = n; }); return f; })();
+  search.props.onChange({ target: { value: "aap" } });
+  const names3 = [];
+  t.walk(t.render(), (n) => { if (n && n.props && n.props.className === "prodlink") names3.push(n.children[0]); });
+  check("#44: zoekveld filtert (alleen 'Aap')", JSON.stringify(names3) === JSON.stringify(["Aap"]));
+}
+
+// ---------- #42: afhaalmaaltijden (bestelsites) in Instellingen ----------
+{
+  const t = make({});
+  t.render();
+  check("#42: takeawayLinks default leeg in settings", Array.isArray((t.settingsState() || {}).takeawayLinks) && t.settingsState().takeawayLinks.length === 0);
+  t.findTab("Instellingen").props.onClick();
+  let h = t.html();
+  check("#42: kaart 'Afhaalmaaltijden (bestelsites)' aanwezig", h.indexOf("Afhaalmaaltijden") !== -1);
+  const addBtn = t.findButton("+ Bestelsite toevoegen");
+  check("#42: knop '+ Bestelsite toevoegen'", !!addBtn);
+  addBtn.props.onClick();
+  let st = t.settingsState();
+  check("#42: lege bestelsite-rij toegevoegd aan settings.takeawayLinks", st.takeawayLinks.length === 1);
+  // label/url bewerken
+  const inputs = [];
+  t.walk(t.render(), (n) => {
+    if (n && n.type === "input") {
+      const ph = String(n.props.placeholder || "");
+      if (ph === "URL…" || (ph === "Naam…" && n.props.value === "Nieuwe bestelsite")) inputs.push(n); // niet de supermarkt-"Naam…"
+    }
+  });
+  check("#42: rij met Naam…/URL…-velden", inputs.length === 2);
+  inputs[0].props.onChange({ target: { value: "Pizzeria" } });
+  const urlInput = (() => { let f = null; t.walk(t.render(), (n) => { if (!f && n && n.type === "input" && String(n.props.placeholder || "") === "URL…") f = n; }); return f; })();
+  urlInput.props.onChange({ target: { value: "https://pizza.example" } });
+  st = t.settingsState();
+  check("#42: label+url opgeslagen ({ label: 'Pizzeria', url: 'https://pizza.example' })", st.takeawayLinks[0] && st.takeawayLinks[0].label === "Pizzeria" && st.takeawayLinks[0].url === "https://pizza.example");
+  // verwijderen via ✕ (title 'Bestelsite verwijderen')
+  const del = (() => { let f = null; t.walk(t.render(), (n) => { if (!f && n && n.type === "button" && String(n.props.title || "") === "Bestelsite verwijderen") f = n; }); return f; })();
+  del.props.onClick();
+  check("#42: bestelsite verwijderd uit settings", t.settingsState().takeawayLinks.length === 0);
+}
+
 console.log(fails === 0 ? "ALLE TESTS GESLAAGD" : fails + " TEST(S) GEFAALD");
 process.exit(fails === 0 ? 0 : 1);

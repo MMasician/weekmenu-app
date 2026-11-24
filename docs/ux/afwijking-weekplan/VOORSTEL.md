@@ -1,6 +1,6 @@
 # UX-voorstel: afwijking van het weekplan (issue #42)
 
-**Status: ronde 2 — feedback eigenaar verwerkt (issue #42), label `needs-review`.**
+**Status: goedgekeurd in issue #42 ("Mocks en wijzigingen zijn akkoord", 2026-11-24) — geïmplementeerd in PR #62.**
 
 ## Aanleiding (wens uit issue #42)
 

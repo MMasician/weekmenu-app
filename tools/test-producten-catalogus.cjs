@@ -200,6 +200,9 @@ const SEED = {
   t.findTab("Instellingen").props.onClick();
   let h = t.html();
   check("Productcatalogus-kaart op Instellingen", h.indexOf("Productcatalogus") !== -1);
+  check("#44: catalogus initieel ingeklapt (geen zoekveld/lijst zichtbaar)", !t.inputByPlaceholder("Zoek product…") && !t.findBtn((n) => n.props.className === "prodlink"));
+  t.btnByTitle("Productcatalogus in-/uitklappen (#44)").props.onClick();
+  check("#44: na klik op de accordion-rij is de catalogus uitgeklapt", !!t.inputByPlaceholder("Zoek product…") && !!t.findBtn((n) => n.props.className === "prodlink"));
   const search = t.inputByPlaceholder("Zoek product…");
   check("zoekveld aanwezig", !!search);
   search.props.onChange({ target: { value: "pap" } });
@@ -251,6 +254,7 @@ const SEED = {
   const prods0 = t.productsState();
   check("#35: normalizeProducts vult pack: null aan bij ontbrekend pack", prods0.every((p2) => "pack" in p2) && prods0.every((p2) => p2.pack === null));
   t.findTab("Instellingen").props.onClick();
+  t.btnByTitle("Productcatalogus in-/uitklappen (#44)").props.onClick(); // catalogus uitklappen
   const link = t.findBtn((n) => n.props.className === "prodlink" && JSON.stringify(n.children || []).indexOf("kokosmelk") !== -1);
   link.props.onClick();
   let h = t.html();
