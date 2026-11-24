@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844">
+<style>text { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Color Emoji', sans-serif; }</style>
+<rect width="390" height="844" fill="#fafaf9"/>
+<rect x="16" y="64" width="358" height="40" rx="12" fill="#fff" stroke="#f0efed"/>
+<rect x="16" y="68" width="68" height="32" rx="8" fill="#292524"/><text x="50" y="89" font-size="9" fill="#fff" font-weight="600" text-anchor="middle">Weekmenu</text>
+<text x="123" y="89" font-size="9" fill="#78716c" text-anchor="middle">Recepten</text><text x="195" y="89" font-size="9" fill="#78716c" text-anchor="middle">Voorraad</text><text x="265" y="89" font-size="9" fill="#78716c" text-anchor="middle">Boodschappen</text><text x="338" y="89" font-size="8" fill="#78716c" text-anchor="middle">Instellingen</text>
+<rect width="390" height="844" fill="#1c1917" opacity="0.4"/>
+<rect x="0" y="200" width="390" height="644" rx="16" fill="#fff"/>
+<rect x="175" y="212" width="40" height="4" rx="2" fill="#d6d3d1"/>
+<text x="16" y="240" font-size="14" font-weight="600" fill="#292524">Regels voor het weekmenu</text><text x="366" y="240" font-size="14" fill="#a8a29e" text-anchor="middle">✕</text>
+<text x="16" y="266" font-size="10" font-weight="500" fill="#78716c">Weekstart</text>
+<rect x="16" y="274" width="44" height="24" rx="12" fill="#292524"/><text x="38" y="290" font-size="10" fill="#fff" font-weight="600" text-anchor="middle">za</text>
+<rect x="64" y="274" width="44" height="24" rx="12" fill="#fff" stroke="#d6d3d1"/><text x="86" y="290" font-size="10" fill="#57534e" text-anchor="middle">zo</text>
+<text x="16" y="322" font-size="10" font-weight="500" fill="#78716c">Visdagen</text>
+<rect x="16" y="330" width="44" height="24" rx="12" fill="#dbeafe" stroke="#93c5fd"/><text x="38" y="346" font-size="10" fill="#1e40af" font-weight="600" text-anchor="middle">za</text>
+<text x="16" y="378" font-size="10" font-weight="500" fill="#78716c">Vega-dagen op de overige 5 dagen</text>
+<rect x="16" y="386" width="28" height="26" rx="6" fill="#f5f5f4" stroke="#d6d3d1"/><text x="30" y="404" font-size="12" fill="#44403c" text-anchor="middle">−</text>
+<rect x="44" y="386" width="34" height="26" fill="#fff" stroke="#d6d3d1"/><text x="61" y="404" font-size="11" font-weight="600" fill="#292524" text-anchor="middle">2</text>
+<rect x="78" y="386" width="28" height="26" rx="6" fill="#f5f5f4" stroke="#d6d3d1"/><text x="92" y="404" font-size="12" fill="#44403c" text-anchor="middle">+</text>
+<text x="116" y="404" font-size="10" fill="#57534e">2 vega · 3 vlees</text>
+<rect x="16" y="430" width="358" height="34" rx="10" fill="#fff" stroke="#d6d3d1"/><text x="28" y="451" font-size="12" fill="#292524">🏷 Tag-regels beheren (2)</text><text x="356" y="451" font-size="11" fill="#78716c" text-anchor="end">▾</text>
+<rect width="390" height="844" fill="#1c1917" opacity="0.25"/>
+<rect x="0" y="300" width="390" height="544" rx="16" fill="#fff"/>
+<rect x="175" y="312" width="40" height="4" rx="2" fill="#d6d3d1"/>
+<text x="16" y="340" font-size="14" font-weight="600" fill="#292524">Tag-regels</text><text x="366" y="340" font-size="14" fill="#a8a29e" text-anchor="middle">✕</text>
+<text x="16" y="366" font-size="9" fill="#a8a29e">Bij automatisch plannen van het weekmenu</text>
+<rect x="16" y="378" width="358" height="36" rx="10" fill="#fafaf9" stroke="#f0efed"/>
+<rect x="24" y="386" width="92" height="20" rx="10" fill="#fff" stroke="#d6d3d1"/><text x="32" y="400" font-size="10" fill="#292524">🏷 spinazie</text>
+<text x="126" y="400" font-size="10" fill="#57534e">product ·</text>
+<rect x="180" y="386" width="22" height="20" rx="5" fill="#f5f5f4" stroke="#d6d3d1"/><text x="191" y="400" font-size="9" fill="#44403c" text-anchor="middle">−</text>
+<rect x="202" y="386" width="26" height="20" fill="#fff" stroke="#d6d3d1"/><text x="215" y="400" font-size="10" font-weight="600" fill="#292524" text-anchor="middle">3</text>
+<rect x="228" y="386" width="22" height="20" rx="5" fill="#f5f5f4" stroke="#d6d3d1"/><text x="239" y="400" font-size="9" fill="#44403c" text-anchor="middle">+</text>
+<text x="256" y="400" font-size="9" fill="#78716c">dagen</text><text x="360" y="400" font-size="11" fill="#d6d3d1" text-anchor="middle">✕</text>
+<rect x="16" y="420" width="358" height="36" rx="10" fill="#fafaf9" stroke="#f0efed"/>
+<rect x="24" y="428" width="92" height="20" rx="10" fill="#fff" stroke="#d6d3d1"/><text x="32" y="442" font-size="10" fill="#292524">🍽 stamppot</text>
+<text x="126" y="442" font-size="10" fill="#57534e">gerecht ·</text>
+<rect x="180" y="428" width="22" height="20" rx="5" fill="#f5f5f4" stroke="#d6d3d1"/><text x="191" y="442" font-size="9" fill="#44403c" text-anchor="middle">−</text>
+<rect x="202" y="428" width="26" height="20" fill="#fff" stroke="#d6d3d1"/><text x="215" y="442" font-size="10" font-weight="600" fill="#292524" text-anchor="middle">5</text>
+<rect x="228" y="428" width="22" height="20" rx="5" fill="#f5f5f4" stroke="#d6d3d1"/><text x="239" y="442" font-size="9" fill="#44403c" text-anchor="middle">+</text>
+<text x="256" y="442" font-size="9" fill="#78716c">dagen</text><text x="360" y="442" font-size="11" fill="#d6d3d1" text-anchor="middle">✕</text>
+<rect x="16" y="466" width="70" height="32" rx="8" fill="#fff" stroke="#d6d3d1"/><text x="26" y="486" font-size="11" fill="#57534e">product</text><text x="78" y="486" font-size="9" fill="#a8a29e">▾</text>
+<rect x="92" y="466" width="130" height="32" rx="8" fill="#fff" stroke="#d6d3d1"/><text x="100" y="486" font-size="11" fill="#a8a29e">tag…</text>
+<rect x="228" y="466" width="22" height="32" rx="6" fill="#f5f5f4" stroke="#d6d3d1"/><text x="239" y="487" font-size="11" fill="#44403c" text-anchor="middle">−</text>
+<rect x="250" y="466" width="26" height="32" fill="#fff" stroke="#d6d3d1"/><text x="263" y="487" font-size="10" font-weight="600" fill="#292524" text-anchor="middle">3</text>
+<rect x="276" y="466" width="22" height="32" rx="6" fill="#f5f5f4" stroke="#d6d3d1"/><text x="287" y="487" font-size="11" fill="#44403c" text-anchor="middle">+</text>
+<rect x="304" y="466" width="40" height="32" rx="8" fill="#292524"/><text x="324" y="487" font-size="13" fill="#fff" text-anchor="middle">＋</text>
+<rect x="16" y="792" width="358" height="36" rx="12" fill="#292524"/><text x="195" y="815" font-size="13" font-weight="500" fill="#fff" text-anchor="middle">Klaar</text>
+<text x="195" y="838" font-size="9" fill="#d6d3d1" text-anchor="middle">❯ Regels-sheet · versie B: tag-regels in aparte sub-sheet via "Tag-regels beheren (n) ▾"</text>
+</svg>

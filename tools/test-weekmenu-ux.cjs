@@ -235,5 +235,48 @@ function make(seed) {
   check("vrije tekst heeft géén eters-override", !("eaters" in (t.menuByDateState()[keys[1]] || {})));
 }
 
+// ---------- #37: tag-regels in de regels-sheet + generatie respecteert ze ----------
+{
+  const yesterday = dateKey(addDays(new Date(), -1));
+  const dayDiff = (a, b) => Math.abs(Math.round((new Date(a + "T00:00:00").getTime() - new Date(b + "T00:00:00").getTime()) / 86400000));
+  const t = make({
+    settings: { householdSize: 4, weekStartDay: 0, fishDays: [], vegaTarget: 2, tagRules: [] },
+    recipes: [
+      { id: "a1", name: "Stamppot A", cat: "vega", ingredients: ["1 aardappel"], bereiding: "", timeCat: "normaal", tags: ["stamppot"] },
+      { id: "a2", name: "Stamppot B", cat: "vega", ingredients: ["1 aardappel"], bereiding: "", timeCat: "normaal", tags: ["stamppot"] },
+      { id: "b1", name: "Pasta", cat: "vega", ingredients: ["200 g pasta"], bereiding: "", timeCat: "kort", tags: [] },
+      { id: "b2", name: "Rijstschotel", cat: "vlees", ingredients: ["200 g rijst"], bereiding: "", timeCat: "normaal", tags: [] },
+    ],
+    menuByDate: { [yesterday]: { id: "a1", locked: true } },
+  });
+  t.findButton("Regels voor het weekmenu").props.onClick();
+  let h = t.html();
+  check("#37: regels-sheet heeft sectie 'Tag-regels' met lege state", h.indexOf("Tag-regels") !== -1 && h.indexOf("nog geen tag-regels") !== -1);
+  const findRuleForm = () => {
+    const out = {};
+    t.walk(t.render(), (n) => {
+      if (n && n.type === "select" && !out.kindSel && JSON.stringify(n.children || []).indexOf("gerecht") !== -1) out.kindSel = n;
+      if (n && n.type === "input" && !out.tagInp && n.props.placeholder === "tag…") out.tagInp = n;
+      if (n && n.type === "button" && !out.addBtn && String(n.props.title || "") === "Regel toevoegen") out.addBtn = n;
+    });
+    return out;
+  };
+  findRuleForm().kindSel.props.onChange({ target: { value: "recipe" } }); // her-render per veld (hooks)
+  findRuleForm().tagInp.props.onChange({ target: { value: "Stamppot" } });
+  findRuleForm().addBtn.props.onClick();
+  const rules = (t.settingsState().tagRules || []);
+  check("#37: regel opgeslagen in settings.tagRules (genormaliseerd: kind=recipe, tag lowercase, days=3)",
+    rules.length === 1 && rules[0].kind === "recipe" && rules[0].tag === "stamppot" && rules[0].days === 3);
+  h = t.html();
+  check("#37: regel-rij met chip + stapper + ✕ in de sheet", h.indexOf("stamppot") !== -1 && h.indexOf("Regel verwijderen") !== -1);
+  t.findButton("Klaar").props.onClick();
+  t.findButton("Genereer weekmenu").props.onClick();
+  const mbd = t.menuByDateState();
+  const stamps = Object.entries(mbd).filter(([k, e]) => e && e.id && (e.id === "a1" || e.id === "a2") && k !== yesterday);
+  check("#37: generatie respecteert gerecht-tag-regel: geen stamppot binnen 3 dagen na gisteren",
+    stamps.every(([k]) => dayDiff(k, yesterday) > 3));
+  check("#37: gelockte dag van gisteren blijft staan", mbd[yesterday] && mbd[yesterday].id === "a1" && mbd[yesterday].locked === true);
+}
+
 console.log(fails === 0 ? "ALLE TESTS GESLAAGD" : fails + " TEST(S) GEFAALD");
 process.exit(fails === 0 ? 0 : 1);
