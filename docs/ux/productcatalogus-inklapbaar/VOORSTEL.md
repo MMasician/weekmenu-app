@@ -1,6 +1,6 @@
 # UX-voorstel: productcatalogus uitklapbaar en alfabetisch gesorteerd (issue #44)
 
-**Status: in review (issue #44, label `needs-review`).**
+**Status: ronde 2 — feedback eigenaar verwerkt (issue #44), label `needs-review`.**
 
 ## Aanleiding (wens uit issue #44)
 
@@ -40,3 +40,11 @@ moet de catalogus **initieel ingeklapt** zijn; bij uitklappen staan de producten
 `docs/SPECS.md` (Productcatalogus) bijwerken; tests in `tools/test-instellingen.cjs` (klap-state,
 A–Z-sortering, teller, lege state); implementatie in `src/App.jsx` (Instellingen-tab: `catOpen`-state,
 `filteredProducts` sorteren), `npm run build`, `npm run verify` groen, CI groen (ADR-014), cache-bump.
+
+## Ronde 2 (feedback eigenaar, 2026-11-24)
+
+- **Scherm 1 (ingeklapt): versie C gekozen** — accordion-rij "📦 Productcatalogus · 128 ▸" is het simpelst (`03-ingeklapt-versie-C-accordion.svg`).
+- **Scherm 2 (uitgeklapt)**: elementen van B en C zijn beide goed; additionally **2 nieuwe mocks** die tekst-zoeken en categorie-filter elegant combineren:
+  - `07-uitgeklapt-versie-D-zoekveld-categoriechips.svg` — **D**: zoekveld + inline categorie-chips (multi-select) boven de A–Z-lijst.
+  - `08-uitgeklapt-versie-E-zoekveld-filtersheet.svg` — **E**: zoekveld + "⚙ Categorieën ▾"-knop → filter-sheet met categorie multi-select (zelfde patroon als de recepten-tab) + "Toon n producten".
+- Blijft leidend: uitgeklapt is de lijst **alfabetisch A–Z** (nl), klap-state vluchtig.

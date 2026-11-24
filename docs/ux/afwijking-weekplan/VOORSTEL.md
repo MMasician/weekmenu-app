@@ -1,6 +1,6 @@
 # UX-voorstel: afwijking van het weekplan (issue #42)
 
-**Status: in review (issue #42, label `needs-review`).**
+**Status: ronde 2 — feedback eigenaar verwerkt (issue #42), label `needs-review`.**
 
 ## Aanleiding (wens uit issue #42)
 
@@ -55,3 +55,11 @@ aantal en schuiven **alle gerechten van vandaag (of de gekozen dag) en verder 1 
 checked-mee-schuiven) en `tools/test-voorraad-locaties.cjs` (have verlagen); implementatie in `src/App.jsx`
 (dagregel-icoon, sheet, `shiftMenuFrom(date)`, productkiezer op tag `instant-maaltijd`), `npm run build`
 (`src/app.js` synchroon), `npm run verify` groen, CI groen (ADR-014), cache-bump (`CACHE_VERSION` + `?v=`).
+
+## Ronde 2 (feedback eigenaar, 2026-11-24)
+
+- **Scherm 1: versie A (🪫) goedgekeurd, maar het icoon ALLEEN op de dag van vandaag** tonen, niet op andere dagen — mock `01-…` aangepast.
+- **Scherm 2: versie B (segmented) gekozen.** De tag "instant-maaltijd" wordt **niet** als chip getoond; in plaats daarvan een ℹ️-infoicoon met uitleg wanneer producten getoond worden (alleen tag `instant-maaltijd` + have > 0) — mock `05-…` aangepast.
+- **Scherm 3: instantkiezer = versie A** met diezelfde aanpassing (geen tag-chip, ℹ️) — mock `07-…` aangepast.
+- **Nieuw (scherm 4): afhaalmaaltijd kiest uit linkjes** van bestelsites, te configureren in Instellingen (scherm 5, `settings.takeawayLinks: [{ label, url }]`; lokaal, ADR-010) — mocks `10-afhaal-linkjes-sheet-versie-A.svg` + `11-instellingen-afhaal-linkjes.svg`. Klik op een link → opent in browser én dag wordt `{ custom: "Afhaalmaaltijd" }` + shift.
+- **Shift-regels bevestigd/aangevuld**: vinkjes (`checked`) schuiven mee (ze zeggen iets over de ingrediënten van dat gerecht); gerechten die naar de **volgende week** doorgeschoven worden zijn dan **niet meer gelocked**, tenzij er al een vinkje staat dat de ingrediënten in huis zijn (dan blijft `locked`).

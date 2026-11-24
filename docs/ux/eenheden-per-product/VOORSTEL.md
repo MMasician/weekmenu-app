@@ -1,6 +1,6 @@
 # UX-voorstel: meerdere eenheden per product (recept vs. voorraad/winkel) (issue #35)
 
-**Status: in review (issue #35, label `needs-review`).**
+**Status: goedgekeurd in issue #35 (label `ready`, 2026-11-24) — geïmplementeerd in PR #62.**
 
 ## Aanleiding (wens uit issue #35)
 
@@ -59,3 +59,10 @@ ADR-017 + `docs/SPECS.md` (Productcatalogus, Boodschappen, Voorraad) bijwerken; 
 verpakking); implementatie in `src/App.jsx` (product-kaart, UNITS/UNIT_FACTOR/UNIT_GROUP,
 ingrediënt-rij, boodschappen-aggregatie, normalizeProducts, delen via bestand ADR-019),
 `npm run build`, `npm run verify` groen, CI groen (ADR-014), cache-bump.
+
+## Ronde 2 (akkoord eigenaar, 2026-11-24 — verwerkt in deze PR)
+
+- **Scherm 1 (product-kaart): versie B** — "Inhoud per verpakking: [500] [g ▾] per 1 pot" (`02-productkaart-versie-B-inhoud-select.svg`).
+- **Scherm 2 (ingrediënt-rij): versie B, zonder beschrijvende omrekentekst** — conversie el/tl (15/5 ml) is impliciet en wordt niet aan de gebruiker getoond (`05-ingredient-rij-versie-B-zonder-omrekentekst.svg`).
+- **Scherm 3 (boodschappenlijst): versie A** — de eenheid van de verpakking wordt genoemd ("1 pot Kwark"), zonder de kleinere argumentatietekst (`07-boodschappen-versie-A-zonder-argumentatie.svg`).
+- **Regels bevestigd**: alleen hele verpakkingen haalbaar → naar boven afronden (ceil) als recepten kleinere eenheden gebruiken; zonder bekende verpakking (blik/pak/zak) mag gram gebruikt worden, ook als gram afwijkt van de inhoud van de eenheid (sperziebonen 400 g én 600 g); el/tl als 15/5 ml behandeld (dichtheid 1 g/ml), impliciet.
