@@ -1,4 +1,5 @@
 const fs = require("fs");
+const vm = require("vm");
 
 function loadApp(file, seed) {
   const store = seed ? { "weekmenu-app-v1": JSON.stringify(seed) } : {};
@@ -27,8 +28,11 @@ function loadApp(file, seed) {
   const FileReader = function () {};
   const window = { confirm: () => true };
   const code = fs.readFileSync(file, "utf8");
-  const fn = new Function("React", "localStorage", "document", "URL", "Blob", "FileReader", "window",
-    code + "\n;return { App }");
+  // vm (met filename) i.p.v. new Function, zodat V8-coverage (c8/NODE_V8_COVERAGE)
+  // de code aan dit bestand koppelt in plaats van aan een anoniem script
+  const wrapped = "(function (React, localStorage, document, URL, Blob, FileReader, window) {\n" +
+    code + "\n;return { App };\n})";
+  const fn = vm.runInNewContext(wrapped, {}, { filename: file });
   return Object.assign(fn(React, localStorage, document, URL, Blob, FileReader, window), { hooks, store });
 }
 
