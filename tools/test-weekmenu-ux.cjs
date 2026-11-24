@@ -278,5 +278,59 @@ function make(seed) {
   check("#37: gelockte dag van gisteren blijft staan", mbd[yesterday] && mbd[yesterday].id === "a1" && mbd[yesterday].locked === true);
 }
 
+// ---------- #38: herhaalregel per gerecht (dishRepeatDays) in regels-sheet + generatie ----------
+{
+  const t = make({ settings: { householdSize: 4, weekStartDay: 0, fishDays: [], vegaTarget: 2, tagRules: [] } });
+  t.findButton("Regels voor het weekmenu").props.onClick();
+  const seglLabels = () => {
+    const out = [];
+    const collect = (n) => {
+      if (Array.isArray(n)) { n.forEach(collect); return; }
+      if (n && n.type === "button") out.push({ label: String(n.children[0]), on: String(n.props.className || "") === "on", node: n });
+    };
+    t.walk(t.render(), (n) => {
+      if (n && n.type === "div" && String(n.props.className || "") === "segl") (n.children || []).forEach(collect);
+    });
+    return out;
+  };
+  const seg = seglLabels();
+  check("#38: segmented 'opnieuw plannen na' met volgorde altijd/3/7/14/30", JSON.stringify(seg.map((s) => s.label)) === JSON.stringify(["altijd", "3 dagen", "7 dagen", "14 dagen", "30 dagen"]));
+  check("#38: default 7 dagen actief (en geen beschrijvende tekst)", seg.length === 5 && seg[2].on && t.html().indexOf("Standaard: 7 dagen") === -1);
+  check("#38: dishRepeatDays default 7 in settings", (t.settingsState().dishRepeatDays || 0) === 7);
+  seg[3].node.props.onClick(); // 14 dagen
+  check("#38: klik '14 dagen' -> dishRepeatDays 14", t.settingsState().dishRepeatDays === 14);
+  seglLabels()[0].node.props.onClick(); // altijd (0)
+  check("#38: klik 'altijd' -> dishRepeatDays 0", t.settingsState().dishRepeatDays === 0);
+  t.findButton("Klaar").props.onClick();
+}
+{
+  // a1 is het enige vega-gerecht, 20 dagen geleden gelockt: met N=30 mag a1 NOOIT in de week; met N=0 juist wel (via vega-dagen)
+  const longAgo = dateKey(addDays(new Date(), -20));
+  const mkRecipes = () => [
+    { id: "a1", name: "Enig vega", cat: "vega", ingredients: ["1 aardappel"], bereiding: "", timeCat: "normaal", tags: [] },
+    ...["b1", "b2", "b3", "b4", "b5", "b6", "b7", "b8"].map((id, i) => ({ id, name: "Vlees " + i, cat: "vlees", ingredients: ["100 g vlees"], bereiding: "", timeCat: "normaal", tags: [] })),
+  ];
+  const base = { settings: { householdSize: 4, weekStartDay: 0, fishDays: [], vegaTarget: 2, tagRules: [] }, menuByDate: { [longAgo]: { id: "a1", locked: true } } };
+
+  const t30 = make({ ...base, recipes: mkRecipes(), settings: { ...base.settings, dishRepeatDays: 30 } });
+  t30.findButton("Genereer weekmenu").props.onClick();
+  const mbd30 = t30.menuByDateState();
+  const week30 = weekKeysFor(0, 0).map((k) => mbd30[k] && mbd30[k].id);
+  check("#38: N=30 -> a1 (20 dagen geleden) wordt niet opnieuw gepland", week30.every((id) => id !== "a1") && week30.filter(Boolean).length === 7);
+
+  const t0 = make({ ...base, recipes: mkRecipes(), settings: { ...base.settings, dishRepeatDays: 0 } });
+  t0.findButton("Genereer weekmenu").props.onClick();
+  const mbd0 = t0.menuByDateState();
+  const week0 = weekKeysFor(0, 0).map((k) => mbd0[k] && mbd0[k].id);
+  check("#38: N=0 (altijd) -> a1 mag opnieuw (enige vega-gerecht staat erin)", week0.filter((id) => id === "a1").length >= 1);
+  check("#38: gelockte dag 20 dagen geleden blijft staan", mbd0[longAgo] && mbd0[longAgo].id === "a1" && mbd0[longAgo].locked === true);
+
+  const t7 = make({ ...base, recipes: mkRecipes(), settings: { ...base.settings, dishRepeatDays: 7 } });
+  t7.findButton("Genereer weekmenu").props.onClick();
+  const mbd7 = t7.menuByDateState();
+  const week7 = weekKeysFor(0, 0).map((k) => mbd7[k] && mbd7[k].id);
+  check("#38: N=7 -> a1 (20 dagen geleden) mag weer (buiten de 7 dagen)", week7.filter((id) => id === "a1").length >= 1);
+}
+
 console.log(fails === 0 ? "ALLE TESTS GESLAAGD" : fails + " TEST(S) GEFAALD");
 process.exit(fails === 0 ? 0 : 1);
