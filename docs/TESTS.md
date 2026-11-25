@@ -10,6 +10,15 @@
 
 ## Te testen functionaliteit (per SPECS-sectie)
 
+### Tabbalk (#41, `tools/test-tabicoontjes.cjs`)
+- 5 tabknoppen met icoon (📅📖📦🛒⚙️) + `aria-label`/`title` = tabnaam; klein tekstlabel alleen onder de actieve tab; tabwissel rendert de juiste tab.
+- Boodschappen-teller als badge (`n/m`) op het 🛒-icoon, alleen bij teller > 0; geen badge bij lege lijst.
+
+### Thema's (#40, ADR-021; `tools/test-instellingen.cjs` + `tools/test-tabicoontjes.cjs`)
+- `settings.theme` default `"standaard"`; ongeldige waarde in opslag → `"standaard"`; geldige theme uit seed wordt geladen.
+- Instellingen-tab: kaart "Weergave" met 5 radio's (`name="theme"`); aanklikken wijzigt `settings.theme`; root-element draagt `data-theme`.
+- Feestthema's wisselen de tabicoontjes (kerstmis 🎄📖📦🎁⚙️, sinterklaas 🎁📖📦🛒🎅); donker/roze/standaard de standaardset.
+
 ### Weekmenu
 - Week regenereren: vis-dagen tonen visgerechten; overige dagen alleen vega/vlees volgens de ingestelde mix (som = aantal overige dagen).
 - Instellingen wijzigen (weekstart, vis-dagen, vega-aantal, aantal eters, supermarkten incl. standaard-selectie) → weekmenu en boodschappenlijst volgen de nieuwe instellingen (ADR-009, ADR-016).
@@ -36,7 +45,7 @@
 ### Voorraad (ADR-015, `tools/test-voorraad-locaties.cjs`)
 - Default-locaties geseed; locaties starten ingeklapt; teller is een kaal getal.
 - Locatie toevoegen via inline formulier onderaan; 🗑️ disabled zolang er producten aan hangen, leeg wel verwijderbaar.
-- Uitklappen toont producten (categorie als subtekst, have-stapper, grijs "gewenst n", winkel-chip, ✕); product toevoegen via inline formulier (naam + categorie verplicht + supermarkt optioneel + want-stapper, default 1; have = want); product altijd verwijderbaar.
+- Uitklappen toont producten (kale categorie als subtekst zonder "categorie:", #36; have-stapper, grijs "gewenst n", winkel-chip, ✕); product toevoegen via inline formulier (naam + categorie verplicht + supermarkt optioneel + want-stapper, default 1; have = want); product altijd verwijderbaar.
 - ✏️ edit-modus per locatie: want-stapper ipv grijs getal; have < want → tekort ("op lijst") → op de boodschappenlijst.
 - "Alles aangevuld" zet have = want; "Standaardlijst terug" reset naar defaults (17 producten, 5 locaties).
 - ℹ️-popover met uitleg op voorraad- en boodschappen-tab.

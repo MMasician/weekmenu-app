@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844">
+<style>text { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Color Emoji", sans-serif; }</style>
+<rect width="390" height="844" fill="#fafaf9"/>
+<text x="16" y="40" font-size="15" fill="#292524" text-anchor="start" font-weight="700">Weekmenu &amp; Boodschappen</text>
+<text x="374" y="40" font-size="9" fill="#a8a29e" text-anchor="end">4 eters</text>
+<rect x="16" y="64" width="358" height="40" rx="12" fill="#fff" stroke="#f0efed"/>
+<rect x="20.0" y="68" width="66.8" height="32" rx="8" fill="#292524" stroke="none"/>
+<text x="53.4" y="90" font-size="16" fill="#fff" text-anchor="middle">📅</text>
+<text x="124.19999999999999" y="90" font-size="16" fill="#78716c" text-anchor="middle">📖</text>
+<text x="195.0" y="90" font-size="16" fill="#78716c" text-anchor="middle">📦</text>
+<text x="265.79999999999995" y="90" font-size="16" fill="#78716c" text-anchor="middle">🛒</text>
+<text x="336.59999999999997" y="90" font-size="16" fill="#78716c" text-anchor="middle">⚙️</text>
+<text x="16" y="128" font-size="12" fill="#292524" text-anchor="start" font-weight="700">VANDAAG · di 25 nov</text>
+<text x="16" y="144" font-size="9" fill="#a8a29e" text-anchor="start">Week van za 22 nov – vr 28 nov</text>
+<rect x="16" y="160" width="358" height="62" rx="12" fill="#fff" stroke="#f0efed"/>
+<text x="28" y="186" font-size="12" fill="#292524" text-anchor="start" font-weight="600">di</text>
+<text x="28" y="200" font-size="8" fill="#a8a29e" text-anchor="start">25 nov · vandaag</text>
+<rect x="80" y="172" width="170" height="26" rx="8" fill="#fff" stroke="#d6d3d1"/>
+<text x="88" y="189" font-size="10" fill="#292524" text-anchor="start">Stamppot boerenkool</text>
+<rect x="80" y="202" width="40" height="13" rx="6.5" fill="#f5f5f4" stroke="#e7e5e4"/>
+<text x="100.0" y="211.2" font-size="7.5" fill="#78716c" text-anchor="middle">vega</text>
+<text x="300" y="190" font-size="11" fill="#57534e" text-anchor="start">👥</text>
+<text x="320" y="190" font-size="10" fill="#57534e" text-anchor="start">✅</text>
+<rect x="344" y="172" width="26" height="26" rx="6" fill="#f5f5f4" stroke="#d6d3d1"/>
+<text x="357" y="189" font-size="10" fill="#57534e" text-anchor="middle">🔒</text>
+<rect x="16" y="232" width="358" height="62" rx="12" fill="#fff" stroke="#f0efed"/>
+<text x="28" y="258" font-size="12" fill="#292524" text-anchor="start" font-weight="600">wo</text>
+<text x="28" y="272" font-size="8" fill="#a8a29e" text-anchor="start">26 nov</text>
+<rect x="80" y="244" width="170" height="26" rx="8" fill="#fff" stroke="#d6d3d1"/>
+<text x="88" y="261" font-size="10" fill="#292524" text-anchor="start">Kippensoep</text>
+<rect x="80" y="274" width="40" height="13" rx="6.5" fill="#f5f5f4" stroke="#e7e5e4"/>
+<text x="100.0" y="283.2" font-size="7.5" fill="#78716c" text-anchor="middle">vlees</text>
+<text x="300" y="262" font-size="11" fill="#57534e" text-anchor="start">👥</text>
+<rect x="344" y="244" width="26" height="26" rx="6" fill="#f5f5f4" stroke="#d6d3d1"/>
+<text x="357" y="261" font-size="10" fill="#57534e" text-anchor="middle">🔒</text>
+<text x="195.0" y="838" font-size="9" fill="#d6d3d1" text-anchor="middle">Scherm 1 · versie A: emoji-iconen in de bestaande pill-nav (390px)</text>
+</svg>

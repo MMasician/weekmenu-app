@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844">
+<style>text { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Color Emoji", sans-serif; }</style>
+<rect width="390" height="844" fill="#fafaf9"/>
+<text x="16" y="40" font-size="15" fill="#292524" text-anchor="start" font-weight="700">Weekmenu &amp; Boodschappen</text>
+<text x="374" y="40" font-size="9" fill="#a8a29e" text-anchor="end">4 eters</text>
+<rect x="16" y="64" width="358" height="40" rx="12" fill="#fff" stroke="#f0efed"/>
+<text x="53.4" y="89" font-size="8.5" fill="#78716c" text-anchor="middle">Weekmenu</text>
+<text x="124.19999999999999" y="89" font-size="8.5" fill="#78716c" text-anchor="middle">Recepten</text>
+<text x="195.0" y="89" font-size="8.5" fill="#78716c" text-anchor="middle">Voorraad</text>
+<text x="265.79999999999995" y="89" font-size="8.5" fill="#78716c" text-anchor="middle">Boodschappen</text>
+<rect x="303.2" y="68" width="66.8" height="32" rx="8" fill="#292524" stroke="none"/>
+<text x="336.59999999999997" y="89" font-size="8.5" fill="#fff" text-anchor="middle" font-weight="600">Instellingen</text>
+<rect x="16" y="136" width="358" height="240" rx="12" fill="#fff" stroke="#f0efed"/>
+<text x="28" y="162" font-size="12" fill="#292524" text-anchor="start" font-weight="700">Weergave</text>
+<text x="28" y="178" font-size="8.5" fill="#a8a29e" text-anchor="start">Kies hoe de app eruitziet (lokaal opgeslagen per huishouden).</text>
+<circle cx="36" cy="201" r="6" fill="none" stroke="#d6d3d1"/>
+<circle cx="36" cy="201" r="3" fill="#292524" stroke="none"/>
+<text x="50" y="205" font-size="10" fill="#292524" text-anchor="start" font-weight="600">Standaard</text>
+<circle cx="320" cy="201" r="5" fill="#fafaf9" stroke="#d6d3d1"/>
+<circle cx="334" cy="201" r="5" fill="#ffffff" stroke="#d6d3d1"/>
+<circle cx="348" cy="201" r="5" fill="#292524" stroke="#d6d3d1"/>
+<circle cx="36" cy="233" r="6" fill="none" stroke="#d6d3d1"/>
+<text x="50" y="237" font-size="10" fill="#57534e" text-anchor="start">Donker</text>
+<circle cx="320" cy="233" r="5" fill="#1c1917" stroke="#d6d3d1"/>
+<circle cx="334" cy="233" r="5" fill="#292524" stroke="#d6d3d1"/>
+<circle cx="348" cy="233" r="5" fill="#a8a29e" stroke="#d6d3d1"/>
+<circle cx="36" cy="265" r="6" fill="none" stroke="#d6d3d1"/>
+<text x="50" y="269" font-size="10" fill="#57534e" text-anchor="start">Roze</text>
+<circle cx="320" cy="265" r="5" fill="#fdf2f8" stroke="#d6d3d1"/>
+<circle cx="334" cy="265" r="5" fill="#ffffff" stroke="#d6d3d1"/>
+<circle cx="348" cy="265" r="5" fill="#db2777" stroke="#d6d3d1"/>
+<circle cx="36" cy="297" r="6" fill="none" stroke="#d6d3d1"/>
+<text x="50" y="301" font-size="10" fill="#57534e" text-anchor="start">🎁 Sinterklaas</text>
+<circle cx="320" cy="297" r="5" fill="#581c87" stroke="#d6d3d1"/>
+<circle cx="334" cy="297" r="5" fill="#fbbf24" stroke="#d6d3d1"/>
+<circle cx="348" cy="297" r="5" fill="#ffffff" stroke="#d6d3d1"/>
+<circle cx="36" cy="329" r="6" fill="none" stroke="#d6d3d1"/>
+<text x="50" y="333" font-size="10" fill="#57534e" text-anchor="start">🎄 Kerstmis</text>
+<circle cx="320" cy="329" r="5" fill="#7f1d1d" stroke="#d6d3d1"/>
+<circle cx="334" cy="329" r="5" fill="#16a34a" stroke="#d6d3d1"/>
+<circle cx="348" cy="329" r="5" fill="#fbbf24" stroke="#d6d3d1"/>
+<text x="195.0" y="838" font-size="9" fill="#d6d3d1" text-anchor="middle">Scherm 1 · versie B: radio-lijst met kleurpreview per thema</text>
+</svg>

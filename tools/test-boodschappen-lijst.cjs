@@ -40,7 +40,7 @@ function make(seed) {
   };
   const findTab = (label) => {
     let found = null;
-    walk(render(), (n) => { if (n && n.type === "button" && n.children && String(n.children[0]).indexOf(label) === 0) found = n; });
+    walk(render(), (n) => { if (n && n.type === "button" && String(n.props["aria-label"] || n.props.title || "").indexOf(label) === 0) found = n; });
     return found;
   };
   const findBtn = (pred) => {
@@ -264,7 +264,7 @@ const baseSeed = () => ({
   check("#33: afwijkende eenheid (stuks) merge NIET mee -> aparte regel", h.indexOf("stuks") !== -1);
   check("#33: 3 rijen totaal (appels / kipgehakt in kg / kipgehakt in stuks)", t.checkboxes().length === 3);
   t.checkboxes()[0].props.onChange({ target: { checked: true } }); // appel-rij (fruit staat eerst op categorie-volgorde)
-  check("#33: afvinken samengevoegde regel zet alle bronrijen -> teller (1/3) in de tab", JSON.stringify(t.findTab("Boodschappen").children).indexOf("(1/3)") !== -1);
+  check("#33: afvinken samengevoegde regel zet alle bronrijen -> badge (1/3) op het boodschappen-icoon (#41)", JSON.stringify(t.findTab("Boodschappen").children).indexOf("1/3") !== -1);
   t.findTab("Weekmenu").props.onClick();
   h = t.html();
   check("#33: gerechtstatus werkt op de bronrijen: vandaag ❗ '1 van de 2 ingrediënten mist nog'", h.indexOf("1 van de 2") !== -1);

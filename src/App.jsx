@@ -29,7 +29,25 @@ const DEFAULT_SETTINGS = {
   tagRules: [], // #37: [{ kind: "product" | "recipe", tag, days }]
   dishRepeatDays: 7, // #38: aantal dagen wachten voordat een gerecht opnieuw gepland mag (0 = volgende dag mag al)
   takeawayLinks: [], // #42: bestelsites voor afhaalmaaltijd [{ id, label, url }]
+  theme: "standaard", // #40: thema/weergave ("standaard" | "donker" | "roze" | "sinterklaas" | "kerstmis")
 };
+
+// #40: thema's — "standaard" is de huidige kleurstelling; donker/roze via CSS-variabelen, de
+// feestthema's ook met eigen inline-SVG-achtergrond en eigen tabicoontjes (styles.css)
+const THEMES = [
+  { key: "standaard", label: "Standaard", dots: ["#fafaf9", "#ffffff", "#292524"] },
+  { key: "donker", label: "Donker", dots: ["#1c1917", "#292524", "#a8a29e"] },
+  { key: "roze", label: "Roze", dots: ["#fdf2f8", "#ffffff", "#db2777"] },
+  { key: "sinterklaas", label: "\uD83C\uDF81 Sinterklaas", dots: ["#2e1065", "#fbbf24", "#f5f3ff"] },
+  { key: "kerstmis", label: "\uD83C\uDF84 Kerstmis", dots: ["#7f1d1d", "#166534", "#fbbf24"] },
+];
+const THEME_KEYS = THEMES.map((t) => t.key);
+const THEME_TAB_ICONS = {
+  standaard: { menu: "\uD83D\uDCC5", recipes: "\uD83D\uDCD6", stock: "\uD83D\uDCE6", shopping: "\uD83D\uDED2", settings: "\u2699\uFE0F" },
+  sinterklaas: { menu: "\uD83C\uDF81", recipes: "\uD83D\uDCD6", stock: "\uD83D\uDCE6", shopping: "\uD83D\uDED2", settings: "\uD83C\uDF85" },
+  kerstmis: { menu: "\uD83C\uDF84", recipes: "\uD83D\uDCD6", stock: "\uD83D\uDCE6", shopping: "\uD83C\uDF81", settings: "\u2699\uFE0F" },
+};
+const THEME_META = { standaard: "#059669", donker: "#1c1917", roze: "#db2777", sinterklaas: "#2e1065", kerstmis: "#7f1d1d" };
 
 function normalizeDayList(arr, fallback) {
   if (!Array.isArray(arr)) return [...fallback];
@@ -77,6 +95,7 @@ function normalizeSettings(s) {
       url: String((l && l.url) || "").trim(),
     }))
     .filter((l) => l.label || l.url);
+  out.theme = THEME_KEYS.includes(out.theme) ? out.theme : d.theme; // #40: ongeldige waarde -> standaard
   return out;
 }
 // Voorraad (ADR-015): per-huishouden locaties; per product een locatie, categorie (shopCats),
@@ -905,6 +924,13 @@ export default function App() {
   useEffect(() => {
     saveState({ menuByDate, recipes, checked, extraItems, settings, stock, stockLocations, products, deleted, checkedAt });
   }, [menuByDate, recipes, checked, extraItems, settings, stock, stockLocations, products, deleted, checkedAt]);
+
+  // #40: thema toepassen op <body> (CSS-variabelen cascaden) + PWA-statusbalk (theme-color)
+  useEffect(() => {
+    if (typeof document !== "undefined" && document.body) document.body.dataset.theme = settings.theme;
+    const meta = typeof document !== "undefined" && document.querySelector ? document.querySelector('meta[name="theme-color"]') : null;
+    if (meta && meta.setAttribute) meta.setAttribute("content", THEME_META[settings.theme] || THEME_META.standaard);
+  }, [settings.theme]);
 
   const markets = settings.markets;
   const days = useMemo(
@@ -2377,12 +2403,14 @@ export default function App() {
   ];
   const anyScaled = scaledFactors.length > 0;
 
+  // #41: tabbalk met icoontjes (versie C): icoon per tab + klein label onder de actieve tab; teller als badge
+  const tabIcons = THEME_TAB_ICONS[settings.theme] || THEME_TAB_ICONS.standaard; // #40: feestthema's eigen iconen
   const tabs = [
-    { key: "menu", label: "Weekmenu" },
-    { key: "recipes", label: "Recepten" },
-    { key: "stock", label: "Voorraad" },
-    { key: "shopping", label: `Boodschappen${totalItems ? ` (${doneItems}/${totalItems})` : ""}` },
-    { key: "settings", label: "Instellingen" },
+    { key: "menu", label: "Weekmenu", icon: tabIcons.menu },
+    { key: "recipes", label: "Recepten", icon: tabIcons.recipes },
+    { key: "stock", label: "Voorraad", icon: tabIcons.stock },
+    { key: "shopping", label: "Boodschappen", icon: tabIcons.shopping },
+    { key: "settings", label: "Instellingen", icon: tabIcons.settings },
   ];
 
   // --- Tab-views: elke tab/sheet als eigen render-functie, direct aangeroepen (geen <Component/>):
@@ -2948,7 +2976,7 @@ export default function App() {
                           ) : (
                             s.name
                           )}
-                          <span className="block text-[10px] text-stone-400">{`categorie: ${cat}`}</span>
+                          <span className="block text-[10px] text-stone-400">{cat}</span>
                         </span>
                         <span className="flex items-center gap-1" title="Huidige voorraad">
                           <button className="w-7 h-7 rounded-lg bg-stone-100 font-bold text-stone-600" onClick={() => bumpHave(s.i, -1)}>−</button>
@@ -3448,6 +3476,28 @@ export default function App() {
     <div>
       <div className="mb-2 text-xs text-stone-500">
         Instellingen per huishouden. Ze worden alleen lokaal op dit toestel bewaard (localStorage) en gelden direct voor het weekmenu en de boodschappenlijst. Dagindex 0 is de weekstart ({days[0]}).
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm p-4 mb-4">
+        <div className="text-sm font-medium mb-1">Weergave</div>
+        <div className="text-xs text-stone-500 mb-2">Thema van de app — lokaal opgeslagen per huishouden (#40).</div>
+        {THEMES.map((th) => (
+          <label key={th.key} className="flex items-center gap-2 py-1.5 cursor-pointer text-sm" title={`Thema ${th.label}`}>
+            <input
+              type="radio"
+              name="theme"
+              checked={settings.theme === th.key}
+              onChange={() => updateSettings({ theme: th.key })}
+              className="accent-emerald-600"
+            />
+            <span className={settings.theme === th.key ? "font-semibold" : "text-stone-600"}>{th.label}</span>
+            <span className="ml-auto flex gap-1">
+              {th.dots.map((dot, di) => (
+                <span key={di} className="inline-block w-4 h-4 rounded-full border border-stone-300" style={{ background: dot }} />
+              ))}
+            </span>
+          </label>
+        ))}
       </div>
 
       <div className="bg-white rounded-xl shadow-sm p-4 mb-4">
@@ -3966,7 +4016,7 @@ export default function App() {
   );
 
   return (
-    <div className="min-h-screen bg-stone-50 text-stone-800">
+    <div className="min-h-screen bg-stone-50 text-stone-800" data-theme={settings.theme}>
       <div className="mx-auto max-w-2xl px-4 pb-16">
         <header className="pt-6 pb-3 flex items-center justify-between">
           <h1 className="text-2xl font-bold">Weekmenu &amp; Boodschappen</h1>
@@ -3978,11 +4028,15 @@ export default function App() {
             <button
               key={t.key}
               onClick={() => goTab(t.key)}
-              className={`flex-1 py-2 rounded-lg text-sm font-medium transition ${
-                tab === t.key ? "bg-stone-800 text-white" : "text-stone-500 hover:bg-stone-100"
-              }`}
+              title={t.label}
+              aria-label={t.label}
+              className={`tabbtn ${tab === t.key ? "bg-stone-800 text-white" : "text-stone-500 hover:bg-stone-100"}`}
             >
-              {t.label}
+              <span className="tabicon">{t.icon}</span>
+              {tab === t.key && <span className="tablabel">{t.label}</span>}
+              {t.key === "shopping" && totalItems > 0 && (
+                <span className="tabbadge" title={`${doneItems} van ${totalItems} afgevinkt`}>{`${doneItems}/${totalItems}`}</span>
+              )}
             </button>
           ))}
         </nav>
