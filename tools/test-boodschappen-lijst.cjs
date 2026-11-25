@@ -326,5 +326,34 @@ const baseSeed = () => ({
   check("#43: na afvinken toont de dag ✅ 'in huis' (versie A)", h.indexOf("✅") !== -1 && h.indexOf("Alle ingrediënten van dit gerecht zijn in huis") !== -1);
 }
 
+
+// ---------- 10. #35: weergave op de lijst in winkel-eenheid (pack ceil / min. 100 g/ml / nooit el-tl) ----------
+{
+  const seed = {
+    settings: { householdSize: 4, weekStartDay: 0, markets: [{ key: "ah", label: "Albert Heijn", defaultShop: true }] },
+    products: [
+      { id: "p-kwark", name: "Kwark", cat: "zuivel", market: null, unit: "pot", tags: [], pack: { amount: 500, unit: "g" } },
+      { id: "p-peper", name: "Peper", cat: "kruiden", market: null, unit: null, tags: [], pack: null },
+      { id: "p-mosterd", name: "Mosterd", cat: "kruiden", market: null, unit: null, tags: [], pack: null },
+    ],
+    recipes: [
+      { id: "rA", name: "Gerecht A", cat: "vega", ingredients: ["4 el kwark", "50 g peper", "1 tl mosterd"], bereiding: "", timeCat: "normaal", tags: [] },
+      { id: "rB", name: "Gerecht B", cat: "vis", ingredients: ["2 el kwark"], bereiding: "", timeCat: "normaal", tags: [] },
+    ],
+    menuByDate: { [todayK]: { id: "rA", locked: true }, [d1K]: { id: "rB", locked: true } },
+    stock: [],
+    extraItems: [],
+    checked: {},
+  };
+  const t = make(seed);
+  t.findTab("Boodschappen").props.onClick();
+  const h = t.html();
+  check("#35: 4 el + 2 el kwark (6 el = 90 g) met pack 500 g -> hele verpakking ceil '1 pot Kwark'", h.indexOf("1 pot Kwark") !== -1);
+  check("#35: nooit el/tl op de lijst (geen '6 el' / 'el Kwark' in de kwark-regel)", h.indexOf("el Kwark") === -1 && h.indexOf("6 el") === -1);
+  check("#35: zonder pack en som < 100 g -> min. 100 g ('100 g Peper', geen '50 g')", h.indexOf("100 g Peper") !== -1 && h.indexOf("50 g") === -1);
+  check("#35: tl zonder pack -> impliciet naar ml met min. 100 ml ('100 ml Mosterd', geen '1 tl')", h.indexOf("100 ml Mosterd") !== -1 && h.indexOf("1 tl") === -1);
+  check("#35: pack genormaliseerd bij laden (p-peper.pack === null)", t.m.hooks.state.find((x) => Array.isArray(x) && x.length && x[0] && "unit" in x[0]).find((p2) => p2.id === "p-peper").pack === null);
+}
+
 console.log(fails === 0 ? "ALLE TESTS GESLAAGD" : fails + " TEST(S) GEFAALD");
 process.exit(fails === 0 ? 0 : 1);
