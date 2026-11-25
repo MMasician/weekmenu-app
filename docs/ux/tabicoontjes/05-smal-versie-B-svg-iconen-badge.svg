@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="844" viewBox="0 0 360 844">
+<style>text { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Color Emoji", sans-serif; }</style>
+<rect width="360" height="844" fill="#fafaf9"/>
+<text x="16" y="40" font-size="15" fill="#292524" text-anchor="start" font-weight="700">Weekmenu &amp; Boodschappen</text>
+<text x="344" y="40" font-size="9" fill="#a8a29e" text-anchor="end">4 eters</text>
+<rect x="16" y="64" width="328" height="40" rx="12" fill="#fff" stroke="#f0efed"/>
+<rect x="20.0" y="68" width="60.8" height="32" rx="8" fill="#292524" stroke="none"/>
+<rect x="41.4" y="75" width="18" height="16" rx="3" fill="none" stroke="#fff"/>
+<line x1="41.4" y1="80" x2="59.4" y2="80" stroke="#fff" stroke-width="1.4"/>
+<line x1="45.4" y1="72" x2="45.4" y2="77" stroke="#fff" stroke-width="1.4"/>
+<line x1="55.4" y1="72" x2="55.4" y2="77" stroke="#fff" stroke-width="1.4"/>
+<circle cx="47.4" cy="85" r="1.2" fill="#fff" stroke="none"/>
+<circle cx="53.4" cy="85" r="1.2" fill="#fff" stroke="none"/>
+<rect x="107.19999999999999" y="75" width="16" height="16" rx="2" fill="none" stroke="#78716c"/>
+<line x1="115.19999999999999" y1="75" x2="115.19999999999999" y2="91" stroke="#78716c" stroke-width="1.4"/>
+<line x1="110.19999999999999" y1="79" x2="114.19999999999999" y2="79" stroke="#78716c" stroke-width="1.4"/>
+<line x1="116.19999999999999" y1="79" x2="120.19999999999999" y2="79" stroke="#78716c" stroke-width="1.4"/>
+<line x1="110.19999999999999" y1="84" x2="114.19999999999999" y2="84" stroke="#78716c" stroke-width="1.4"/>
+<line x1="116.19999999999999" y1="84" x2="120.19999999999999" y2="84" stroke="#78716c" stroke-width="1.4"/>
+<rect x="172.0" y="77" width="16" height="13" rx="2" fill="none" stroke="#78716c"/>
+<line x1="172.0" y1="82" x2="188.0" y2="82" stroke="#78716c" stroke-width="1.4"/>
+<line x1="180.0" y1="77" x2="180.0" y2="82" stroke="#78716c" stroke-width="1.4"/>
+<path d="M 235.79999999999998 76 L 238.79999999999998 87 L 251.79999999999998 87 L 253.79999999999998 79 L 240.79999999999998 79" fill="none" stroke="#78716c" stroke-width="1.6"/>
+<circle cx="241.79999999999998" cy="90.5" r="1.6" fill="#78716c" stroke="none"/>
+<circle cx="249.79999999999998" cy="90.5" r="1.6" fill="#78716c" stroke="none"/>
+<circle cx="269.2" cy="72" r="8" fill="#ea580c" stroke="none"/>
+<text x="269.2" y="74.5" font-size="6.5" fill="#fff" text-anchor="middle" font-weight="700">2/5</text>
+<circle cx="309.59999999999997" cy="83" r="4.5" fill="none" stroke="#78716c"/>
+<line x1="304.34999999999997" y1="83.0" x2="302.59999999999997" y2="83" stroke="#78716c" stroke-width="1.6"/>
+<line x1="314.84999999999997" y1="83.0" x2="316.59999999999997" y2="83" stroke="#78716c" stroke-width="1.6"/>
+<line x1="309.59999999999997" y1="77.75" x2="309.59999999999997" y2="76" stroke="#78716c" stroke-width="1.6"/>
+<line x1="309.59999999999997" y1="88.25" x2="309.59999999999997" y2="90" stroke="#78716c" stroke-width="1.6"/>
+<line x1="305.84999999999997" y1="79.25" x2="304.59999999999997" y2="78" stroke="#78716c" stroke-width="1.6"/>
+<line x1="313.34999999999997" y1="79.25" x2="314.59999999999997" y2="78" stroke="#78716c" stroke-width="1.6"/>
+<line x1="305.84999999999997" y1="86.75" x2="304.59999999999997" y2="88" stroke="#78716c" stroke-width="1.6"/>
+<line x1="313.34999999999997" y1="86.75" x2="314.59999999999997" y2="88" stroke="#78716c" stroke-width="1.6"/>
+<text x="16" y="128" font-size="12" fill="#292524" text-anchor="start" font-weight="700">VANDAAG · di 25 nov</text>
+<text x="16" y="144" font-size="9" fill="#a8a29e" text-anchor="start">Week van za 22 nov – vr 28 nov</text>
+<rect x="16" y="160" width="328" height="62" rx="12" fill="#fff" stroke="#f0efed"/>
+<text x="28" y="186" font-size="12" fill="#292524" text-anchor="start" font-weight="600">di</text>
+<text x="28" y="200" font-size="8" fill="#a8a29e" text-anchor="start">25 nov · vandaag</text>
+<rect x="80" y="172" width="170" height="26" rx="8" fill="#fff" stroke="#d6d3d1"/>
+<text x="88" y="189" font-size="10" fill="#292524" text-anchor="start">Stamppot boerenkool</text>
+<rect x="80" y="202" width="40" height="13" rx="6.5" fill="#f5f5f4" stroke="#e7e5e4"/>
+<text x="100.0" y="211.2" font-size="7.5" fill="#78716c" text-anchor="middle">vega</text>
+<text x="270" y="190" font-size="11" fill="#57534e" text-anchor="start">👥</text>
+<text x="290" y="190" font-size="10" fill="#57534e" text-anchor="start">✅</text>
+<rect x="314" y="172" width="26" height="26" rx="6" fill="#f5f5f4" stroke="#d6d3d1"/>
+<text x="327" y="189" font-size="10" fill="#57534e" text-anchor="middle">🔒</text>
+<rect x="16" y="232" width="328" height="62" rx="12" fill="#fff" stroke="#f0efed"/>
+<text x="28" y="258" font-size="12" fill="#292524" text-anchor="start" font-weight="600">wo</text>
+<text x="28" y="272" font-size="8" fill="#a8a29e" text-anchor="start">26 nov</text>
+<rect x="80" y="244" width="170" height="26" rx="8" fill="#fff" stroke="#d6d3d1"/>
+<text x="88" y="261" font-size="10" fill="#292524" text-anchor="start">Kippensoep</text>
+<rect x="80" y="274" width="40" height="13" rx="6.5" fill="#f5f5f4" stroke="#e7e5e4"/>
+<text x="100.0" y="283.2" font-size="7.5" fill="#78716c" text-anchor="middle">vlees</text>
+<text x="270" y="262" font-size="11" fill="#57534e" text-anchor="start">👥</text>
+<rect x="314" y="244" width="26" height="26" rx="6" fill="#f5f5f4" stroke="#d6d3d1"/>
+<text x="327" y="261" font-size="10" fill="#57534e" text-anchor="middle">🔒</text>
+<text x="180.0" y="838" font-size="9" fill="#d6d3d1" text-anchor="middle">Scherm 2 · versie B: eigen SVG-lijniconen (360px, smal scherm) · badge teller op boodschappen</text>
+</svg>

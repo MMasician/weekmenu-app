@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844">
+<style>text { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Color Emoji", sans-serif; }</style>
+<rect width="390" height="844" fill="#fafaf9"/>
+<text x="16" y="40" font-size="15" fill="#292524" text-anchor="start" font-weight="700">Weekmenu &amp; Boodschappen</text>
+<text x="374" y="40" font-size="9" fill="#a8a29e" text-anchor="end">4 eters</text>
+<rect x="16" y="64" width="358" height="40" rx="12" fill="#fff" stroke="#f0efed"/>
+<text x="53.4" y="89" font-size="8.5" fill="#78716c" text-anchor="middle">Weekmenu</text>
+<text x="124.19999999999999" y="89" font-size="8.5" fill="#78716c" text-anchor="middle">Recepten</text>
+<text x="195.0" y="89" font-size="8.5" fill="#78716c" text-anchor="middle">Voorraad</text>
+<text x="265.79999999999995" y="89" font-size="8.5" fill="#78716c" text-anchor="middle">Boodschappen</text>
+<rect x="303.2" y="68" width="66.8" height="32" rx="8" fill="#292524" stroke="none"/>
+<text x="336.59999999999997" y="89" font-size="8.5" fill="#fff" text-anchor="middle" font-weight="600">Instellingen</text>
+<rect x="16" y="136" width="358" height="240" rx="12" fill="#fff" stroke="#f0efed"/>
+<text x="28" y="162" font-size="12" fill="#292524" text-anchor="start" font-weight="700">Weergave</text>
+<text x="28" y="178" font-size="8.5" fill="#a8a29e" text-anchor="start">Kies hoe de app eruitziet (lokaal opgeslagen per huishouden).</text>
+<rect x="28" y="194" width="62" height="24" rx="12.0" fill="#292524" stroke="none"/>
+<text x="59.0" y="209.06" font-size="8.5" fill="#fff" text-anchor="middle" font-weight="600">Standaard</text>
+<rect x="96" y="194" width="50" height="24" rx="12.0" fill="#f5f5f4" stroke="#e7e5e4"/>
+<text x="121.0" y="209.06" font-size="8.5" fill="#78716c" text-anchor="middle">Donker</text>
+<rect x="152" y="194" width="42" height="24" rx="12.0" fill="#f5f5f4" stroke="#e7e5e4"/>
+<text x="173.0" y="209.06" font-size="8.5" fill="#78716c" text-anchor="middle">Roze</text>
+<rect x="200" y="194" width="92" height="24" rx="12.0" fill="#f5f5f4" stroke="#e7e5e4"/>
+<text x="246.0" y="209.06" font-size="8.5" fill="#78716c" text-anchor="middle">🎁 Sinterklaas</text>
+<rect x="298" y="194" width="88" height="24" rx="12.0" fill="#f5f5f4" stroke="#e7e5e4"/>
+<text x="342.0" y="209.06" font-size="8.5" fill="#78716c" text-anchor="middle">🎄 Kerstmis</text>
+<text x="28" y="246" font-size="8" fill="#a8a29e" text-anchor="start">Standaard = huidige kleurstelling (default).</text>
+<text x="195.0" y="838" font-size="9" fill="#d6d3d1" text-anchor="middle">Scherm 1 · versie A: thema als chips (single-select) in kaart 'Weergave'</text>
+</svg>
