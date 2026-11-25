@@ -241,6 +241,57 @@ async def update_issue_body(repo: str, number: int, body: str) -> None:
     await _gh("PUT", f"/repos/{repo}/issues/{number}", {"body": body})
 
 
+def _merge_dor_into_body(body: str, dor: dict[str, Any]) -> str:
+    """Vervang de sectie vanaf '## Rest van de DoR' in de issue-body door de door de agent
+    ingevulde DoR (gestructureerde velden -> deterministische markdown). Alles vóór die
+    sectie (de seed) blijft behouden."""
+    head = body.partition("## Rest van de DoR")[0].rstrip()
+
+    def s(key: str) -> str:
+        v = dor.get(key)
+        return str(v).strip() if v is not None else ""
+
+    ac = [str(x).strip() for x in (dor.get("acceptatiecriteria") or []) if str(x).strip()]
+    rand = dor.get("randgevallen") if isinstance(dor.get("randgevallen"), dict) else {}
+    verif = [str(x).strip() for x in (dor.get("verificatie") or []) if str(x).strip()]
+    section = "\n".join(
+        [
+            "## Rest van de DoR — ingevuld door de agent, te accorderen door de eigenaar",
+            "",
+            "### Acceptatiecriteria",
+            "<!-- Concreet en testbaar, bijv. Given/When/Then -->",
+            *([f"- [ ] {c}" for c in ac] or ["- [ ] (nog in te vullen)"]),
+            "",
+            "### Scope",
+            f"- Getroffen tab(s)/onderdelen: {s('scope_getroffen') or '—'}",
+            f"- Buiten scope: {s('scope_buiten') or '—'}",
+            "",
+            "### UX / mocks",
+            s("ux_mocks") or "geen UI-wijziging",
+            "",
+            "### Randgevallen",
+            f"- [ ] Lege state: {rand.get('lege_state') or '—'}",
+            f"- [ ] Foutafhandeling: {rand.get('foutafhandeling') or '—'}",
+            f"- [ ] Offline gedrag: {rand.get('offline') or '—'}",
+            f"- [ ] Per-huishouden-instellingen (ADR-009/ADR-010): {rand.get('per_huishouden') or '—'}",
+            "",
+            "### Open vragen",
+            s("open_vragen") or "geen open vragen",
+            "",
+            "### Verificatie",
+            *(
+                [f"- [ ] {v}" for v in verif]
+                or ["- [ ] Tests uitgebreid in `tools/test-*.cjs`", "- [ ] `npm run verify` geslaagd", "- [ ] CI groen (ADR-014)"]
+            ),
+            "",
+            "### Afhankelijkheden",
+            s("afhankelijkheden") or "geen",
+            "",
+        ]
+    )
+    return f"{head}\n\n{section}"
+
+
 @workflows.activity(start_to_close_timeout=timedelta(minutes=20), retry_policy_max_attempts=2)
 async def generate_issue_dor(
     repo: str,
@@ -251,19 +302,22 @@ async def generate_issue_dor(
     mode: str,
     model: str,
 ) -> dict[str, Any]:
-    """Aparte, kleine call voor de DoR in het issue zelf (zodat de grote files-call hem niet wegdrukt)."""
+    """Aparte call voor de DoR: gestructureerde velden (geen hele doc reproduceren), die de
+    workflow deterministisch in de issue-body merget via _merge_dor_into_body."""
     system = (
         "Je bent de repo-agent voor het GitHub-repo " + repo + " (zie docs/domeinproces.md). "
         "Je taak nu: vul ALLEEN de Definition of Ready van het issue in — de eigenaar reviewt de DoR in het issue zelf."
     )
     user = (
         f"Issue #{issue_number}: {title}\n\n--- issue body ---\n{body}\n\n--- comments ---\n{comments_text}\n\n"
-        'Geef ALLEEN JSON terug: {"issue_body": str, "summary": str}. '
-        '"issue_body" = de VOLLEDIGE nieuwe issue-tekst (markdown): seed-secties behouden en alle DoR-secties '
-        "ingevuld — acceptatiecriteria (concreet/testbaar), scope (tab(s)/onderdelen + expliciet buiten scope), "
-        "UX/mocks (welk docs/ux/<onderwerp>/ met hoeveel versies per scherm), randgevallen (lege state, "
-        'foutafhandeling, offline, per-huishouden), open vragen, verificatie, afhankelijkheden. '
-        'Beknopt: korte bullets. Laat "issue_body" leeg als de body niet wijzigt.'
+        'Geef ALLEEN JSON terug met dit schema (vul ALLE velden in; leeg mag alleen als echt niet van toepassing): '
+        '{"acceptatiecriteria": ["Given ..., When ..., Then ...", ...], '
+        '"scope_getroffen": "...", "scope_buiten": "...", '
+        '"ux_mocks": "docs/ux/<onderwerp>/ met N versies per scherm: ...", '
+        '"randgevallen": {"lege_state": "...", "foutafhandeling": "...", "offline": "...", "per_huishouden": "..."}, '
+        '"open_vragen": "... of: geen open vragen", '
+        '"verificatie": ["tests in tools/test-*.cjs", "npm run verify", "CI groen"], '
+        '"afhankelijkheden": "...", "summary": "korte samenvatting"}'
     )
     raw = await _mistral_chat([{"role": "system", "content": system}, {"role": "user", "content": user}], model)
     try:
@@ -271,10 +325,9 @@ async def generate_issue_dor(
     except json.JSONDecodeError:
         m = re.search(r"\{.*\}", raw, re.DOTALL)
         data = json.loads(m.group(0)) if m else {}
-    return {
-        "issue_body": str(data.get("issue_body") or ""),
-        "summary": str(data.get("summary") or ""),
-    }
+    if not isinstance(data, dict):
+        data = {}
+    return data
 
 
 @workflows.activity(start_to_close_timeout=timedelta(minutes=45), retry_policy_max_attempts=2)
@@ -418,8 +471,9 @@ class IssueAgentRunWorkflow:
             dor = await generate_issue_dor(
                 data.repo, data.issue_number, title, body, comments_text, data.mode, data.model
             )
-            if dor["issue_body"] and not data.dry_run:
-                await update_issue_body(data.repo, data.issue_number, dor["issue_body"])
+            new_body = _merge_dor_into_body(body, dor)
+            if new_body != body and not data.dry_run:
+                await update_issue_body(data.repo, data.issue_number, new_body)
 
             product = await generate_work_product(
                 data.repo, data.issue_number, title, body, comments_text, data.mode, data.model

@@ -118,13 +118,13 @@ async def _run_agent(
 
 async def test_agent_run_dry_run_writes_nothing(temporal_env, monkeypatch) -> None:
     fake = FakeGitHub(issue=_issue(37, ["ready"]), comments={37: []})
-    # ook mét issue_body in het product: dry_run mag niets schrijven, ook geen issue-PUT
+    # ook mét ingevulde DoR-velden: dry_run mag niets schrijven, ook geen issue-PUT
     result = await _run_agent(
         temporal_env,
         monkeypatch,
         fake,
         dry_run=True,
-        product_json='{"pr_title":"t","pr_body":"b","summary":"s","issue_body":"## DoR","files":[]}',
+        product_json='{"acceptatiecriteria":["Given x, When y, Then z"],"summary":"s","files":[]}',
     )
     assert result["dry_run"] is True
     assert result["branch"] is None and result["pr_number"] is None
@@ -271,12 +271,40 @@ async def test_agent_run_failure_restores_labels_and_comments(temporal_env, monk
     assert not any(c[1] == f"/repos/{REPO}/pulls" for c in fake.calls)
 
 
+def test_merge_dor_into_body_vervangt_alleen_dor_sectie() -> None:
+    template = (
+        "# Change\n\n## Seed — door de indiener\n\n### Doel\nIets.\n\n"
+        "## Rest van de DoR — aan te vullen door de agent\n\n### Acceptatiecriteria\n- [ ]\n\n"
+        "### Afhankelijkheden\n<!-- ... -->\n"
+    )
+    dor = {
+        "acceptatiecriteria": ["Given x, When y, Then z"],
+        "scope_getroffen": "Producten-tab",
+        "scope_buiten": "prijzen",
+        "ux_mocks": "docs/ux/timetags/ met 3 versies per scherm",
+        "randgevallen": {"lege_state": "geen tag = null", "foutafhandeling": "validatie", "offline": "lokaal", "per_huishouden": "ADR-009"},
+        "open_vragen": "geen open vragen",
+        "verificatie": ["npm run verify"],
+        "afhankelijkheden": "na #59",
+        "summary": "s",
+    }
+    out = ir._merge_dor_into_body(template, dor)
+    assert out.startswith("# Change")
+    assert "## Seed — door de indiener" in out  # seed behouden
+    assert out.count("## Rest van de DoR") == 1
+    assert "- [ ] Given x, When y, Then z" in out
+    assert "Getroffen tab(s)/onderdelen: Producten-tab" in out
+    assert "Buiten scope: prijzen" in out
+    assert "Lege state: geen tag = null" in out
+    assert "na #59" in out
+
+
 async def test_agent_run_updates_issue_body_with_dor(temporal_env, monkeypatch) -> None:
     fake = FakeGitHub(issue=_issue(37, ["needs-rework"]), comments={37: []})
     monkeypatch.setattr(ir, "_gh", fake)
     product = (
-        '{"pr_title":"t","pr_body":"b","summary":"s",'
-        '"issue_body":"## DoR aangevuld\\n- [x] criterium","files":[]}'
+        '{"acceptatiecriteria":["Given x, When y, Then z"],"scope_getroffen":"Producten-tab",'
+        '"summary":"s","files":[]}'
     )
     monkeypatch.setattr(ir, "_mistral_chat", lambda messages, model: asyncio.sleep(0, result=product))
     async with create_test_worker(temporal_env, workflows=[ir.IssueAgentRunWorkflow], activities=ACTIVITIES):
@@ -291,7 +319,8 @@ async def test_agent_run_updates_issue_body_with_dor(temporal_env, monkeypatch) 
     puts = [c for c in fake.calls if c[0] == "PUT" and re.fullmatch(rf"/repos/{REPO}/issues/\d+", c[1])]
     assert len(puts) == 1
     assert puts[0][1] == f"/repos/{REPO}/issues/37"
-    assert puts[0][2]["body"].startswith("## DoR aangevuld")
+    assert "Given x, When y, Then z" in puts[0][2]["body"]
+    assert "## Rest van de DoR" in puts[0][2]["body"]
     assert result["files_changed"] == []
 
 
