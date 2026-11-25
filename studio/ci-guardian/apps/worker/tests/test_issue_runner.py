@@ -1,6 +1,7 @@
 import asyncio
 import re
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -220,3 +221,32 @@ async def test_agent_run_failure_restores_labels_and_comments(temporal_env, monk
     # geen branch/PR aangemaakt
     assert not any(c[1] == f"/repos/{REPO}/git/refs" for c in fake.calls)
     assert not any(c[1] == f"/repos/{REPO}/pulls" for c in fake.calls)
+
+
+def _client_returning(content: Any) -> Any:
+    response = SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=content))])
+
+    class _Chat:
+        async def complete_async(self, **kwargs: Any) -> Any:
+            return response
+
+    return SimpleNamespace(chat=_Chat())
+
+
+async def test_mistral_chat_str_content_passthrough(monkeypatch) -> None:
+    import utils.mistral as um
+
+    monkeypatch.setattr(um, "mistral_client", lambda **kwargs: _client_returning('{"a": 1}'))
+    assert await ir._mistral_chat([{"role": "user", "content": "x"}], "m") == '{"a": 1}'
+
+
+async def test_mistral_chat_chunk_lijst_reduceert_tot_tekst(monkeypatch) -> None:
+    # mistral-large-latest kan content als chunk-lijst teruggeven (ThinkChunk + TextChunk);
+    # ThinkChunk heeft geen .text en mag niet via json.dumps (crasht: niet serialiseerbaar)
+    from mistralai.client.models import TextChunk, ThinkChunk
+
+    import utils.mistral as um
+
+    content = [ThinkChunk(thinking=[]), TextChunk(text='{"b":'), TextChunk(text="2}")]
+    monkeypatch.setattr(um, "mistral_client", lambda **kwargs: _client_returning(content))
+    assert await ir._mistral_chat([{"role": "user", "content": "x"}], "m") == '{"b":2}'

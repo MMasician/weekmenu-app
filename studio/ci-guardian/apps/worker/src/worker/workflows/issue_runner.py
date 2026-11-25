@@ -159,7 +159,17 @@ async def _mistral_chat(messages: list[dict[str, str]], model: str) -> str:
         response_format={"type": "json_object"},
     )
     content = response.choices[0].message.content
-    return content if isinstance(content, str) else json.dumps(content)
+    return _content_to_text(content)
+
+
+def _content_to_text(content: Any) -> str:
+    """Assistant-content naar platte tekst: een str is al tekst; een chunk-lijst
+    (TextChunk/ThinkChunk/…) reduceren tot de .text van tekst-chunks (ThinkChunk heeft geen .text)."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "".join(c.text for c in content if isinstance(getattr(c, "text", None), str))
+    return json.dumps(content, default=str)
 
 
 def _labels_of(issue: dict[str, Any]) -> list[str]:
