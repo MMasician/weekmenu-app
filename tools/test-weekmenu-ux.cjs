@@ -344,7 +344,7 @@ function make(seed) {
   const d9K = dateKey(addDays(lastOfWeek, 1)); // eerste dag van de volgende week -> weekgrens
   const crossesToday = dateKey(startOfWeek(addDays(today, 1), 0)) !== dateKey(startOfWeek(today, 0));
   const devSeed = () => ({
-    settings: { householdSize: 4, weekStartDay: 0, markets: [{ key: "ah", label: "AH", defaultShop: true }], takeawayLinks: [{ id: "tl-1", label: "Pizzeria", url: "https://pizza.example" }] },
+    settings: { householdSize: 4, weekStartDay: 0, markets: [{ key: "ah", label: "AH", defaultShop: true }], takeawayLinks: [{ id: "tl-1", label: "Pizzeria", url: "pizza.example" }] },
     products: [
       { id: "p-soep", name: "Soep", cat: "soep", market: null, unit: "stuks", tags: ["instant-maaltijd"], pack: null },
       { id: "p-noedel", name: "Noedels", cat: "pasta", market: null, unit: "stuks", tags: ["instant-maaltijd"], pack: null },
@@ -408,7 +408,7 @@ function make(seed) {
   devBtns(t2)[0].props.onClick();
   t2.findButton("🍔 Afhaalmaaltijd").props.onClick();
   let h2 = t2.html();
-  check("#42: afhaal-segment toont geconfigureerde bestellinkjes (Pizzeria)", h2.indexOf("Pizzeria") !== -1 && h2.indexOf("https://pizza.example") !== -1);
+  check("#42: afhaal-segment toont geconfigureerde bestellinkjes (Pizzeria)", h2.indexOf("Pizzeria") !== -1 && h2.indexOf("pizza.example") !== -1);
   const linkBtn = (() => { let f = null; t2.walk(t2.render(), (n) => { if (!f && n && n.type === "button" && JSON.stringify(n.children || []).indexOf("Pizzeria") !== -1) f = n; }); return f; })();
   linkBtn.props.onClick();
   mbd = t2.menuByDateState();

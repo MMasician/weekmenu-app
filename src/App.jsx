@@ -1145,7 +1145,7 @@ export default function App() {
   function safeExternalUrl(u) {
     const str = String(u || "").trim();
     if (!str) return null;
-    let parsed = null;
+    let parsed;
     try {
       parsed = new URL(str);
     } catch (e) {
