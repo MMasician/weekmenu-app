@@ -35,11 +35,15 @@ class FakeGitHub:
         issue: dict[str, Any] | None = None,
         issues_map: dict[int, dict[str, Any]] | None = None,
         comments: dict[int, list[dict[str, Any]]] | None = None,
+        existing_branch: bool = False,
+        existing_pr: bool = False,
     ) -> None:
         self.issues = issues or []
         self.issue = issue or {}
         self.issues_map = issues_map or {}
         self.comments = comments or {}
+        self.existing_branch = existing_branch
+        self.existing_pr = existing_pr
         self.calls: list[tuple[str, str, dict[str, Any] | None]] = []
 
     async def __call__(self, method: str, path: str, body: dict[str, Any] | None = None) -> Any:
@@ -65,6 +69,10 @@ class FakeGitHub:
             return {"ok": True}  # issue-body bijgewerkt (DoR)
         if method == "GET" and base == f"/repos/{REPO}/git/ref/heads/main":
             return {"object": {"sha": "abc123"}}
+        if method == "GET" and base.startswith(f"/repos/{REPO}/git/ref/heads/"):
+            return {"object": {"sha": "def456"}} if self.existing_branch else None  # 404 -> branch bestaat niet
+        if method == "GET" and base == f"/repos/{REPO}/pulls":
+            return [{"number": 555}] if self.existing_pr else []
         if method == "POST" and base == f"/repos/{REPO}/git/refs":
             return {"ok": True}
         if method == "GET" and "/contents/" in base:
@@ -282,6 +290,31 @@ async def test_agent_run_updates_issue_body_with_dor(temporal_env, monkeypatch) 
     assert puts[0][1] == f"/repos/{REPO}/issues/37"
     assert puts[0][2]["body"].startswith("## DoR aangevuld")
     assert result["files_changed"] == []
+
+
+async def test_agent_run_rework_reuses_branch_and_pr(temporal_env, monkeypatch) -> None:
+    # rework-run op een issue met bestaande branch + draft PR: hergebruik beide, schrijf wel files
+    fake = FakeGitHub(issue=_issue(37, ["needs-rework"]), comments={37: []}, existing_branch=True, existing_pr=True)
+    monkeypatch.setattr(ir, "_gh", fake)
+    product = (
+        '{"pr_title":"t","pr_body":"b","summary":"s","issue_body":"",'
+        '"files":[{"path":"docs/ux/test/mock.svg","content":"<svg/>"}]}'
+    )
+    monkeypatch.setattr(ir, "_mistral_chat", lambda messages, model: asyncio.sleep(0, result=product))
+    async with create_test_worker(temporal_env, workflows=[ir.IssueAgentRunWorkflow], activities=ACTIVITIES):
+        handle = await temporal_env.client.start_workflow(
+            "issue_agent_run",
+            {"repo": REPO, "issue_number": 37, "dry_run": False},
+            id="test-agent-run-rework",
+            task_queue="test-task-queue",
+            execution_timeout=timedelta(seconds=20),
+        )
+        result = await asyncio.wait_for(handle.result(), timeout=25)
+    assert result["branch"] == "vibe/issue-37-test-issue"
+    assert result["pr_number"] == 555
+    assert not any(c[0] == "POST" and c[1] == f"/repos/{REPO}/git/refs" for c in fake.calls)  # branch hergebruikt
+    assert not any(c[0] == "POST" and c[1] == f"/repos/{REPO}/pulls" for c in fake.calls)  # PR hergebruikt
+    assert any(c[0] == "PUT" and "/contents/" in c[1] for c in fake.calls)  # wel files geschreven
 
 
 def _client_returning(content: Any) -> Any:

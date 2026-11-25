@@ -304,6 +304,10 @@ async def main_sha(repo: str) -> str:
 
 @workflows.activity(start_to_close_timeout=timedelta(seconds=60), retry_policy_max_attempts=1)
 async def create_branch(repo: str, branch: str, sha: str) -> None:
+    # bij een rework-run bestaat de branch vibe/issue-<nr>-<slug> al: hergebruik die
+    existing = await _gh("GET", f"/repos/{repo}/git/ref/heads/{branch}")
+    if existing:
+        return
     await _gh("POST", f"/repos/{repo}/git/refs", {"ref": f"refs/heads/{branch}", "sha": sha})
 
 
@@ -329,6 +333,12 @@ async def put_file(repo: str, path: str, branch: str, content: str, message: str
 
 @workflows.activity(start_to_close_timeout=timedelta(seconds=60), retry_policy_max_attempts=1)
 async def open_draft_pr(repo: str, head: str, title: str, body: str) -> int:
+    # bij een rework-run bestaat er al een (draft) PR voor deze head-branch: hergebruik het nummer
+    existing = await _gh(
+        "GET", f"/repos/{repo}/pulls?head={urllib.parse.quote(head, safe='')}&state=open"
+    )
+    if existing:
+        return int(existing[0].get("number"))
     data = await _gh(
         "POST", f"/repos/{repo}/pulls", {"title": title, "head": head, "base": "main", "body": body, "draft": True}
     )
