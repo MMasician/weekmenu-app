@@ -14,6 +14,11 @@
 - 5 tabknoppen met icoon (📅📖📦🛒⚙️) + `aria-label`/`title` = tabnaam; klein tekstlabel alleen onder de actieve tab; tabwissel rendert de juiste tab.
 - Boodschappen-teller als badge (`n/m`) op het 🛒-icoon, alleen bij teller > 0; geen badge bij lege lijst.
 
+### Thema's (#40, ADR-021; `tools/test-instellingen.cjs` + `tools/test-tabicoontjes.cjs`)
+- `settings.theme` default `"standaard"`; ongeldige waarde in opslag → `"standaard"`; geldige theme uit seed wordt geladen.
+- Instellingen-tab: kaart "Weergave" met 5 radio's (`name="theme"`); aanklikken wijzigt `settings.theme`; root-element draagt `data-theme`.
+- Feestthema's wisselen de tabicoontjes (kerstmis 🎄📖📦🎁⚙️, sinterklaas 🎁📖📦🛒🎅); donker/roze/standaard de standaardset.
+
 ### Weekmenu
 - Week regenereren: vis-dagen tonen visgerechten; overige dagen alleen vega/vlees volgens de ingestelde mix (som = aantal overige dagen).
 - Instellingen wijzigen (weekstart, vis-dagen, vega-aantal, aantal eters, supermarkten incl. standaard-selectie) → weekmenu en boodschappenlijst volgen de nieuwe instellingen (ADR-009, ADR-016).

@@ -254,5 +254,30 @@ function make(seed) {
   check("#42: bestelsite verwijderd uit settings", t.settingsState().takeawayLinks.length === 0);
 }
 
+// ---------- #40: thema's (settings.theme, ADR-021) ----------
+{
+  const t = make({});
+  t.render();
+  check("#40: default theme 'standaard' in settings", t.settingsState().theme === "standaard");
+  t.findTab("Instellingen").props.onClick();
+  const h = t.html();
+  check("#40: kaart 'Weergave' met 5 thema-radio's (name=theme)", h.indexOf("Weergave") !== -1 && (h.match(/"name":"theme"/g) || []).length === 5);
+  const rootTheme = (() => { let v = null; t.walk(t.render(), (n) => { if (!v && n && n.props && n.props["data-theme"]) v = n.props["data-theme"]; }); return v; })();
+  check("#40: root-element draagt data-theme='standaard'", rootTheme === "standaard");
+  const radios = [];
+  t.walk(t.render(), (n) => { if (n && n.type === "input" && n.props.type === "radio" && n.props.name === "theme") radios.push(n); });
+  check("#40: radio 'Standaard' staat aan, 'Donker' uit", radios.length === 5 && radios[0].props.checked === true && radios[1].props.checked === false);
+  radios[1].props.onChange({ target: { checked: true } });
+  check("#40: kies 'Donker' -> settings.theme = 'donker'", t.settingsState().theme === "donker");
+  const rootTheme2 = (() => { let v = null; t.walk(t.render(), (n) => { if (!v && n && n.props && n.props["data-theme"]) v = n.props["data-theme"]; }); return v; })();
+  check("#40: data-theme wisselt mee naar 'donker'", rootTheme2 === "donker");
+  const t2 = make({ settings: { theme: "kerstmis" } });
+  t2.render();
+  check("#40: theme 'kerstmis' uit opgeslagen seed geladen", t2.settingsState().theme === "kerstmis");
+  const t3 = make({ settings: { theme: "paarse-eend" } });
+  t3.render();
+  check("#40: ongeldige theme wordt genormaliseerd naar 'standaard'", t3.settingsState().theme === "standaard");
+}
+
 console.log(fails === 0 ? "ALLE TESTS GESLAAGD" : fails + " TEST(S) GEFAALD");
 process.exit(fails === 0 ? 0 : 1);

@@ -1,6 +1,6 @@
 # UX-voorstel: verschillende styling-mogelijkheden / thema's (issue #40)
 
-**Status: ronde 1 gereviewd — scherm 1 versie B akkoord, scherm 2 versies A (donker) en B (roze) akkoord; feestthema's in rework (ronde 2: nieuwe achtergrond-opties, schermen 3–4 hieronder). Nog niet geïmplementeerd.**
+**Status: volledig akkoord — ronde 1: scherm 1 versie B, scherm 2 versies A (donker) + B (roze); ronde 2 (2026-11-25): kerst én sinterklaas **versie A** ("Zowel bij kerst als sinterklaas is versie A het leukst"). **Geïmplementeerd in PR #64** (ADR-021, `settings.theme`, per-thema CSS-variabelen + inline-SVG-achtergrond in `styles.css`, tabicoontjes per thema via #41, tests in `tools/test-instellingen.cjs` + `tools/test-tabicoontjes.cjs`, `npm run verify` groen, cache-bump v20/`?v=19`).**
 
 ## Aanleiding (wens uit issue #40)
 
@@ -56,18 +56,17 @@ variabelen, plus een `settings.theme` veld (per huishouden, ADR-009/010).
   CI groen (ADR-014), cache-bump (`CACHE_VERSION` + `?v=`).
 - Gekoppeld: #41 (tabicoontjes), #36 (voorraad) — branch `vibe/issues-36-41-40-26a2f9`.
 
-## Ronde 2 (feedback eigenaar, 2026-11-25 — label `needs-rework`)
+## Ronde 2 (feedback eigenaar, 2026-11-25 — label `needs-rework` → daarna akkoord)
 
 - **Scherm 1 (Instellingen): versie B (radio-lijst met kleurpreview) akkoord.**
 - **Scherm 2 (weekmenu in thema): versie A (donker) én versie B (roze) akkoord.**
 - **Feestthema's**: van Sinterklaas én Kerstmis meer mocks gewenst; de achtergrond is nu 1 effen kleur — graag een typisch kerstplaatje/achtergrond met verschillende opties → schermen 3 (kerst × 3) en 4 (sinterklaas × 3) hierboven toegevoegd.
+- **Akkoord ronde 2 (2026-11-25)**: "Zowel bij kerst als sinterklaas is versie A het leukst. Daarmee zijn alle voorstellen voor dit issue akkoord." → kerst = `07-…-versie-A-gradient-sneeuw`, sinterklaas = `10-…-versie-A-maan-sterren` (beide als inline-SVG data-uri in `styles.css`).
 
-## Open vragen / knopen om door te hakken
+## Beslissingen (akkoord eigenaar)
 
-- Thema-keuze in Instellingen: **beslist — versie B** (radio-lijst met kleurpreview).
-- Welke feestachtergrond per thema? Kerst: gradient+sneeuw (A), kerstboom+sterren (B) of patroon (C)? Sinterklaas: maan+sterren (A), cadeautjes-patroon (B) of gradient+pepernoten (C)?
-- Welke thema's exact? (minimaal donker + roze — beide akkoord; sinterklaas/kerstmis gewenst incl. eigen achtergrond + icoontjes)
-- Moet `prefers-color-scheme: dark` automatisch het donkere thema starten? (voorstel: nee)
-- Moet de PWA-statusbalk (`theme-color` in `index.html`) meebewegen met het thema? (voorstel: ja, donker/licht)
-- Sinterklaas en kerstmis als twee aparte thema's, of één "feestdagen"-thema dat wisselt op datum?
-- Achtergronden als inline SVG in `styles.css` (offline, ADR-007) — geen externe afbeeldingen.
+- Thema-keuze in Instellingen: **versie B** (radio-lijst met kleurpreview).
+- Thema's: **Standaard, Donker, Roze, 🎁 Sinterklaas, 🎄 Kerstmis** — donker/roze als scherm 2 versies A/B; feestthema's met eigen achtergrond (kerst/sinterklaas **versie A**) + eigen tabicoontjes.
+- `prefers-color-scheme` wordt niet automatisch gevolgd (expliciete keuze per huishouden); de PWA-statusbalk (`theme-color`) beweegt wél mee met het thema.
+- Sinterklaas en kerstmis zijn twee aparte thema's (geen datum-automatiek).
+- Achtergronden als inline SVG data-uri in `styles.css` (offline, ADR-007) — geen externe afbeeldingen.

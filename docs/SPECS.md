@@ -10,6 +10,7 @@ Zie INTENT.md voor doel en principes; ADR-009 t/m ADR-011 voor configuratie, pri
 5. Instellingen (per huishouden, ADR-009)
 
 - **Tabbalk (#41)**: per tab een icoon (📅 Weekmenu, 📖 Recepten, 📦 Voorraad, 🛒 Boodschappen, ⚙️ Instellingen) in de bestaande pill-nav (`flex-1` per knop; past binnen 360px schermbreedte zonder horizontaal scrollen). Bij de **actieve** tab staat een klein tekstlabel onder het icoon; de tabnaam staat in `title`/`aria-label` van de knop. De boodschappen-teller staat als **badge** (`n/m`) op het 🛒-icoon, alleen bij teller > 0.
+- **Thema's (#40, ADR-021)**: `settings.theme` bepaalt de weergave via per-thema overrides van de `:root`-CSS-variabelen onder `[data-theme="…"]` in `styles.css` (cascade over de hele app; `<body>` krijgt hetzelfde attribuut, dus ook de achtergrond schaalt mee; de PWA-`theme-color` volgt mee). Donker en roze hebben een eigen palette; **Sinterklaas** en **Kerstmis** daarnaast een eigen inline-SVG-achtergrond (data-uri in `styles.css`, offline) — sinterklaas: nachtelijke paarse gradient met maan en sterren, kerstmis: rood→groen gradient met sneeuwvlokken — én eigen tabicoontjes (🎁 📖 📦 🛒 🎅 resp. 🎄 📖 📦 🎁 ⚙️). Thema-keuze op de Instellingen-tab: kaart "Weergave" met een radio-lijst (versie B) incl. kleurpreview per thema.
 
 (De Prijzen-tab is vervallen, ADR-016 deprecate ADR-008.)
 
@@ -25,6 +26,7 @@ Zie INTENT.md voor doel en principes; ADR-009 t/m ADR-011 voor configuratie, pri
   - `tagRules`: [{ kind: "product" | "recipe", tag, days }] — tag-regels voor automatisch plannen (#37); `tag` lowercase, `days` 0–30 (0 = altijd geblokkeerd), dedup per kind+tag
   - `dishRepeatDays`: getal 0–30 — aantal dagen dat gewacht wordt voordat hetzelfde gerecht opnieuw automatisch gepland mag (#38; standaard **7** = niet vaker dan 1× per week; 0 = mag de volgende dag alweer)
   - `takeawayLinks`: [{ id, label, url }] — bestelsites voor afhaalmaaltijd (#42); lokaal (ADR-010); leeg = geen links
+  - `theme`: `"standaard" | "donker" | "roze" | "sinterklaas" | "kerstmis"` — thema/weergave van de app (#40, ADR-021; standaard = huidige kleurstelling; ongeldige/ontbrekende waarde → `"standaard"` bij normaliseren)
 - Boodschappenmomenten (`shopRuns`) worden niet meer opgeslagen (ADR-016); bij normaliseren wordt het veld weggegooid. Oude data met `shopRuns`/`prices` wordt genegeerd.
 - Dag-indices zijn relatief t.o.v. `weekStartDay` (index 0 = weekstart).
 - Instellingen zijn lokaal: ze worden nooit naar een server of GitHub geschreven en zijn voor andere households niet zichtbaar (ADR-010).

@@ -82,5 +82,20 @@ function make(seed) {
   check("boodschappen-tabknop bevat het badge", JSON.stringify(shopBtn.children).indexOf("tabbadge") !== -1);
 }
 
+// ---------- 4. Thema-tabicoontjes (#40): feestthema's hebben eigen iconen ----------
+{
+  const kerst = make({ settings: { theme: "kerstmis" } });
+  const iconsK = kerst.tabButtons().map((b) => b.children[0].children[0]);
+  check("#40: kerstmis-tabicoontjes (🎄 📖 📦 🎁 ⚙️)", JSON.stringify(iconsK) === JSON.stringify(["\uD83C\uDF84", "\uD83D\uDCD6", "\uD83D\uDCE6", "\uD83C\uDF81", "\u2699\uFE0F"]));
+  const sint = make({ settings: { theme: "sinterklaas" } });
+  const iconsS = sint.tabButtons().map((b) => b.children[0].children[0]);
+  check("#40: sinterklaas-tabicoontjes (🎁 📖 📦 🛒 🎅)", JSON.stringify(iconsS) === JSON.stringify(["\uD83C\uDF81", "\uD83D\uDCD6", "\uD83D\uDCE6", "\uD83D\uDED2", "\uD83C\uDF85"]));
+  const donker = make({ settings: { theme: "donker" } });
+  const iconsD = donker.tabButtons().map((b) => b.children[0].children[0]);
+  check("#40: donker/roze/standaard gebruiken de standaard-icoontjes", JSON.stringify(iconsD) === JSON.stringify(TAB_ICONS));
+  const roze = make({ settings: { theme: "roze" } });
+  check("#40: roze gebruikt de standaard-icoontjes", JSON.stringify(roze.tabButtons().map((b) => b.children[0].children[0])) === JSON.stringify(TAB_ICONS));
+}
+
 if (fails > 0) { console.log(`\n${fails} test(s) GEFAALD`); process.exit(1); }
 console.log("\nAlle tabicoontjes-tests geslaagd");

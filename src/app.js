@@ -29,7 +29,25 @@ const DEFAULT_SETTINGS = {
   tagRules: [], // #37: [{ kind: "product" | "recipe", tag, days }]
   dishRepeatDays: 7, // #38: aantal dagen wachten voordat een gerecht opnieuw gepland mag (0 = volgende dag mag al)
   takeawayLinks: [], // #42: bestelsites voor afhaalmaaltijd [{ id, label, url }]
+  theme: "standaard", // #40: thema/weergave ("standaard" | "donker" | "roze" | "sinterklaas" | "kerstmis")
 };
+
+// #40: thema's — "standaard" is de huidige kleurstelling; donker/roze via CSS-variabelen, de
+// feestthema's ook met eigen inline-SVG-achtergrond en eigen tabicoontjes (styles.css)
+const THEMES = [
+  { key: "standaard", label: "Standaard", dots: ["#fafaf9", "#ffffff", "#292524"] },
+  { key: "donker", label: "Donker", dots: ["#1c1917", "#292524", "#a8a29e"] },
+  { key: "roze", label: "Roze", dots: ["#fdf2f8", "#ffffff", "#db2777"] },
+  { key: "sinterklaas", label: "\uD83C\uDF81 Sinterklaas", dots: ["#2e1065", "#fbbf24", "#f5f3ff"] },
+  { key: "kerstmis", label: "\uD83C\uDF84 Kerstmis", dots: ["#7f1d1d", "#166534", "#fbbf24"] },
+];
+const THEME_KEYS = THEMES.map((t) => t.key);
+const THEME_TAB_ICONS = {
+  standaard: { menu: "\uD83D\uDCC5", recipes: "\uD83D\uDCD6", stock: "\uD83D\uDCE6", shopping: "\uD83D\uDED2", settings: "\u2699\uFE0F" },
+  sinterklaas: { menu: "\uD83C\uDF81", recipes: "\uD83D\uDCD6", stock: "\uD83D\uDCE6", shopping: "\uD83D\uDED2", settings: "\uD83C\uDF85" },
+  kerstmis: { menu: "\uD83C\uDF84", recipes: "\uD83D\uDCD6", stock: "\uD83D\uDCE6", shopping: "\uD83C\uDF81", settings: "\u2699\uFE0F" },
+};
+const THEME_META = { standaard: "#059669", donker: "#1c1917", roze: "#db2777", sinterklaas: "#2e1065", kerstmis: "#7f1d1d" };
 
 function normalizeDayList(arr, fallback) {
   if (!Array.isArray(arr)) return [...fallback];
@@ -77,6 +95,7 @@ function normalizeSettings(s) {
       url: String((l && l.url) || "").trim(),
     }))
     .filter((l) => l.label || l.url);
+  out.theme = THEME_KEYS.includes(out.theme) ? out.theme : d.theme; // #40: ongeldige waarde -> standaard
   return out;
 }
 // Voorraad (ADR-015): per-huishouden locaties; per product een locatie, categorie (shopCats),
@@ -905,6 +924,13 @@ function App() {
   useEffect(() => {
     saveState({ menuByDate, recipes, checked, extraItems, settings, stock, stockLocations, products, deleted, checkedAt });
   }, [menuByDate, recipes, checked, extraItems, settings, stock, stockLocations, products, deleted, checkedAt]);
+
+  // #40: thema toepassen op <body> (CSS-variabelen cascaden) + PWA-statusbalk (theme-color)
+  useEffect(() => {
+    if (typeof document !== "undefined" && document.body) document.body.dataset.theme = settings.theme;
+    const meta = typeof document !== "undefined" && document.querySelector ? document.querySelector('meta[name="theme-color"]') : null;
+    if (meta && meta.setAttribute) meta.setAttribute("content", THEME_META[settings.theme] || THEME_META.standaard);
+  }, [settings.theme]);
 
   const markets = settings.markets;
   const days = useMemo(
@@ -2099,12 +2125,13 @@ function App() {
   const anyScaled = scaledFactors.length > 0;
 
   // #41: tabbalk met icoontjes (versie C): icoon per tab + klein label onder de actieve tab; teller als badge
+  const tabIcons = THEME_TAB_ICONS[settings.theme] || THEME_TAB_ICONS.standaard; // #40: feestthema's eigen iconen
   const tabs = [
-    { key: "menu", label: "Weekmenu", icon: "\uD83D\uDCC5" },
-    { key: "recipes", label: "Recepten", icon: "\uD83D\uDCD6" },
-    { key: "stock", label: "Voorraad", icon: "\uD83D\uDCE6" },
-    { key: "shopping", label: "Boodschappen", icon: "\uD83D\uDED2" },
-    { key: "settings", label: "Instellingen", icon: "\u2699\uFE0F" },
+    { key: "menu", label: "Weekmenu", icon: tabIcons.menu },
+    { key: "recipes", label: "Recepten", icon: tabIcons.recipes },
+    { key: "stock", label: "Voorraad", icon: tabIcons.stock },
+    { key: "shopping", label: "Boodschappen", icon: tabIcons.shopping },
+    { key: "settings", label: "Instellingen", icon: tabIcons.settings },
   ];
 
   // --- Tab-views: elke tab/sheet als eigen render-functie, direct aangeroepen (geen <Component/>):
@@ -2432,7 +2459,11 @@ function App() {
   };
 
   const renderSettingsTab = () => (
-    /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", { "className": "mb-2 text-xs text-stone-500" }, "Instellingen per huishouden. Ze worden alleen lokaal op dit toestel bewaard (localStorage) en gelden direct voor het weekmenu en de boodschappenlijst. Dagindex 0 is de weekstart (", days[0], ")."), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm p-4 mb-4" }, /*#__PURE__*/React.createElement("div", { "className": "text-sm font-medium mb-2" }, "Huishouden"), /*#__PURE__*/React.createElement("label", { "className": "flex items-center justify-between gap-2 text-sm mb-2" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-600" }, "Aantal eters"), /*#__PURE__*/React.createElement("input", { "type": "number", "min": "1", "value": settings.householdSize, "onChange": (e) => updateSettings({ householdSize: Math.max(1, Number(e.target.value) || 1) }), "className": "w-20 border rounded-lg px-2 py-1.5 text-sm text-center" })), /*#__PURE__*/React.createElement("label", { "className": "flex items-center justify-between gap-2 text-sm" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-600" }, "Week start op"), /*#__PURE__*/React.createElement("select", { "value": settings.weekStartDay, "onChange": (e) => updateSettings({ weekStartDay: Number(e.target.value) }), "className": "border rounded-lg px-2 py-1.5 text-sm text-stone-600" }, DAY_NAMES.map((d, i) => (
+    /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", { "className": "mb-2 text-xs text-stone-500" }, "Instellingen per huishouden. Ze worden alleen lokaal op dit toestel bewaard (localStorage) en gelden direct voor het weekmenu en de boodschappenlijst. Dagindex 0 is de weekstart (", days[0], ")."), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm p-4 mb-4" }, /*#__PURE__*/React.createElement("div", { "className": "text-sm font-medium mb-1" }, "Weergave"), /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-500 mb-2" }, "Thema van de app — lokaal opgeslagen per huishouden (#40)."), THEMES.map((th) => (
+          /*#__PURE__*/React.createElement("label", { "key": th.key, "className": "flex items-center gap-2 py-1.5 cursor-pointer text-sm", "title": `Thema ${th.label}` }, /*#__PURE__*/React.createElement("input", { "type": "radio", "name": "theme", "checked": settings.theme === th.key, "onChange": () => updateSettings({ theme: th.key }), "className": "accent-emerald-600" }), /*#__PURE__*/React.createElement("span", { "className": settings.theme === th.key ? "font-semibold" : "text-stone-600" }, th.label), /*#__PURE__*/React.createElement("span", { "className": "ml-auto flex gap-1" }, th.dots.map((dot, di) => (
+                /*#__PURE__*/React.createElement("span", { "key": di, "className": "inline-block w-4 h-4 rounded-full border border-stone-300", "style": { background: dot } })
+              ))))
+        ))), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm p-4 mb-4" }, /*#__PURE__*/React.createElement("div", { "className": "text-sm font-medium mb-2" }, "Huishouden"), /*#__PURE__*/React.createElement("label", { "className": "flex items-center justify-between gap-2 text-sm mb-2" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-600" }, "Aantal eters"), /*#__PURE__*/React.createElement("input", { "type": "number", "min": "1", "value": settings.householdSize, "onChange": (e) => updateSettings({ householdSize: Math.max(1, Number(e.target.value) || 1) }), "className": "w-20 border rounded-lg px-2 py-1.5 text-sm text-center" })), /*#__PURE__*/React.createElement("label", { "className": "flex items-center justify-between gap-2 text-sm" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-600" }, "Week start op"), /*#__PURE__*/React.createElement("select", { "value": settings.weekStartDay, "onChange": (e) => updateSettings({ weekStartDay: Number(e.target.value) }), "className": "border rounded-lg px-2 py-1.5 text-sm text-stone-600" }, DAY_NAMES.map((d, i) => (
               /*#__PURE__*/React.createElement("option", { "key": d, "value": i }, d)
             ))))), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm p-4 mb-4" }, /*#__PURE__*/React.createElement("div", { "className": "text-sm font-medium mb-2" }, "Eetpatroon"), /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-500 mb-2" }, "Vis-dagen:"), /*#__PURE__*/React.createElement("div", { "className": "flex flex-wrap gap-2 mb-3" }, days.map((d, i) => (
             /*#__PURE__*/React.createElement("label", { "key": i, "className": "flex items-center gap-1 text-xs border rounded-lg px-2 py-1 cursor-pointer" }, /*#__PURE__*/React.createElement("input", { "type": "checkbox", "checked": fishDays.includes(i), "onChange": (e) =>
@@ -2542,7 +2573,7 @@ function App() {
   );
 
   return (
-    /*#__PURE__*/React.createElement("div", { "className": "min-h-screen bg-stone-50 text-stone-800" }, /*#__PURE__*/React.createElement("div", { "className": "mx-auto max-w-2xl px-4 pb-16" }, /*#__PURE__*/React.createElement("header", { "className": "pt-6 pb-3 flex items-center justify-between" }, /*#__PURE__*/React.createElement("h1", { "className": "text-2xl font-bold" }, "Weekmenu & Boodschappen"), /*#__PURE__*/React.createElement("span", { "className": "text-xs text-stone-400" }, settings.householdSize + " eters")), /*#__PURE__*/React.createElement("nav", { "className": "flex gap-1 bg-white rounded-xl p-1 shadow-sm mb-4 sticky top-2 z-10" }, tabs.map((t) => (
+    /*#__PURE__*/React.createElement("div", { "className": "min-h-screen bg-stone-50 text-stone-800", "data-theme": settings.theme }, /*#__PURE__*/React.createElement("div", { "className": "mx-auto max-w-2xl px-4 pb-16" }, /*#__PURE__*/React.createElement("header", { "className": "pt-6 pb-3 flex items-center justify-between" }, /*#__PURE__*/React.createElement("h1", { "className": "text-2xl font-bold" }, "Weekmenu & Boodschappen"), /*#__PURE__*/React.createElement("span", { "className": "text-xs text-stone-400" }, settings.householdSize + " eters")), /*#__PURE__*/React.createElement("nav", { "className": "flex gap-1 bg-white rounded-xl p-1 shadow-sm mb-4 sticky top-2 z-10" }, tabs.map((t) => (
             /*#__PURE__*/React.createElement("button", { "key": t.key, "onClick": () => goTab(t.key), "title": t.label, "aria-label": t.label, "className": `tabbtn ${tab === t.key ? "bg-stone-800 text-white" : "text-stone-500 hover:bg-stone-100"}` }, /*#__PURE__*/React.createElement("span", { "className": "tabicon" }, t.icon), tab === t.key && /*#__PURE__*/React.createElement("span", { "className": "tablabel" }, t.label), t.key === "shopping" && totalItems > 0 && (
                 /*#__PURE__*/React.createElement("span", { "className": "tabbadge", "title": `${doneItems} van ${totalItems} afgevinkt` }, `${doneItems}/${totalItems}`)
               ))
