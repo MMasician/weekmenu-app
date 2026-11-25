@@ -2377,12 +2377,13 @@ export default function App() {
   ];
   const anyScaled = scaledFactors.length > 0;
 
+  // #41: tabbalk met icoontjes (versie C): icoon per tab + klein label onder de actieve tab; teller als badge
   const tabs = [
-    { key: "menu", label: "Weekmenu" },
-    { key: "recipes", label: "Recepten" },
-    { key: "stock", label: "Voorraad" },
-    { key: "shopping", label: `Boodschappen${totalItems ? ` (${doneItems}/${totalItems})` : ""}` },
-    { key: "settings", label: "Instellingen" },
+    { key: "menu", label: "Weekmenu", icon: "\uD83D\uDCC5" },
+    { key: "recipes", label: "Recepten", icon: "\uD83D\uDCD6" },
+    { key: "stock", label: "Voorraad", icon: "\uD83D\uDCE6" },
+    { key: "shopping", label: "Boodschappen", icon: "\uD83D\uDED2" },
+    { key: "settings", label: "Instellingen", icon: "\u2699\uFE0F" },
   ];
 
   // --- Tab-views: elke tab/sheet als eigen render-functie, direct aangeroepen (geen <Component/>):
@@ -2948,7 +2949,7 @@ export default function App() {
                           ) : (
                             s.name
                           )}
-                          <span className="block text-[10px] text-stone-400">{`categorie: ${cat}`}</span>
+                          <span className="block text-[10px] text-stone-400">{cat}</span>
                         </span>
                         <span className="flex items-center gap-1" title="Huidige voorraad">
                           <button className="w-7 h-7 rounded-lg bg-stone-100 font-bold text-stone-600" onClick={() => bumpHave(s.i, -1)}>−</button>
@@ -3978,11 +3979,15 @@ export default function App() {
             <button
               key={t.key}
               onClick={() => goTab(t.key)}
-              className={`flex-1 py-2 rounded-lg text-sm font-medium transition ${
-                tab === t.key ? "bg-stone-800 text-white" : "text-stone-500 hover:bg-stone-100"
-              }`}
+              title={t.label}
+              aria-label={t.label}
+              className={`tabbtn ${tab === t.key ? "bg-stone-800 text-white" : "text-stone-500 hover:bg-stone-100"}`}
             >
-              {t.label}
+              <span className="tabicon">{t.icon}</span>
+              {tab === t.key && <span className="tablabel">{t.label}</span>}
+              {t.key === "shopping" && totalItems > 0 && (
+                <span className="tabbadge" title={`${doneItems} van ${totalItems} afgevinkt`}>{`${doneItems}/${totalItems}`}</span>
+              )}
             </button>
           ))}
         </nav>

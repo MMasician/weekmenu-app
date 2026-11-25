@@ -1,6 +1,6 @@
 # UX-voorstel: woord "categorie" weglaten in de voorraadtab (issue #36)
 
-**Status: ronde 1 — ter review door de eigenaar (label `needs-review`). Nog niet geïmplementeerd.**
+**Status: ronde 1 goedgekeurd in issue #36 ("Scherm versie A is akkoord, evenals rest van ingevulde DoR", 2026-11-25) — **geïmplementeerd in PR #64** (`src/App.jsx` `renderStockTab`: kale categorie als subtekst; tests in `tools/test-voorraad-locaties.cjs`, `npm run verify` groen, cache-bump v19/`?v=18`). Gekozen: **versie A** — categorie als kale subtekst (`zuivel`) zonder het woord "categorie".
 
 ## Aanleiding (wens uit issue #36)
 
@@ -39,7 +39,7 @@ Wens: het woord "categorie" hoeft niet getoond te worden als een categorie getoo
   cache-bump (`CACHE_VERSION` + `?v=` in `index.html`).
 - Gekoppeld in deze sessie: #41 (tabicoontjes) en #40 (thema's) — branch `vibe/issues-36-41-40-26a2f9`.
 
-## Open vragen / knopen om door te hakken
+## Beslissingen ronde 1 (akkoord eigenaar, 2026-11-25)
 
-- Welke versie: kale subtekst (A), chip (B) of helemaal weg uit de rij (C)?
-- Moet bij versie C een subtiele hint blijven (bijv. titel/tooltip "categorie: zuivel" op de rij)?
+- **Versie A**: kale categorie als subtekst onder de productnaam, zonder het woord "categorie" (ook bij fallback `overig`).
+- Formulier-labels "Categorie" (recepten, product-kaart, categorieën beheren) blijven ongewijzigd.

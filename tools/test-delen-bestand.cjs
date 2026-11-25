@@ -20,7 +20,7 @@ function check(label, ok) {
     f(n);
   };
   let tab = null;
-  walk(render(), (n) => { if (n && n.type === "button" && n.children && n.children[0] === "Instellingen") tab = n; });
+  walk(render(), (n) => { if (n && n.type === "button" && String(n.props["aria-label"] || n.props.title || "") === "Instellingen") tab = n; });
   tab.props.onClick();
   const html = JSON.stringify(serialize(render()));
   check("instellingen: export-icoon (📤, title)", html.indexOf("Deelbestand maken (exporteren)") !== -1 && html.indexOf("📤") !== -1);
@@ -43,7 +43,7 @@ function check(label, ok) {
     return found;
   };
   let tab = null;
-  walk(render(), (n) => { if (n && n.type === "button" && n.children && n.children[0] === "Instellingen") tab = n; });
+  walk(render(), (n) => { if (n && n.type === "button" && String(n.props["aria-label"] || n.props.title || "") === "Instellingen") tab = n; });
   tab.props.onClick();
   findBtnByTitle(render(), "Deelbestand maken (exporteren)").props.onClick();
   let html = JSON.stringify(serialize(render()));

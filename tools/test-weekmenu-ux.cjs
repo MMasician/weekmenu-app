@@ -40,7 +40,7 @@ function make(seed) {
   };
   const findTab = (label) => {
     let found = null;
-    walk(render(), (n) => { if (n && n.type === "button" && n.children && String(n.children[0]).indexOf(label) === 0) found = n; });
+    walk(render(), (n) => { if (n && n.type === "button" && String(n.props["aria-label"] || n.props.title || "").indexOf(label) === 0) found = n; });
     return found;
   };
   const findButton = (text) => {

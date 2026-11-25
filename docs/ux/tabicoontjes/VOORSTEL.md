@@ -1,6 +1,6 @@
 # UX-voorstel: tabicoontjes in plaats van tabtitels (issue #41)
 
-**Status: ronde 1 — ter review door de eigenaar (label `needs-review`). Nog niet geïmplementeerd.**
+**Status: ronde 1 goedgekeurd in issue #41 ("Bij beide schermen is versie C akkoord", 2026-11-25) — **geïmplementeerd in PR #64** (`src/App.jsx` tabbalk + `styles.css` `.tabbtn/.tabicon/.tablabel/.tabbadge`, tests in `tools/test-tabicoontjes.cjs`, `npm run verify` groen, cache-bump v19/`?v=18`). Gekozen: versie C op beide schermen — icoon per tab + klein tekstlabel onder de actieve tab, badge (`n/m`) op het boodschappen-icoon, tabnaam in `title`/`aria-label`.
 
 ## Aanleiding (wens uit issue #41)
 
@@ -41,9 +41,9 @@ Weekmenu / Recepten / Voorraad / Boodschappen (n/m) / Instellingen), styling in 
   `npm run build`, `npm run verify` groen, CI groen (ADR-014), cache-bump.
 - Gekoppeld: #40 (thema-iconen), #36 (voorraad) — branch `vibe/issues-36-41-40-26a2f9`.
 
-## Open vragen / knopen om door te hakken
+## Beslissingen ronde 1 (akkoord eigenaar, 2026-11-25)
 
-- Emoji-iconen (A) of eigen SVG-lijniconen (B)? (SVG = consistenter over toestellen, emoji = gratis kleur)
-- Actieve tab met klein tekstlabel (C) of puur iconen?
-- Bij versie C-zonder-pill: is de actieve tab dan nog duidelijk genoeg gemarkeerd?
-- Welke icoonset exact per tab? (huidig voorstel: 📅 weekmenu, 📖 recepten, 📦 voorraad, 🛒 boodschappen, ⚙️ instellingen)
+- **Versie C bij beide schermen**: emoji-iconen (📅 📖 📦 🛒 ⚙️) in de pill-nav + klein tekstlabel onder de actieve tab; de 5 knoppen `flex-1` passen binnen 360px zonder horizontaal scrollen.
+- Boodschappen-teller als **badge** (`n/m`) op het 🛒-icoon, alleen bij teller > 0.
+- Tabnaam in `title`/`aria-label` (toegankelijkheid); geen zichtbare titeltekst bij inactieve tabs.
+- Thema-afhankelijke iconen (Sinterklaas/Kerstmis) volgen uit #40 (`docs/ux/themas/`).

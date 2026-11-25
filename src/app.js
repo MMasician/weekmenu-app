@@ -2098,12 +2098,13 @@ function App() {
   ];
   const anyScaled = scaledFactors.length > 0;
 
+  // #41: tabbalk met icoontjes (versie C): icoon per tab + klein label onder de actieve tab; teller als badge
   const tabs = [
-    { key: "menu", label: "Weekmenu" },
-    { key: "recipes", label: "Recepten" },
-    { key: "stock", label: "Voorraad" },
-    { key: "shopping", label: `Boodschappen${totalItems ? ` (${doneItems}/${totalItems})` : ""}` },
-    { key: "settings", label: "Instellingen" },
+    { key: "menu", label: "Weekmenu", icon: "\uD83D\uDCC5" },
+    { key: "recipes", label: "Recepten", icon: "\uD83D\uDCD6" },
+    { key: "stock", label: "Voorraad", icon: "\uD83D\uDCE6" },
+    { key: "shopping", label: "Boodschappen", icon: "\uD83D\uDED2" },
+    { key: "settings", label: "Instellingen", icon: "\u2699\uFE0F" },
   ];
 
   // --- Tab-views: elke tab/sheet als eigen render-functie, direct aangeroepen (geen <Component/>):
@@ -2257,7 +2258,7 @@ function App() {
                             /*#__PURE__*/React.createElement("button", { "type": "button", "className": "prodlink", "onClick": () => openProdCard("stock-" + s.i, s.pid) }, sp ? sp.name : s.name)
                           ) : (
                             s.name
-                          ), /*#__PURE__*/React.createElement("span", { "className": "block text-[10px] text-stone-400" }, `categorie: ${cat}`)), /*#__PURE__*/React.createElement("span", { "className": "flex items-center gap-1", "title": "Huidige voorraad" }, /*#__PURE__*/React.createElement("button", { "className": "w-7 h-7 rounded-lg bg-stone-100 font-bold text-stone-600", "onClick": () => bumpHave(s.i, -1) }, "−"), /*#__PURE__*/React.createElement("span", { "className": `w-6 text-center text-sm font-medium ${tekort ? "text-orange-600" : "text-stone-700"}` }, s.have), /*#__PURE__*/React.createElement("button", { "className": "w-7 h-7 rounded-lg bg-stone-100 font-bold text-stone-600", "onClick": () => bumpHave(s.i, 1) }, "+")), editing ? (
+                          ), /*#__PURE__*/React.createElement("span", { "className": "block text-[10px] text-stone-400" }, cat)), /*#__PURE__*/React.createElement("span", { "className": "flex items-center gap-1", "title": "Huidige voorraad" }, /*#__PURE__*/React.createElement("button", { "className": "w-7 h-7 rounded-lg bg-stone-100 font-bold text-stone-600", "onClick": () => bumpHave(s.i, -1) }, "−"), /*#__PURE__*/React.createElement("span", { "className": `w-6 text-center text-sm font-medium ${tekort ? "text-orange-600" : "text-stone-700"}` }, s.have), /*#__PURE__*/React.createElement("button", { "className": "w-7 h-7 rounded-lg bg-stone-100 font-bold text-stone-600", "onClick": () => bumpHave(s.i, 1) }, "+")), editing ? (
                           /*#__PURE__*/React.createElement("span", { "className": "flex items-center gap-1", "title": "Gewenste voorraad aanpassen" }, /*#__PURE__*/React.createElement("button", { "className": "w-7 h-7 rounded-lg bg-stone-100 font-bold text-stone-600", "onClick": () => bumpWant(s.i, -1) }, "−"), /*#__PURE__*/React.createElement("span", { "className": "w-6 text-center text-sm font-medium text-stone-700" }, s.want), /*#__PURE__*/React.createElement("button", { "className": "w-7 h-7 rounded-lg bg-stone-100 font-bold text-stone-600", "onClick": () => bumpWant(s.i, 1) }, "+"))
                         ) : (
                           /*#__PURE__*/React.createElement("span", { "className": "text-xs text-stone-400 whitespace-nowrap" }, `gewenst ${s.want}`)
@@ -2542,9 +2543,9 @@ function App() {
 
   return (
     /*#__PURE__*/React.createElement("div", { "className": "min-h-screen bg-stone-50 text-stone-800" }, /*#__PURE__*/React.createElement("div", { "className": "mx-auto max-w-2xl px-4 pb-16" }, /*#__PURE__*/React.createElement("header", { "className": "pt-6 pb-3 flex items-center justify-between" }, /*#__PURE__*/React.createElement("h1", { "className": "text-2xl font-bold" }, "Weekmenu & Boodschappen"), /*#__PURE__*/React.createElement("span", { "className": "text-xs text-stone-400" }, settings.householdSize + " eters")), /*#__PURE__*/React.createElement("nav", { "className": "flex gap-1 bg-white rounded-xl p-1 shadow-sm mb-4 sticky top-2 z-10" }, tabs.map((t) => (
-            /*#__PURE__*/React.createElement("button", { "key": t.key, "onClick": () => goTab(t.key), "className": `flex-1 py-2 rounded-lg text-sm font-medium transition ${
-                tab === t.key ? "bg-stone-800 text-white" : "text-stone-500 hover:bg-stone-100"
-              }` }, t.label)
+            /*#__PURE__*/React.createElement("button", { "key": t.key, "onClick": () => goTab(t.key), "title": t.label, "aria-label": t.label, "className": `tabbtn ${tab === t.key ? "bg-stone-800 text-white" : "text-stone-500 hover:bg-stone-100"}` }, /*#__PURE__*/React.createElement("span", { "className": "tabicon" }, t.icon), tab === t.key && /*#__PURE__*/React.createElement("span", { "className": "tablabel" }, t.label), t.key === "shopping" && totalItems > 0 && (
+                /*#__PURE__*/React.createElement("span", { "className": "tabbadge", "title": `${doneItems} van ${totalItems} afgevinkt` }, `${doneItems}/${totalItems}`)
+              ))
           ))), tab === "menu" && renderMenuTab(), tab === "recipes" && renderRecipesTab(), tab === "stock" && renderStockTab(), tab === "shopping" && renderShoppingTab(), tab === "settings" && renderSettingsTab(), tab === "settings" && renderDelenSheets(), tab === "menu" && dateSheetOpen && renderDateSheet(), tab === "menu" && rulesSheetOpen && renderRulesSheet(), tab === "menu" && deviationKey && renderDeviationSheet()))
   );
 }

@@ -24,7 +24,7 @@ function make(seed) {
   };
   const findTab = (label) => {
     let found = null;
-    walk(render(), (n) => { if (n && n.type === "button" && n.children && String(n.children[0]) === label) found = n; });
+    walk(render(), (n) => { if (n && n.type === "button" && String(n.props["aria-label"] || n.props.title || "") === label) found = n; });
     return found;
   };
   const buttonsWithText = (text) => {

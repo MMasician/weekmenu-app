@@ -9,6 +9,8 @@ Zie INTENT.md voor doel en principes; ADR-009 t/m ADR-011 voor configuratie, pri
 4. Boodschappen
 5. Instellingen (per huishouden, ADR-009)
 
+- **Tabbalk (#41)**: per tab een icoon (📅 Weekmenu, 📖 Recepten, 📦 Voorraad, 🛒 Boodschappen, ⚙️ Instellingen) in de bestaande pill-nav (`flex-1` per knop; past binnen 360px schermbreedte zonder horizontaal scrollen). Bij de **actieve** tab staat een klein tekstlabel onder het icoon; de tabnaam staat in `title`/`aria-label` van de knop. De boodschappen-teller staat als **badge** (`n/m`) op het 🛒-icoon, alleen bij teller > 0.
+
 (De Prijzen-tab is vervallen, ADR-016 deprecate ADR-008.)
 
 ## Instellingen per huishouden (ADR-009)
@@ -65,7 +67,7 @@ Zie INTENT.md voor doel en principes; ADR-009 t/m ADR-011 voor configuratie, pri
 ## Voorraad (ADR-015)
 - **Locaties** per huishouden: `stockLocations: [{ id, name }]` in localStorage (default `DEFAULT_LOCATIONS` = Voorraadkast, Koelkast, Vriezer, Kruidenla, Fruitschaal). Op de tab zijn locaties **uitklapbaar en starten ingeklapt**; de teller toont een kaal getal. Onderaan de lijst een ＋ → inline formulier onderaan (naam + ✓/✕). Achter elke locatie een ✏️ (edit-modus: gewenste hoeveelheden aanpasbaar) en een 🗑️ die **disabled** is zolang er producten aan de locatie hangen.
 - **Product** (voorraad) = `{ pid?, name, loc, cat, market?, want, have }`, gekoppeld aan de productcatalogus (ADR-017). Toevoegen via ＋ onderaan een uitgeklapte locatie → **inline add-rij onderaan** `[productnaam met autocomplete][gewenst-stapper][✓][✕]`; cat/market komen uit het product (nieuw product → `overig`, te wijzigen via klik op de naam). `have = want` bij toevoegen. Producten zijn **altijd** verwijderbaar (✕).
-- Per productrij: klikbare productnaam (prodlink → inline product-kaart, ADR-017) met daaronder de categorie als subtekst; **huidige voorraad (have) altijd** aanpasbaar met −/+; daarachter grijs `gewenst n` — in edit-modus (✏️ getoggled) een want-stapper in plaats daarvan. Optionele winkelvoorkeur toont een chip (winkel-naam). Tekort (have < want) toont een "op lijst"-badge.
+- Per productrij: klikbare productnaam (prodlink → inline product-kaart, ADR-017) met daaronder de **kale categorie als subtekst** (zonder het woord "categorie", #36); **huidige voorraad (have) altijd** aanpasbaar met −/+; daarachter grijs `gewenst n` — in edit-modus (✏️ getoggled) een want-stapper in plaats daarvan. Optionele winkelvoorkeur toont een chip (winkel-naam). Tekort (have < want) toont een "op lijst"-badge.
 - Tekort = have < want → automatisch op de boodschappenlijst met "(n van want)".
 - Knoppen onderaan: "Alles aangevuld" (have = want) en "Standaardlijst terug" (reset naar `DEFAULT_LOCATIONS` + `STOCK_DEFAULT`).
 - Uitleg achter een ℹ️-popover in de kop van de tab.

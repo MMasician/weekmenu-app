@@ -17,7 +17,7 @@ function make(seed) {
   };
   const findTab = (label) => {
     let found = null;
-    walk(render(), (n) => { if (n && n.type === "button" && n.children && String(n.children[0]).indexOf(label) === 0) found = n; });
+    walk(render(), (n) => { if (n && n.type === "button" && String(n.props["aria-label"] || n.props.title || "").indexOf(label) === 0) found = n; });
     return found;
   };
   const findBtn = (pred) => {
@@ -97,7 +97,7 @@ function make(seed) {
   // ---------- 3. Uitklappen + product toevoegen (inline add-rij ONDERAAN, uniform met ingrediënt-rijen; ADR-017) ----------
   t.btnByText("Voorraadkast").props.onClick();
   h = t.html();
-  check("uitgeklapt toont producten met categorie eronder", h.indexOf("Hagelslag") !== -1 && h.indexOf("categorie: broodbeleg") !== -1);
+  check("uitgeklapt toont producten met kale categorie eronder (#36: zonder 'categorie:')", h.indexOf("Hagelslag") !== -1 && h.indexOf("broodbeleg") !== -1 && h.indexOf("categorie:") === -1);
   check("gewenste voorraad grijs erachter", h.indexOf("gewenst 1") !== -1);
   t.btnByText("Product toevoegen").props.onClick();
   const nameInput = t.inputByPlaceholder("Productnaam…");
@@ -117,7 +117,7 @@ function make(seed) {
   const kProd = t.productsState().find((p) => p.name === "Kroepoek");
   check("nieuw product in de catalogus (cat 'overig')", !!kProd && kProd.cat === "overig");
   h = t.html();
-  check("productrij toont categorie + gewenst 2", h.indexOf("categorie: overig") !== -1 && h.indexOf("gewenst 2") !== -1);
+  check("productrij toont kale categorie + gewenst 2 (#36)", h.indexOf("overig") !== -1 && h.indexOf("categorie:") === -1 && h.indexOf("gewenst 2") !== -1);
 
   // product-detail inline: klik op de productnaam -> kaart met naam/categorie/eenheid/winkel
   const kLink = t.findBtn((n) => n.props.className === "prodlink" && JSON.stringify(n.children || []).indexOf("Kroepoek") !== -1);
@@ -131,7 +131,7 @@ function make(seed) {
   const kProd2 = t.productsState().find((p) => p.name === "Kroepoek");
   check("categorie + winkel opgeslagen in het product", !!kProd2 && kProd2.cat === "(maaltijd)saus" && kProd2.market === "lidl");
   h = t.html();
-  check("productrij toont nieuwe categorie + winkel-chip", h.indexOf("categorie: (maaltijd)saus") !== -1 && h.indexOf("Lidl") !== -1);
+  check("productrij toont nieuwe kale categorie + winkel-chip (#36)", h.indexOf("(maaltijd)saus") !== -1 && h.indexOf("categorie:") === -1 && h.indexOf("Lidl") !== -1);
 
   // ---------- 4. Edit-modus (✏️): gewenste voorraad via stapper ----------
   t.btnByTitle("Gewenste hoeveelheden in deze locatie").props.onClick();
