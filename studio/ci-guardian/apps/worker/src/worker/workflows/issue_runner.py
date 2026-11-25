@@ -238,7 +238,10 @@ async def post_issue_comment(repo: str, number: int, body: str) -> int:
 
 @workflows.activity(start_to_close_timeout=timedelta(seconds=60), retry_policy_max_attempts=1)
 async def update_issue_body(repo: str, number: int, body: str) -> None:
-    await _gh("PUT", f"/repos/{repo}/issues/{number}", {"body": body})
+    # Let op: "Update an issue" is PATCH, geen PUT (PUT -> 404, en _gh geeft dan None terug)
+    data = await _gh("PATCH", f"/repos/{repo}/issues/{number}", {"body": body})
+    if not data:
+        raise RuntimeError(f"issue-body update geweigerd: PATCH /issues/{number} gaf geen 2xx")
 
 
 def _merge_dor_into_body(body: str, dor: dict[str, Any]) -> str:

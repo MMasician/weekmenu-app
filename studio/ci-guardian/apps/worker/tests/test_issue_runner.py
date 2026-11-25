@@ -68,8 +68,8 @@ class FakeGitHub:
             return {"ok": True}
         if method == "POST" and base.endswith("/comments"):
             return {"id": 1}
-        if method == "PUT" and re.fullmatch(r"/repos/[^/]+/[^/]+/issues/\d+", base):
-            return {"ok": True}  # issue-body bijgewerkt (DoR)
+        if method == "PATCH" and re.fullmatch(r"/repos/[^/]+/[^/]+/issues/\d+", base):
+            return {"ok": True}  # issue-body bijgewerkt (DoR); "Update an issue" is PATCH, geen PUT
         if method == "GET" and base == f"/repos/{REPO}/git/ref/heads/main":
             return {"object": {"sha": "abc123"}}
         if method == "GET" and base.startswith(f"/repos/{REPO}/git/ref/heads/"):
@@ -130,7 +130,7 @@ async def test_agent_run_dry_run_writes_nothing(temporal_env, monkeypatch) -> No
     assert result["branch"] is None and result["pr_number"] is None
     assert result["files_changed"] == []
     assert result["summary"] == "s"
-    writes = [c for c in fake.calls if c[0] in ("POST", "PUT", "DELETE")]
+    writes = [c for c in fake.calls if c[0] in ("POST", "PUT", "PATCH", "DELETE")]
     assert writes == []
 
 
@@ -316,7 +316,7 @@ async def test_agent_run_updates_issue_body_with_dor(temporal_env, monkeypatch) 
             execution_timeout=timedelta(seconds=20),
         )
         result = await asyncio.wait_for(handle.result(), timeout=25)
-    puts = [c for c in fake.calls if c[0] == "PUT" and re.fullmatch(rf"/repos/{REPO}/issues/\d+", c[1])]
+    puts = [c for c in fake.calls if c[0] == "PATCH" and re.fullmatch(rf"/repos/{REPO}/issues/\d+", c[1])]
     assert len(puts) == 1
     assert puts[0][1] == f"/repos/{REPO}/issues/37"
     assert "Given x, When y, Then z" in puts[0][2]["body"]
