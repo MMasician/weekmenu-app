@@ -1098,7 +1098,7 @@ function App() {
   // tenzij er al vinkjes voor die dag stonden. Bij instant: voorraad (have) verlagen met de keuze.
   function applyDeviation(fromKey, customText, picks) {
     const parseK = (k) => new Date(Number(k.slice(0, 4)), Number(k.slice(5, 7)) - 1, Number(k.slice(8, 10)));
-    const keys = Object.keys(menuByDate).filter((k) => k >= fromKey).sort().reverse();
+    const keys = Object.keys(menuByDate).filter((k) => k >= fromKey).sort((a, b) => a.localeCompare(b)).reverse();
     const nextMenu = { ...menuByDate };
     const nextChecked = { ...checked };
     keys.forEach((k) => {
@@ -1140,6 +1140,18 @@ function App() {
     }
     setMenuByDate(nextMenu);
     setChecked(nextChecked);
+  }
+  // #42: alleen http(s)-URLs openen — gesanitiseerd via URL-parse + protocol-allowlist (CodeQL)
+  function safeExternalUrl(u) {
+    const str = String(u || "").trim();
+    if (!str) return null;
+    const withProto = /^https?:\/\//i.test(str) ? str : "https://" + str;
+    try {
+      const parsed = new URL(withProto);
+      return parsed.protocol === "https:" || parsed.protocol === "http:" ? parsed.href : null;
+    } catch (e) {
+      return null;
+    }
   }
   function updateTakeawayLink(i, patch) {
     updateSettings({ takeawayLinks: (settings.takeawayLinks || []).map((l, j) => (j === i ? { ...l, ...patch } : l)) });
@@ -2498,8 +2510,8 @@ function App() {
                   /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-400 py-2" }, "Nog geen bestelsites geconfigureerd — voeg toe via Instellingen → 🛵 Afhaalmaaltijden.")
                 ), links.map((l) => (
                   /*#__PURE__*/React.createElement("button", { "key": l.id, "className": "w-full flex items-center gap-2 border rounded-xl px-3 py-2 mb-2 text-left", "onClick": () => {
-                      const url = /^https?:\/\//i.test(l.url) ? l.url : "https://" + l.url;
-                      if (typeof window !== "undefined" && window.open) window.open(url, "_blank", "noopener");
+                      const url = safeExternalUrl(l.url);
+                      if (url && typeof window !== "undefined" && window.open) window.open(url, "_blank", "noopener");
                       applyDeviation(k, "Afhaalmaaltijd", null);
                       setDeviationKey(null);
                     } }, /*#__PURE__*/React.createElement("span", { "className": "flex-1 min-w-0 text-sm text-emerald-700 font-medium truncate" }, l.label), /*#__PURE__*/React.createElement("span", { "className": "text-xs text-stone-400 shrink-0 max-w-40 truncate" }, l.url), /*#__PURE__*/React.createElement("span", { "className": "shrink-0" }, "↗"))

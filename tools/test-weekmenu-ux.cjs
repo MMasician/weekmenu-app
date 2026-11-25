@@ -397,7 +397,7 @@ function make(seed) {
   check("#42: vandaag wordt vrije tekst 'Instant-maaltijd: 1× Soep' (geen boodschappen)", mbd[todayK] && mbd[todayK].custom === "Instant-maaltijd: 1× Soep");
   check("#42: shift: oude gerecht van vandaag staat nu op morgen (d1K = rA; locked behouden tenzij weekgrens)", mbd[d1K] && mbd[d1K].id === "rA" && mbd[d1K].locked === !crossesToday);
   check("#42: shift: rB van d1K staat nu op d2K", mbd[d2K] && mbd[d2K].id === "rB");
-  check("#42: shift over weekgrens: rB van d8K -> d9K en niet meer gelocked (geen vinkje)", mbd[d9K] && mbd[d9K].id === "rB" && !mbd[d9K].locked && !mbd[d8K]);
+  check("#42: shift over weekgrens: gelockte rB van d8K (laatste dag week) -> d9K en niet meer gelocked (geen vinkje)", mbd[d9K] && mbd[d9K].id === "rB" && mbd[d9K].locked === false);
   const ck = checkedState(t) || {};
   check("#42: vinkjes schuiven mee (todayK-rA-0 -> d1K-rA-0)", ck[d1K + "-rA-0"] === true && !ck[todayK + "-rA-0"]);
   const soep = (stockState(t) || []).find((s2) => s2.pid === "p-soep");
