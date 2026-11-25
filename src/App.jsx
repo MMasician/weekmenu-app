@@ -1145,13 +1145,17 @@ export default function App() {
   function safeExternalUrl(u) {
     const str = String(u || "").trim();
     if (!str) return null;
-    const withProto = /^https?:\/\//i.test(str) ? str : "https://" + str;
+    let parsed = null;
     try {
-      const parsed = new URL(withProto);
-      return parsed.protocol === "https:" || parsed.protocol === "http:" ? parsed.href : null;
+      parsed = new URL(str);
     } catch (e) {
-      return null;
+      try {
+        parsed = new URL("https://" + str);
+      } catch (e2) {
+        return null;
+      }
     }
+    return parsed && (parsed.protocol === "https:" || parsed.protocol === "http:") ? parsed.href : null;
   }
   function updateTakeawayLink(i, patch) {
     updateSettings({ takeawayLinks: (settings.takeawayLinks || []).map((l, j) => (j === i ? { ...l, ...patch } : l)) });
