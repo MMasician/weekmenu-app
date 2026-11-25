@@ -18,6 +18,7 @@ ACTIVITIES = [
     ir.utc_now,
     ir.set_issue_labels,
     ir.post_issue_comment,
+    ir.update_issue_body,
     ir.generate_work_product,
     ir.main_sha,
     ir.create_branch,
@@ -60,6 +61,8 @@ class FakeGitHub:
             return {"ok": True}
         if method == "POST" and base.endswith("/comments"):
             return {"id": 1}
+        if method == "PUT" and re.fullmatch(r"/repos/[^/]+/[^/]+/issues/\d+", base):
+            return {"ok": True}  # issue-body bijgewerkt (DoR)
         if method == "GET" and base == f"/repos/{REPO}/git/ref/heads/main":
             return {"object": {"sha": "abc123"}}
         if method == "POST" and base == f"/repos/{REPO}/git/refs":
@@ -85,9 +88,12 @@ FAKE_PRODUCT = {
 }
 
 
-async def _run_agent(temporal_env, monkeypatch, fake: FakeGitHub, dry_run: bool) -> dict[str, Any]:
+async def _run_agent(
+    temporal_env, monkeypatch, fake: FakeGitHub, dry_run: bool, product_json: str | None = None
+) -> dict[str, Any]:
     monkeypatch.setattr(ir, "_gh", fake)
-    monkeypatch.setattr(ir, "_mistral_chat", lambda messages, model: asyncio.sleep(0, result='{"pr_title":"Test PR","pr_body":"body","summary":"samenvatting","files":[{"path":"docs/ux/test/VOORSTEL.md","content":"# test"}]}'))
+    product_json = product_json or '{"pr_title":"Test PR","pr_body":"body","summary":"samenvatting","files":[{"path":"docs/ux/test/VOORSTEL.md","content":"# test"}]}'
+    monkeypatch.setattr(ir, "_mistral_chat", lambda messages, model: asyncio.sleep(0, result=product_json))
     async with create_test_worker(temporal_env, workflows=[ir.IssueAgentRunWorkflow], activities=ACTIVITIES):
         handle = await temporal_env.client.start_workflow(
             "issue_agent_run",
@@ -101,11 +107,18 @@ async def _run_agent(temporal_env, monkeypatch, fake: FakeGitHub, dry_run: bool)
 
 async def test_agent_run_dry_run_writes_nothing(temporal_env, monkeypatch) -> None:
     fake = FakeGitHub(issue=_issue(37, ["ready"]), comments={37: []})
-    result = await _run_agent(temporal_env, monkeypatch, fake, dry_run=True)
+    # ook mét issue_body in het product: dry_run mag niets schrijven, ook geen issue-PUT
+    result = await _run_agent(
+        temporal_env,
+        monkeypatch,
+        fake,
+        dry_run=True,
+        product_json='{"pr_title":"t","pr_body":"b","summary":"s","issue_body":"## DoR","files":[]}',
+    )
     assert result["dry_run"] is True
     assert result["branch"] is None and result["pr_number"] is None
     assert result["files_changed"] == []
-    assert result["summary"] == "samenvatting"
+    assert result["summary"] == "s"
     writes = [c for c in fake.calls if c[0] in ("POST", "PUT", "DELETE")]
     assert writes == []
 
@@ -151,8 +164,9 @@ async def test_dispatcher_starts_child_per_runnable_issue(temporal_env, monkeypa
 
 
 async def test_dispatcher_skips_issues_with_marker(temporal_env, monkeypatch) -> None:
+    # alleen een MISLUKT-marker (mislukte run) triggert de retry-cooldown
     issues = [_issue(37, ["ready"])]
-    fake = FakeGitHub(issues=issues, comments={37: [{"body": f"{ir.RUNNER_MARKER} bezet"}]})
+    fake = FakeGitHub(issues=issues, comments={37: [{"body": f"{ir.RUNNER_MARKER} MISLUKT bezet"}]})
     monkeypatch.setattr(ir, "_gh", fake)
     monkeypatch.setattr(ir, "_mistral_chat", lambda messages, model: asyncio.sleep(0, result='{"pr_title":"t","pr_body":"b","summary":"s","files":[]}'))
     async with create_test_worker(
@@ -174,7 +188,7 @@ async def test_dispatcher_retries_after_cooldown(temporal_env, monkeypatch) -> N
     # marker van 24 uur geleden, cooldown 6 uur -> opnieuw oppakken
     old = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
     issues = [_issue(37, ["ready"])]
-    fake = FakeGitHub(issues=issues, comments={37: [{"body": f"{ir.RUNNER_MARKER} oud", "created_at": old}]})
+    fake = FakeGitHub(issues=issues, comments={37: [{"body": f"{ir.RUNNER_MARKER} MISLUKT oud", "created_at": old}]})
     monkeypatch.setattr(ir, "_gh", fake)
     monkeypatch.setattr(ir, "_mistral_chat", lambda messages, model: asyncio.sleep(0, result='{"pr_title":"t","pr_body":"b","summary":"s","files":[]}'))
     async with create_test_worker(
@@ -184,6 +198,29 @@ async def test_dispatcher_retries_after_cooldown(temporal_env, monkeypatch) -> N
             "issue_dispatcher",
             {"repo": REPO, "dry_run": True, "max_concurrent": 3, "retry_cooldown_hours": 6},
             id="test-dispatcher-cooldown",
+            task_queue="test-task-queue",
+            execution_timeout=timedelta(seconds=30),
+        )
+        result = await asyncio.wait_for(handle.result(), timeout=35)
+    assert [s["issue_number"] for s in result["started"]] == [37]
+    assert result["skipped_already_running"] == []
+
+
+async def test_dispatcher_rework_after_successful_run_not_blocked(temporal_env, monkeypatch) -> None:
+    # een geslaagde run ('run afgerond', marker zonder MISLUKT) blokkeert niet: bij needs-rework
+    # pakt de volgende tick het issue direct op (rework-lus)
+    recent = datetime.now(timezone.utc).isoformat()
+    issues = [_issue(37, ["needs-rework"])]
+    fake = FakeGitHub(issues=issues, comments={37: [{"body": f"{ir.RUNNER_MARKER} run afgerond", "created_at": recent}]})
+    monkeypatch.setattr(ir, "_gh", fake)
+    monkeypatch.setattr(ir, "_mistral_chat", lambda messages, model: asyncio.sleep(0, result='{"pr_title":"t","pr_body":"b","summary":"s","files":[]}'))
+    async with create_test_worker(
+        temporal_env, workflows=[ir.IssueDispatcherWorkflow, ir.IssueAgentRunWorkflow], activities=ACTIVITIES
+    ):
+        handle = await temporal_env.client.start_workflow(
+            "issue_dispatcher",
+            {"repo": REPO, "dry_run": True, "max_concurrent": 3, "retry_cooldown_hours": 6},
+            id="test-dispatcher-rework",
             task_queue="test-task-queue",
             execution_timeout=timedelta(seconds=30),
         )
@@ -221,6 +258,30 @@ async def test_agent_run_failure_restores_labels_and_comments(temporal_env, monk
     # geen branch/PR aangemaakt
     assert not any(c[1] == f"/repos/{REPO}/git/refs" for c in fake.calls)
     assert not any(c[1] == f"/repos/{REPO}/pulls" for c in fake.calls)
+
+
+async def test_agent_run_updates_issue_body_with_dor(temporal_env, monkeypatch) -> None:
+    fake = FakeGitHub(issue=_issue(37, ["needs-rework"]), comments={37: []})
+    monkeypatch.setattr(ir, "_gh", fake)
+    product = (
+        '{"pr_title":"t","pr_body":"b","summary":"s",'
+        '"issue_body":"## DoR aangevuld\\n- [x] criterium","files":[]}'
+    )
+    monkeypatch.setattr(ir, "_mistral_chat", lambda messages, model: asyncio.sleep(0, result=product))
+    async with create_test_worker(temporal_env, workflows=[ir.IssueAgentRunWorkflow], activities=ACTIVITIES):
+        handle = await temporal_env.client.start_workflow(
+            "issue_agent_run",
+            {"repo": REPO, "issue_number": 37, "dry_run": False},
+            id="test-agent-run-body",
+            task_queue="test-task-queue",
+            execution_timeout=timedelta(seconds=20),
+        )
+        result = await asyncio.wait_for(handle.result(), timeout=25)
+    puts = [c for c in fake.calls if c[0] == "PUT" and re.fullmatch(rf"/repos/{REPO}/issues/\d+", c[1])]
+    assert len(puts) == 1
+    assert puts[0][1] == f"/repos/{REPO}/issues/37"
+    assert puts[0][2]["body"].startswith("## DoR aangevuld")
+    assert result["files_changed"] == []
 
 
 def _client_returning(content: Any) -> Any:

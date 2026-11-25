@@ -205,12 +205,18 @@ async def utc_now() -> str:
 
 @workflows.activity(start_to_close_timeout=timedelta(seconds=60))
 async def latest_runner_marker(repo: str, number: int) -> str | None:
-    """created_at (ISO) van de nieuwste runner-marker-comment, of None als er geen is."""
+    """created_at (ISO) van de nieuwste MISLUKT-marker-comment (mislukte run), of None.
+
+    Alleen na een mislukte run geldt de retry-cooldown. Een geslaagde run ('run afgerond')
+    blokkeert niet: het issue staat dan op needs-review; zet de eigenaar het nadien op
+    needs-rework/ready, dan pakt de volgende dispatcher-tick het direct op. Een draaiende
+    child-run wordt sowieso afgevangen via het deterministische execution_id (AlreadyStarted).
+    """
     comments = await _gh("GET", f"/repos/{repo}/issues/{number}/comments?per_page=100")
     stamps = [
         str(c.get("created_at"))
         for c in (comments or [])
-        if RUNNER_MARKER in (c.get("body") or "")
+        if RUNNER_MARKER in (c.get("body") or "") and "MISLUKT" in (c.get("body") or "")
     ]
     return max(stamps) if stamps else None
 
@@ -229,6 +235,11 @@ async def post_issue_comment(repo: str, number: int, body: str) -> int:
     return int((data or {}).get("id") or 0)
 
 
+@workflows.activity(start_to_close_timeout=timedelta(seconds=60), retry_policy_max_attempts=1)
+async def update_issue_body(repo: str, number: int, body: str) -> None:
+    await _gh("PUT", f"/repos/{repo}/issues/{number}", {"body": body})
+
+
 @workflows.activity(start_to_close_timeout=timedelta(minutes=15))
 async def generate_work_product(
     repo: str,
@@ -242,17 +253,23 @@ async def generate_work_product(
     system = (
         "Je bent de repo-agent voor het GitHub-repo " + repo + ". Je werkt issues uit volgens "
         "docs/domeinproces.md (Definition of Ready/Done, labels, mocks-eerst in docs/ux/<onderwerp>/ "
-        "+ VOORSTEL.md met 3 versies per gewijzigd scherm, branch vibe/<slug>, draft PR, tests in "
+        "+ VOORSTEL.md, branch vibe/<slug>, draft PR, tests in "
         "tools/test-*.cjs, npm run build/verify, SPECS/ADR bijwerken, CACHE_VERSION bump, PR body "
         "eindigt met 'Closes #<nr>'). De volledige context (DoR, mocks, feedback van de eigenaar) "
-        "staat in het issue en de comments hieronder."
+        "staat in het issue en de comments hieronder. "
+        "Mocks zijn SVG-bestanden (tekst/XML, 390x844, inline styling in de huisstijl van styles.css): "
+        "per gewijzigd scherm 3 versies als <nn>-<scherm>-versie-<A/B/C>.svg in docs/ux/<onderwerp>/ plus "
+        "VOORSTEL.md met de aanbevolen versie. Geen PNG: binair kan niet via deze text-only file-pipeline."
     )
     user = (
         f"Issue #{issue_number}: {title}\n\n--- issue body ---\n{body}\n\n--- comments ---\n{comments_text}\n\n"
         f"Mode: {mode} (auto = als het issue label ready heeft met akkoord-comment: implementeer; "
         "anders: elaboratie + mocks).\n\n"
         "Geef ALLEEN JSON terug met dit schema: "
-        '{"pr_title": str, "pr_body": str, "summary": str, "files": [{"path": str, "content": str}]}. '
+        '{"pr_title": str, "pr_body": str, "summary": str, "issue_body": str, "files": [{"path": str, "content": str}]}. '
+        '"issue_body" = de VOLLEDIGE nieuwe issue-tekst met alle DoR-secties ingevuld (acceptatiecriteria, scope, '
+        'UX/mocks, randgevallen, open vragen, verificatie, afhankelijkheden) — de eigenaar reviewt de DoR in het '
+        "issue zelf, niet alleen als md in de repo; laat leeg als de issue-body niet wijzigt. "
         "Lege files-lijst mag als er geen bestandwijzigingen nodig zijn."
     )
     raw = await _mistral_chat(
@@ -272,6 +289,7 @@ async def generate_work_product(
         "pr_title": str(data.get("pr_title") or f"Issue #{issue_number}: {title}"),
         "pr_body": str(data.get("pr_body") or ""),
         "summary": str(data.get("summary") or ""),
+        "issue_body": str(data.get("issue_body") or ""),
         "files": files,
     }
 
@@ -354,6 +372,9 @@ class IssueAgentRunWorkflow:
             product = await generate_work_product(
                 data.repo, data.issue_number, title, body, comments_text, data.mode, data.model
             )
+
+            if product["issue_body"] and not data.dry_run:
+                await update_issue_body(data.repo, data.issue_number, product["issue_body"])
 
             branch: str | None = None
             pr_number: int | None = None
