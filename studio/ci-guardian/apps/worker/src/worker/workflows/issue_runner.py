@@ -157,6 +157,7 @@ async def _mistral_chat(messages: list[dict[str, str]], model: str) -> str:
         model=model,
         messages=messages,
         response_format={"type": "json_object"},
+        timeout_ms=1_200_000,  # grote JSON-output (DoR + SVG-mocks) genereert minutenlang
     )
     content = response.choices[0].message.content
     return _content_to_text(content)
@@ -240,7 +241,7 @@ async def update_issue_body(repo: str, number: int, body: str) -> None:
     await _gh("PUT", f"/repos/{repo}/issues/{number}", {"body": body})
 
 
-@workflows.activity(start_to_close_timeout=timedelta(minutes=15))
+@workflows.activity(start_to_close_timeout=timedelta(minutes=45), retry_policy_max_attempts=2)
 async def generate_work_product(
     repo: str,
     issue_number: int,
@@ -259,7 +260,9 @@ async def generate_work_product(
         "staat in het issue en de comments hieronder. "
         "Mocks zijn SVG-bestanden (tekst/XML, 390x844, inline styling in de huisstijl van styles.css): "
         "per gewijzigd scherm 3 versies als <nn>-<scherm>-versie-<A/B/C>.svg in docs/ux/<onderwerp>/ plus "
-        "VOORSTEL.md met de aanbevolen versie. Geen PNG: binair kan niet via deze text-only file-pipeline."
+        "VOORSTEL.md met de aanbevolen versie. Geen PNG: binair kan niet via deze text-only file-pipeline. "
+        "Houd de JSON compact: DoR beknopt (korte bullets), SVG's eenvoudig (rechthoeken + tekst), "
+        "maximaal 3 schermen x 3 versies."
     )
     user = (
         f"Issue #{issue_number}: {title}\n\n--- issue body ---\n{body}\n\n--- comments ---\n{comments_text}\n\n"
