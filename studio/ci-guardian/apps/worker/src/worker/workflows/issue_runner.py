@@ -241,6 +241,42 @@ async def update_issue_body(repo: str, number: int, body: str) -> None:
     await _gh("PUT", f"/repos/{repo}/issues/{number}", {"body": body})
 
 
+@workflows.activity(start_to_close_timeout=timedelta(minutes=20), retry_policy_max_attempts=2)
+async def generate_issue_dor(
+    repo: str,
+    issue_number: int,
+    title: str,
+    body: str,
+    comments_text: str,
+    mode: str,
+    model: str,
+) -> dict[str, Any]:
+    """Aparte, kleine call voor de DoR in het issue zelf (zodat de grote files-call hem niet wegdrukt)."""
+    system = (
+        "Je bent de repo-agent voor het GitHub-repo " + repo + " (zie docs/domeinproces.md). "
+        "Je taak nu: vul ALLEEN de Definition of Ready van het issue in — de eigenaar reviewt de DoR in het issue zelf."
+    )
+    user = (
+        f"Issue #{issue_number}: {title}\n\n--- issue body ---\n{body}\n\n--- comments ---\n{comments_text}\n\n"
+        'Geef ALLEEN JSON terug: {"issue_body": str, "summary": str}. '
+        '"issue_body" = de VOLLEDIGE nieuwe issue-tekst (markdown): seed-secties behouden en alle DoR-secties '
+        "ingevuld — acceptatiecriteria (concreet/testbaar), scope (tab(s)/onderdelen + expliciet buiten scope), "
+        "UX/mocks (welk docs/ux/<onderwerp>/ met hoeveel versies per scherm), randgevallen (lege state, "
+        'foutafhandeling, offline, per-huishouden), open vragen, verificatie, afhankelijkheden. '
+        'Beknopt: korte bullets. Laat "issue_body" leeg als de body niet wijzigt.'
+    )
+    raw = await _mistral_chat([{"role": "system", "content": system}, {"role": "user", "content": user}], model)
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        m = re.search(r"\{.*\}", raw, re.DOTALL)
+        data = json.loads(m.group(0)) if m else {}
+    return {
+        "issue_body": str(data.get("issue_body") or ""),
+        "summary": str(data.get("summary") or ""),
+    }
+
+
 @workflows.activity(start_to_close_timeout=timedelta(minutes=45), retry_policy_max_attempts=2)
 async def generate_work_product(
     repo: str,
@@ -261,18 +297,14 @@ async def generate_work_product(
         "Mocks zijn SVG-bestanden (tekst/XML, 390x844, inline styling in de huisstijl van styles.css): "
         "per gewijzigd scherm 3 versies als <nn>-<scherm>-versie-<A/B/C>.svg in docs/ux/<onderwerp>/ plus "
         "VOORSTEL.md met de aanbevolen versie. Geen PNG: binair kan niet via deze text-only file-pipeline. "
-        "Houd de JSON compact: DoR beknopt (korte bullets), SVG's eenvoudig (rechthoeken + tekst), "
-        "maximaal 3 schermen x 3 versies."
+        "Houd de JSON compact: SVG's eenvoudig (rechthoeken + tekst), maximaal 3 schermen x 3 versies."
     )
     user = (
         f"Issue #{issue_number}: {title}\n\n--- issue body ---\n{body}\n\n--- comments ---\n{comments_text}\n\n"
         f"Mode: {mode} (auto = als het issue label ready heeft met akkoord-comment: implementeer; "
         "anders: elaboratie + mocks).\n\n"
         "Geef ALLEEN JSON terug met dit schema: "
-        '{"pr_title": str, "pr_body": str, "summary": str, "issue_body": str, "files": [{"path": str, "content": str}]}. '
-        '"issue_body" = de VOLLEDIGE nieuwe issue-tekst met alle DoR-secties ingevuld (acceptatiecriteria, scope, '
-        'UX/mocks, randgevallen, open vragen, verificatie, afhankelijkheden) — de eigenaar reviewt de DoR in het '
-        "issue zelf, niet alleen als md in de repo; laat leeg als de issue-body niet wijzigt. "
+        '{"pr_title": str, "pr_body": str, "summary": str, "files": [{"path": str, "content": str}]}. '
         "Lege files-lijst mag als er geen bestandwijzigingen nodig zijn."
     )
     raw = await _mistral_chat(
@@ -292,7 +324,6 @@ async def generate_work_product(
         "pr_title": str(data.get("pr_title") or f"Issue #{issue_number}: {title}"),
         "pr_body": str(data.get("pr_body") or ""),
         "summary": str(data.get("summary") or ""),
-        "issue_body": str(data.get("issue_body") or ""),
         "files": files,
     }
 
@@ -337,8 +368,10 @@ async def put_file(repo: str, path: str, branch: str, content: str, message: str
 @workflows.activity(start_to_close_timeout=timedelta(seconds=60), retry_policy_max_attempts=1)
 async def open_draft_pr(repo: str, head: str, title: str, body: str) -> int:
     # bij een rework-run bestaat er al een (draft) PR voor deze head-branch: hergebruik het nummer
+    # (head MOET de owner:branch-vorm hebben; zonder owner matcht de filter niets en krijg je alle open PRs)
+    owner = repo.split("/")[0]
     existing = await _gh(
-        "GET", f"/repos/{repo}/pulls?head={urllib.parse.quote(head, safe='')}&state=open"
+        "GET", f"/repos/{repo}/pulls?head={urllib.parse.quote(f'{owner}:{head}', safe=':/')}&state=open"
     )
     if existing:
         return int(existing[0].get("number"))
@@ -382,12 +415,15 @@ class IssueAgentRunWorkflow:
                     f"{RUNNER_MARKER}\nissue-runner: agent-run gestart voor dit issue (mode `{data.mode}`, dry_run={data.dry_run}).",
                 )
 
+            dor = await generate_issue_dor(
+                data.repo, data.issue_number, title, body, comments_text, data.mode, data.model
+            )
+            if dor["issue_body"] and not data.dry_run:
+                await update_issue_body(data.repo, data.issue_number, dor["issue_body"])
+
             product = await generate_work_product(
                 data.repo, data.issue_number, title, body, comments_text, data.mode, data.model
             )
-
-            if product["issue_body"] and not data.dry_run:
-                await update_issue_body(data.repo, data.issue_number, product["issue_body"])
 
             branch: str | None = None
             pr_number: int | None = None

@@ -19,6 +19,7 @@ ACTIVITIES = [
     ir.set_issue_labels,
     ir.post_issue_comment,
     ir.update_issue_body,
+    ir.generate_issue_dor,
     ir.generate_work_product,
     ir.main_sha,
     ir.create_branch,
@@ -45,10 +46,12 @@ class FakeGitHub:
         self.existing_branch = existing_branch
         self.existing_pr = existing_pr
         self.calls: list[tuple[str, str, dict[str, Any] | None]] = []
+        self.raw_calls: list[tuple[str, str, dict[str, Any] | None]] = []
 
     async def __call__(self, method: str, path: str, body: dict[str, Any] | None = None) -> Any:
         base = path.split("?")[0]
         self.calls.append((method, base, body))
+        self.raw_calls.append((method, path, body))
         if method == "GET" and base == f"/repos/{REPO}/issues":
             return self.issues  # list-call (heeft query ?state=open)
         if method == "GET" and base.endswith("/comments"):
@@ -315,6 +318,9 @@ async def test_agent_run_rework_reuses_branch_and_pr(temporal_env, monkeypatch) 
     assert not any(c[0] == "POST" and c[1] == f"/repos/{REPO}/git/refs" for c in fake.calls)  # branch hergebruikt
     assert not any(c[0] == "POST" and c[1] == f"/repos/{REPO}/pulls" for c in fake.calls)  # PR hergebruikt
     assert any(c[0] == "PUT" and "/contents/" in c[1] for c in fake.calls)  # wel files geschreven
+    # head-filter moet owner:branch-vorm hebben, anders matcht GitHub niets en pakt hij de eerste open PR
+    get_pulls = [c for c in fake.raw_calls if c[0] == "GET" and c[1].startswith(f"/repos/{REPO}/pulls?")]
+    assert get_pulls and "head=MMasician:vibe/issue-37-test-issue" in get_pulls[0][1]
 
 
 def _client_returning(content: Any) -> Any:
