@@ -157,6 +157,7 @@ async def _mistral_chat(messages: list[dict[str, str]], model: str) -> str:
         model=model,
         messages=messages,
         response_format={"type": "json_object"},
+        timeout_ms=1_200_000,  # grote JSON-output (DoR + SVG-mocks) genereert minutenlang
     )
     content = response.choices[0].message.content
     return _content_to_text(content)
@@ -205,12 +206,18 @@ async def utc_now() -> str:
 
 @workflows.activity(start_to_close_timeout=timedelta(seconds=60))
 async def latest_runner_marker(repo: str, number: int) -> str | None:
-    """created_at (ISO) van de nieuwste runner-marker-comment, of None als er geen is."""
+    """created_at (ISO) van de nieuwste MISLUKT-marker-comment (mislukte run), of None.
+
+    Alleen na een mislukte run geldt de retry-cooldown. Een geslaagde run ('run afgerond')
+    blokkeert niet: het issue staat dan op needs-review; zet de eigenaar het nadien op
+    needs-rework/ready, dan pakt de volgende dispatcher-tick het direct op. Een draaiende
+    child-run wordt sowieso afgevangen via het deterministische execution_id (AlreadyStarted).
+    """
     comments = await _gh("GET", f"/repos/{repo}/issues/{number}/comments?per_page=100")
     stamps = [
         str(c.get("created_at"))
         for c in (comments or [])
-        if RUNNER_MARKER in (c.get("body") or "")
+        if RUNNER_MARKER in (c.get("body") or "") and "MISLUKT" in (c.get("body") or "")
     ]
     return max(stamps) if stamps else None
 
@@ -229,7 +236,104 @@ async def post_issue_comment(repo: str, number: int, body: str) -> int:
     return int((data or {}).get("id") or 0)
 
 
-@workflows.activity(start_to_close_timeout=timedelta(minutes=15))
+@workflows.activity(start_to_close_timeout=timedelta(seconds=60), retry_policy_max_attempts=1)
+async def update_issue_body(repo: str, number: int, body: str) -> None:
+    # Let op: "Update an issue" is PATCH, geen PUT (PUT -> 404, en _gh geeft dan None terug)
+    data = await _gh("PATCH", f"/repos/{repo}/issues/{number}", {"body": body})
+    if not data:
+        raise RuntimeError(f"issue-body update geweigerd: PATCH /issues/{number} gaf geen 2xx")
+
+
+def _merge_dor_into_body(body: str, dor: dict[str, Any]) -> str:
+    """Vervang de sectie vanaf '## Rest van de DoR' in de issue-body door de door de agent
+    ingevulde DoR (gestructureerde velden -> deterministische markdown). Alles vóór die
+    sectie (de seed) blijft behouden."""
+    head = body.partition("## Rest van de DoR")[0].rstrip()
+
+    def s(key: str) -> str:
+        v = dor.get(key)
+        return str(v).strip() if v is not None else ""
+
+    ac = [str(x).strip() for x in (dor.get("acceptatiecriteria") or []) if str(x).strip()]
+    rand = dor.get("randgevallen") if isinstance(dor.get("randgevallen"), dict) else {}
+    verif = [str(x).strip() for x in (dor.get("verificatie") or []) if str(x).strip()]
+    section = "\n".join(
+        [
+            "## Rest van de DoR — ingevuld door de agent, te accorderen door de eigenaar",
+            "",
+            "### Acceptatiecriteria",
+            "<!-- Concreet en testbaar, bijv. Given/When/Then -->",
+            *([f"- [ ] {c}" for c in ac] or ["- [ ] (nog in te vullen)"]),
+            "",
+            "### Scope",
+            f"- Getroffen tab(s)/onderdelen: {s('scope_getroffen') or '—'}",
+            f"- Buiten scope: {s('scope_buiten') or '—'}",
+            "",
+            "### UX / mocks",
+            s("ux_mocks") or "geen UI-wijziging",
+            "",
+            "### Randgevallen",
+            f"- [ ] Lege state: {rand.get('lege_state') or '—'}",
+            f"- [ ] Foutafhandeling: {rand.get('foutafhandeling') or '—'}",
+            f"- [ ] Offline gedrag: {rand.get('offline') or '—'}",
+            f"- [ ] Per-huishouden-instellingen (ADR-009/ADR-010): {rand.get('per_huishouden') or '—'}",
+            "",
+            "### Open vragen",
+            s("open_vragen") or "geen open vragen",
+            "",
+            "### Verificatie",
+            *(
+                [f"- [ ] {v}" for v in verif]
+                or ["- [ ] Tests uitgebreid in `tools/test-*.cjs`", "- [ ] `npm run verify` geslaagd", "- [ ] CI groen (ADR-014)"]
+            ),
+            "",
+            "### Afhankelijkheden",
+            s("afhankelijkheden") or "geen",
+            "",
+        ]
+    )
+    return f"{head}\n\n{section}"
+
+
+@workflows.activity(start_to_close_timeout=timedelta(minutes=20), retry_policy_max_attempts=2)
+async def generate_issue_dor(
+    repo: str,
+    issue_number: int,
+    title: str,
+    body: str,
+    comments_text: str,
+    mode: str,
+    model: str,
+) -> dict[str, Any]:
+    """Aparte call voor de DoR: gestructureerde velden (geen hele doc reproduceren), die de
+    workflow deterministisch in de issue-body merget via _merge_dor_into_body."""
+    system = (
+        "Je bent de repo-agent voor het GitHub-repo " + repo + " (zie docs/domeinproces.md). "
+        "Je taak nu: vul ALLEEN de Definition of Ready van het issue in — de eigenaar reviewt de DoR in het issue zelf."
+    )
+    user = (
+        f"Issue #{issue_number}: {title}\n\n--- issue body ---\n{body}\n\n--- comments ---\n{comments_text}\n\n"
+        'Geef ALLEEN JSON terug met dit schema (vul ALLE velden in; leeg mag alleen als echt niet van toepassing): '
+        '{"acceptatiecriteria": ["Given ..., When ..., Then ...", ...], '
+        '"scope_getroffen": "...", "scope_buiten": "...", '
+        '"ux_mocks": "docs/ux/<onderwerp>/ met N versies per scherm: ...", '
+        '"randgevallen": {"lege_state": "...", "foutafhandeling": "...", "offline": "...", "per_huishouden": "..."}, '
+        '"open_vragen": "... of: geen open vragen", '
+        '"verificatie": ["tests in tools/test-*.cjs", "npm run verify", "CI groen"], '
+        '"afhankelijkheden": "...", "summary": "korte samenvatting"}'
+    )
+    raw = await _mistral_chat([{"role": "system", "content": system}, {"role": "user", "content": user}], model)
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        m = re.search(r"\{.*\}", raw, re.DOTALL)
+        data = json.loads(m.group(0)) if m else {}
+    if not isinstance(data, dict):
+        data = {}
+    return data
+
+
+@workflows.activity(start_to_close_timeout=timedelta(minutes=45), retry_policy_max_attempts=2)
 async def generate_work_product(
     repo: str,
     issue_number: int,
@@ -242,10 +346,14 @@ async def generate_work_product(
     system = (
         "Je bent de repo-agent voor het GitHub-repo " + repo + ". Je werkt issues uit volgens "
         "docs/domeinproces.md (Definition of Ready/Done, labels, mocks-eerst in docs/ux/<onderwerp>/ "
-        "+ VOORSTEL.md met 3 versies per gewijzigd scherm, branch vibe/<slug>, draft PR, tests in "
+        "+ VOORSTEL.md, branch vibe/<slug>, draft PR, tests in "
         "tools/test-*.cjs, npm run build/verify, SPECS/ADR bijwerken, CACHE_VERSION bump, PR body "
         "eindigt met 'Closes #<nr>'). De volledige context (DoR, mocks, feedback van de eigenaar) "
-        "staat in het issue en de comments hieronder."
+        "staat in het issue en de comments hieronder. "
+        "Mocks zijn SVG-bestanden (tekst/XML, 390x844, inline styling in de huisstijl van styles.css): "
+        "per gewijzigd scherm 3 versies als <nn>-<scherm>-versie-<A/B/C>.svg in docs/ux/<onderwerp>/ plus "
+        "VOORSTEL.md met de aanbevolen versie. Geen PNG: binair kan niet via deze text-only file-pipeline. "
+        "Houd de JSON compact: SVG's eenvoudig (rechthoeken + tekst), maximaal 3 schermen x 3 versies."
     )
     user = (
         f"Issue #{issue_number}: {title}\n\n--- issue body ---\n{body}\n\n--- comments ---\n{comments_text}\n\n"
@@ -286,6 +394,10 @@ async def main_sha(repo: str) -> str:
 
 @workflows.activity(start_to_close_timeout=timedelta(seconds=60), retry_policy_max_attempts=1)
 async def create_branch(repo: str, branch: str, sha: str) -> None:
+    # bij een rework-run bestaat de branch vibe/issue-<nr>-<slug> al: hergebruik die
+    existing = await _gh("GET", f"/repos/{repo}/git/ref/heads/{branch}")
+    if existing:
+        return
     await _gh("POST", f"/repos/{repo}/git/refs", {"ref": f"refs/heads/{branch}", "sha": sha})
 
 
@@ -311,6 +423,14 @@ async def put_file(repo: str, path: str, branch: str, content: str, message: str
 
 @workflows.activity(start_to_close_timeout=timedelta(seconds=60), retry_policy_max_attempts=1)
 async def open_draft_pr(repo: str, head: str, title: str, body: str) -> int:
+    # bij een rework-run bestaat er al een (draft) PR voor deze head-branch: hergebruik het nummer
+    # (head MOET de owner:branch-vorm hebben; zonder owner matcht de filter niets en krijg je alle open PRs)
+    owner = repo.split("/")[0]
+    existing = await _gh(
+        "GET", f"/repos/{repo}/pulls?head={urllib.parse.quote(f'{owner}:{head}', safe=':/')}&state=open"
+    )
+    if existing:
+        return int(existing[0].get("number"))
     data = await _gh(
         "POST", f"/repos/{repo}/pulls", {"title": title, "head": head, "base": "main", "body": body, "draft": True}
     )
@@ -350,6 +470,13 @@ class IssueAgentRunWorkflow:
                     data.issue_number,
                     f"{RUNNER_MARKER}\nissue-runner: agent-run gestart voor dit issue (mode `{data.mode}`, dry_run={data.dry_run}).",
                 )
+
+            dor = await generate_issue_dor(
+                data.repo, data.issue_number, title, body, comments_text, data.mode, data.model
+            )
+            new_body = _merge_dor_into_body(body, dor)
+            if new_body != body and not data.dry_run:
+                await update_issue_body(data.repo, data.issue_number, new_body)
 
             product = await generate_work_product(
                 data.repo, data.issue_number, title, body, comments_text, data.mode, data.model
