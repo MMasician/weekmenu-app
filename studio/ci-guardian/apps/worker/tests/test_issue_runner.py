@@ -1,5 +1,7 @@
 import asyncio
+import base64
 import re
+import urllib.parse
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from typing import Any
@@ -24,6 +26,7 @@ ACTIVITIES = [
     ir.main_sha,
     ir.create_branch,
     ir.get_file_sha,
+    ir.get_file_content,
     ir.put_file,
     ir.open_draft_pr,
 ]
@@ -38,6 +41,7 @@ class FakeGitHub:
         comments: dict[int, list[dict[str, Any]]] | None = None,
         existing_branch: bool = False,
         existing_pr: bool = False,
+        file_contents: dict[str, str] | None = None,
     ) -> None:
         self.issues = issues or []
         self.issue = issue or {}
@@ -45,6 +49,7 @@ class FakeGitHub:
         self.comments = comments or {}
         self.existing_branch = existing_branch
         self.existing_pr = existing_pr
+        self.file_contents = file_contents or {}
         self.calls: list[tuple[str, str, dict[str, Any] | None]] = []
         self.raw_calls: list[tuple[str, str, dict[str, Any] | None]] = []
 
@@ -79,6 +84,12 @@ class FakeGitHub:
         if method == "POST" and base == f"/repos/{REPO}/git/refs":
             return {"ok": True}
         if method == "GET" and "/contents/" in base:
+            rel = urllib.parse.unquote(base.split("/contents/", 1)[1])
+            if rel in self.file_contents:
+                return {
+                    "sha": "sha-" + rel,
+                    "content": base64.b64encode(self.file_contents[rel].encode("utf-8")).decode("ascii"),
+                }
             return None  # 404 -> nieuw bestand
         if method == "PUT" and "/contents/" in base:
             return {"ok": True}
@@ -379,3 +390,83 @@ async def test_mistral_chat_chunk_lijst_reduceert_tot_tekst(monkeypatch) -> None
     content = [ThinkChunk(thinking=[]), TextChunk(text='{"b":'), TextChunk(text="2}")]
     monkeypatch.setattr(um, "mistral_client", lambda **kwargs: _client_returning(content))
     assert await ir._mistral_chat([{"role": "user", "content": "x"}], "m") == '{"b":2}'
+
+
+def test_apply_patch_after_before_replace() -> None:
+    out = ir._apply_patch(
+        "a\nb\nc\n",
+        [
+            {"anchor": "a\n", "position": "after", "content": "a2\n"},
+            {"anchor": "c\n", "position": "before", "content": "c0\n"},
+            {"anchor": "b\n", "position": "replace", "content": "B\n"},
+        ],
+    )
+    assert out == "a\na2\nB\nc0\nc\n"
+
+
+def test_apply_patch_anchor_moet_uniek_zijn() -> None:
+    with pytest.raises(ValueError):
+        ir._apply_patch("x\nx\n", [{"anchor": "x\n", "position": "after", "content": "y\n"}])
+    with pytest.raises(ValueError):
+        ir._apply_patch("a\n", [{"anchor": "zzz\n", "position": "after", "content": "y\n"}])
+
+
+def _put_contents(fake: FakeGitHub) -> dict[str, str]:
+    """path -> gedecodeerde content van alle PUT /contents calls."""
+    out: dict[str, str] = {}
+    for method, path, body in fake.raw_calls:
+        if method == "PUT" and "/contents/" in path:
+            rel = urllib.parse.unquote(path.split("/contents/", 1)[1])
+            out[rel] = base64.b64decode(body["content"]).decode("utf-8")
+    return out
+
+
+def _comment_bodies(fake: FakeGitHub) -> list[str]:
+    return [c[2]["body"] for c in fake.calls if c[0] == "POST" and c[1].endswith("/comments")]
+
+
+async def test_agent_run_patch_mode_past_edits_toe(temporal_env, monkeypatch) -> None:
+    big = "\n".join(f"regel {i}" for i in range(100)) + "\n"
+    fake = FakeGitHub(issue=_issue(37, ["ready"]), comments={37: []}, file_contents={"src/App.jsx": big})
+    product = (
+        '{"pr_title":"t","pr_body":"b","summary":"s","files":['
+        '{"path":"src/App.jsx","mode":"patch","edits":[{"anchor":"regel 5\\n","position":"after","content":"regel 5b\\n"}]}]}'
+    )
+    result = await _run_agent(temporal_env, monkeypatch, fake, dry_run=False, product_json=product)
+    puts = _put_contents(fake)
+    assert list(puts) == ["src/App.jsx"]
+    assert "regel 5\nregel 5b\n" in puts["src/App.jsx"]
+    assert ir._line_count(puts["src/App.jsx"]) == 101
+    assert result["files_changed"] == ["src/App.jsx"]
+
+
+async def test_agent_run_blokkeert_gutting_van_bestaand_bestand(temporal_env, monkeypatch) -> None:
+    big = "\n".join(f"regel {i}" for i in range(100)) + "\n"
+    fake = FakeGitHub(issue=_issue(37, ["ready"]), comments={37: []}, file_contents={"src/App.jsx": big})
+    # full-rewrite van bestaand App.jsx naar 2 regels -> moet geblokkeerd worden
+    product = '{"pr_title":"t","pr_body":"b","summary":"s","files":[{"path":"src/App.jsx","content":"klein\\n"}]}'
+    result = await _run_agent(temporal_env, monkeypatch, fake, dry_run=False, product_json=product)
+    assert _put_contents(fake) == {}
+    assert result["files_changed"] == []
+    assert any("anti-gutting" in b for b in _comment_bodies(fake))
+
+
+async def test_agent_run_herschrijft_bestaande_mock_nooit(temporal_env, monkeypatch) -> None:
+    fake = FakeGitHub(
+        issue=_issue(37, ["ready"]),
+        comments={37: []},
+        file_contents={"docs/ux/test/mock.svg": "<svg/>"},
+    )
+    product = '{"pr_title":"t","pr_body":"b","summary":"s","files":[{"path":"docs/ux/test/mock.svg","content":"<svg>changed</svg>"}]}'
+    result = await _run_agent(temporal_env, monkeypatch, fake, dry_run=False, product_json=product)
+    assert _put_contents(fake) == {}
+    assert result["files_changed"] == []
+    assert any("niet overschreven" in b for b in _comment_bodies(fake))
+
+
+async def test_agent_run_waarschuwt_bij_code_zonder_cache_bump(temporal_env, monkeypatch) -> None:
+    fake = FakeGitHub(issue=_issue(37, ["ready"]), comments={37: []})
+    product = '{"pr_title":"t","pr_body":"b","summary":"s","files":[{"path":"src/nieuw.js","content":"x\\n"}]}'
+    result = await _run_agent(temporal_env, monkeypatch, fake, dry_run=False, product_json=product)
+    assert result["files_changed"] == ["src/nieuw.js"]
+    assert any("CACHE_VERSION" in b for b in _comment_bodies(fake))

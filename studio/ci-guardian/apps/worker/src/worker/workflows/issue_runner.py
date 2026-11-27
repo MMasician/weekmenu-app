@@ -333,6 +333,38 @@ async def generate_issue_dor(
     return data
 
 
+def _line_count(s: str) -> int:
+    if not s:
+        return 0
+    return s.count("\n") + (0 if s.endswith("\n") else 1)
+
+
+def _apply_patch(current: str, edits: list[dict[str, Any]]) -> str:
+    """Pas anchored edits toe op bestaande bestandsinhoud. Elke edit heeft een anchor die exact
+    1x in de huidige tekst moet voorkomen, een position (after/before/replace) en content.
+    Zo kan de agent bestaande bestanden (m.n. src/App.jsx) additief wijzigen zonder het hele
+    bestand te herschrijven (output-limit -> gutting)."""
+    out = current
+    for e in edits or []:
+        anchor = str(e.get("anchor") or "")
+        pos = str(e.get("position") or "after")
+        content = str(e.get("content") or "")
+        if not anchor:
+            raise ValueError("patch-edit zonder anchor")
+        n = out.count(anchor)
+        if n != 1:
+            raise ValueError(f"anchor komt {n}x voor (moet exact 1x): {anchor[:80]!r}")
+        if pos == "replace":
+            out = out.replace(anchor, content)
+        elif pos == "after":
+            out = out.replace(anchor, anchor + content)
+        elif pos == "before":
+            out = out.replace(anchor, content + anchor)
+        else:
+            raise ValueError(f"onbekende position: {pos!r}")
+    return out
+
+
 @workflows.activity(start_to_close_timeout=timedelta(minutes=45), retry_policy_max_attempts=2)
 async def generate_work_product(
     repo: str,
@@ -353,14 +385,24 @@ async def generate_work_product(
         "Mocks zijn SVG-bestanden (tekst/XML, 390x844, inline styling in de huisstijl van styles.css): "
         "per gewijzigd scherm 3 versies als <nn>-<scherm>-versie-<A/B/C>.svg in docs/ux/<onderwerp>/ plus "
         "VOORSTEL.md met de aanbevolen versie. Geen PNG: binair kan niet via deze text-only file-pipeline. "
-        "Houd de JSON compact: SVG's eenvoudig (rechthoeken + tekst), maximaal 3 schermen x 3 versies."
+        "Houd de JSON compact: SVG's eenvoudig (rechthoeken + tekst), maximaal 3 schermen x 3 versies. "
+        "BELANGRIJK: herschrijf NOOIT een bestaand bestand integraal (zeker niet src/App.jsx, 4000+ regels — "
+        "de output-limiet zou het bestand afkappen/leeggooien). Voor bestaande bestanden gebruik je patch-mode: "
+        '{"path": ..., "mode": "patch", "edits": [{"anchor": "<exacte bestaande tekst, komt precies 1x voor>", '
+        '"position": "after"|"before"|"replace", "content": "<toe te voegen/vervangende tekst>"}]}. '
+        'Alleen NIEUWE bestanden (docs/ux/..., tools/test-*.cjs, src/<nieuw module>.js) geef je als volledig bestand: '
+        '{"path": ..., "content": "..."}. '
+        "Herschrijf bestaande mocks in docs/ux/ NOOIT — voeg een nieuwe versie toe als nieuw bestand. "
+        "Bij codewijzigingen (src/, index.html, styles.css): verhoog CACHE_VERSION in sw.js "
+        "(weekmenu-app-vNN -> vNN+1) en zet ALLE ?v=NN in index.html op hetzelfde NN+1; neem sw.js én index.html op in files."
     )
     user = (
         f"Issue #{issue_number}: {title}\n\n--- issue body ---\n{body}\n\n--- comments ---\n{comments_text}\n\n"
         f"Mode: {mode} (auto = als het issue label ready heeft met akkoord-comment: implementeer; "
         "anders: elaboratie + mocks).\n\n"
         "Geef ALLEEN JSON terug met dit schema: "
-        '{"pr_title": str, "pr_body": str, "summary": str, "files": [{"path": str, "content": str}]}. '
+        '{"pr_title": str, "pr_body": str, "summary": str, "files": [{"path": str, "content": str} | '
+        '{"path": str, "mode": "patch", "edits": [{"anchor": str, "position": "after|before|replace", "content": str}]}]}. '
         "Lege files-lijst mag als er geen bestandwijzigingen nodig zijn."
     )
     raw = await _mistral_chat(
@@ -371,11 +413,18 @@ async def generate_work_product(
     except json.JSONDecodeError:
         m = re.search(r"\{.*\}", raw, re.DOTALL)
         data = json.loads(m.group(0)) if m else {}
-    files = [
-        {"path": str(f["path"]), "content": str(f.get("content", ""))}
-        for f in data.get("files") or []
-        if f.get("path")
-    ]
+    files = []
+    for f in data.get("files") or []:
+        if not f.get("path"):
+            continue
+        files.append(
+            {
+                "path": str(f["path"]),
+                "mode": str(f.get("mode") or "full"),
+                "content": str(f.get("content") or ""),
+                "edits": f.get("edits") or [],
+            }
+        )
     return {
         "pr_title": str(data.get("pr_title") or f"Issue #{issue_number}: {title}"),
         "pr_body": str(data.get("pr_body") or ""),
@@ -399,6 +448,17 @@ async def create_branch(repo: str, branch: str, sha: str) -> None:
     if existing:
         return
     await _gh("POST", f"/repos/{repo}/git/refs", {"ref": f"refs/heads/{branch}", "sha": sha})
+
+
+@workflows.activity(start_to_close_timeout=timedelta(seconds=60), retry_policy_max_attempts=1)
+async def get_file_content(repo: str, path: str, ref: str) -> str | None:
+    data = await _gh(
+        "GET", f"/repos/{repo}/contents/{urllib.parse.quote(path, safe='')}?ref={urllib.parse.quote(ref, safe='')}"
+    )
+    if not data or not data.get("content"):
+        return None
+    raw = base64.b64decode("".join(str(data["content"]).split()))
+    return raw.decode("utf-8")
 
 
 @workflows.activity(start_to_close_timeout=timedelta(seconds=60))
@@ -485,16 +545,50 @@ class IssueAgentRunWorkflow:
             branch: str | None = None
             pr_number: int | None = None
             files_changed: list[str] = []
+            skipped: list[str] = []
             if product["files"] and not data.dry_run:
                 sha = await main_sha(data.repo)
                 branch = f"vibe/issue-{data.issue_number}-{_slug(title)}"
                 await create_branch(data.repo, branch, sha)
                 for f in product["files"]:
-                    fsha = await get_file_sha(data.repo, f["path"], branch)
+                    path = f["path"]
+                    fsha = await get_file_sha(data.repo, path, branch)
+                    # guard: bestaande mocks in docs/ux/ worden NOOIT overschreven (append-only)
+                    if fsha and path.startswith("docs/ux/"):
+                        skipped.append(f"{path} — mock bestaat al, niet overschreven")
+                        continue
+                    content = f["content"]
+                    if f["mode"] == "patch":
+                        current = await get_file_content(data.repo, path, branch)
+                        if current is None:
+                            skipped.append(f"{path} — patch op niet-bestaand bestand overgeslagen")
+                            continue
+                        try:
+                            content = _apply_patch(current, f["edits"])
+                        except ValueError as exc:
+                            skipped.append(f"{path} — patch geweigerd: {exc}")
+                            continue
+                        # guard: patch mag een bestaand bestand niet >20% inkorten (anti-gutting)
+                        if _line_count(content) < 0.8 * _line_count(current):
+                            skipped.append(f"{path} — patch zou bestand >20% inkorten, geblokkeerd (anti-gutting)")
+                            continue
+                    elif fsha:
+                        # guard: volledig herschrijven van een bestaand bestand mag het niet >50% kleiner maken
+                        cur = await get_file_content(data.repo, path, branch)
+                        if cur is not None and _line_count(content) < 0.5 * _line_count(cur):
+                            skipped.append(f"{path} — would shrink >50%, geblokkeerd (anti-gutting; gebruik patch-mode)")
+                            continue
                     await put_file(
-                        data.repo, f["path"], branch, f["content"], f"issue #{data.issue_number}: {f['path']}", fsha
+                        data.repo, path, branch, content, f"issue #{data.issue_number}: {path}", fsha
                     )
-                    files_changed.append(f["path"])
+                    files_changed.append(path)
+                # guard: codewijzigingen vereisen CACHE_VERSION-bump (sw.js + index.html ?v=)
+                code_touched = any(
+                    p.startswith("src/") or p in ("index.html", "styles.css", "manifest.webmanifest")
+                    for p in files_changed
+                )
+                if code_touched and "sw.js" not in files_changed and "index.html" not in files_changed:
+                    skipped.append("WAARSCHUWING: code gewijzigd zonder sw.js/index.html — CACHE_VERSION/?v= niet gebumped!")
                 pr_body = product["pr_body"] + f"\n\nCloses #{data.issue_number}"
                 pr_number = await open_draft_pr(data.repo, branch, product["pr_title"], pr_body)
 
@@ -504,7 +598,9 @@ class IssueAgentRunWorkflow:
                 await post_issue_comment(
                     data.repo,
                     data.issue_number,
-                    f"{RUNNER_MARKER}\nissue-runner: run afgerond.{pr_line}\n\n{product['summary']}\n\nBestanden: {', '.join(files_changed) or 'geen'}",
+                    f"{RUNNER_MARKER}\nissue-runner: run afgerond.{pr_line}\n\n{product['summary']}\n\n"
+                    f"Bestanden: {', '.join(files_changed) or 'geen'}"
+                    + (f"\n\nOvergeslagen/geweigerd:\n- " + "\n- ".join(skipped) if skipped else ""),
                 )
 
             return AgentRunOutput(
