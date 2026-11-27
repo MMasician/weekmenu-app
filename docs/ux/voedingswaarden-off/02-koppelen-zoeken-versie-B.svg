@@ -1,0 +1,29 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='390' height='844' viewBox='0 0 390 844'>
+<rect width='390' height='844' fill='#f6f4ef'/>
+<rect width='390' height='64' fill='#234d34'/>
+<text x='36' y='40' font-family='system-ui,sans-serif' font-size='19' font-weight='700' fill='#ffffff'>‹ Product koppelen</text>
+<text x='20' y='92' font-size='15' font-weight='600' fill='#2b2b2b'>appelstroop koppelen aan Open Food Facts</text>
+<rect x='16' y='106' width='358' height='46' rx='10' fill='#ffffff' stroke='#d8d2c4'/>
+<rect x='30' y='118' width='3' height='22' fill='#2b2b2b'/>
+<rect x='36' y='118' width='2' height='22' fill='#2b2b2b'/>
+<rect x='41' y='118' width='4' height='22' fill='#2b2b2b'/>
+<rect x='48' y='118' width='2' height='22' fill='#2b2b2b'/>
+<rect x='53' y='118' width='3' height='22' fill='#2b2b2b'/>
+<text x='66' y='134' font-size='13' fill='#9a9a9a'>EAN scannen of invoeren…</text>
+<rect x='16' y='162' width='358' height='42' rx='21' fill='#2e7d32'/>
+<text x='195' y='188' font-size='14' font-weight='600' text-anchor='middle' fill='#ffffff'>Opzoeken op EAN</text>
+<text x='195' y='226' font-size='12' text-anchor='middle' fill='#9a9a9a'>of</text>
+<rect x='16' y='238' width='358' height='46' rx='10' fill='#ffffff' stroke='#d8d2c4'/>
+<text x='32' y='266' font-size='13' fill='#9a9a9a'>Zoek op productnaam…</text>
+<rect x='16' y='294' width='358' height='42' rx='21' fill='#e8a33d'/>
+<text x='195' y='320' font-size='14' font-weight='600' text-anchor='middle' fill='#234d34'>Zoeken</text>
+<text x='20' y='362' font-size='13' font-weight='700' fill='#2b2b2b'>Gevonden producten</text>
+<text x='370' y='362' font-size='12' text-anchor='end' fill='#6b6b6b'>2 resultaten</text>
+<rect x='16' y='374' width='358' height='66' rx='10' fill='#ffffff' stroke='#e3ded4'/>
+<text x='32' y='398' font-size='14' font-weight='600' fill='#2b2b2b'>Jumbo Appelstroop 450 g</text>
+<text x='32' y='418' font-size='12' fill='#6b6b6b'>EAN 8718452304653 · merk: Jumbo · 450 g</text>
+<rect x='16' y='450' width='358' height='66' rx='10' fill='#ffffff' stroke='#e3ded4'/>
+<text x='32' y='474' font-size='14' font-weight='600' fill='#2b2b2b'>Duetti Hazelnootpasta 400 g</text>
+<text x='32' y='494' font-size='12' fill='#6b6b6b'>EAN 20662929 · merk: Duetti · 400 g</text>
+<text x='20' y='820' font-size='11' fill='#6b6b6b'>Bron: Open Food Facts · data & foto's CC BY-SA 3.0</text>
+</svg>

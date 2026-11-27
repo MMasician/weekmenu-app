@@ -141,3 +141,7 @@ Zie INTENT.md voor doel en principes; ADR-009 t/m ADR-011 voor configuratie, pri
 - Opslag: max 1024px (langste zijde), JPEG q=0.8, quality wordt verlaagd tot ≤ 2 MB (`resizeImageBlob`).
 - UI: readonly recept-detail toont foto (groot) + "📷 Foto toevoegen / Vervangen / ✕ verwijderen" (verborgen file-input `#dish-foto-input`); weekmenu bij een gelockte dag toont een thumbnail. In de vm-testharness is GF=null → knop rendert, geen crash.
 - Cache: `CACHE_VERSION` → `weekmenu-app-v23` in `sw.js`, `?v=22` in `index.html`.
+
+## Voedingswaarden & foto's per product via Open Food Facts (issue #48 — elaboratie/mocks)
+- Status: docs-only (mocks in `docs/ux/voedingswaarden-off/`, zie VOORSTEL.md); implementatie volgt in een aparte PR na #59/#58/#60.
+- Plan: product koppelen aan Open Food Facts (barcode/zoek) → voedingswaarden + foto + bronvermelding (CC BY-SA) tonen in de productkaart; cache-badge; offline vallen terug op lokale data. Security-richtlijnen (HTTPS-allowlist, JSON.parse, escaped rendering, img-allowlist, numerieke validatie, User-Agent) staan in de DoR in issue #48.
