@@ -1,0 +1,20 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='390' height='844' viewBox='0 0 390 844'>
+<rect width='390' height='844' fill='#f2f2f7'/>
+<rect width='390' height='60' fill='#ffffff'/>
+<text x='195' y='37' text-anchor='middle' font-family='system-ui,sans-serif' font-size='17' font-weight='600' fill='#000000'>Weekoverzicht</text>
+<rect x='20' y='80' width='350' height='72' rx='12' fill='#ffffff'/>
+<text x='32' y='106' font-family='system-ui,sans-serif' font-size='15' font-weight='600' fill='#000000'>Maandag</text>
+<text x='32' y='130' font-family='system-ui,sans-serif' font-size='14' fill='#3c3c43'>Nasi goreng</text>
+<rect x='20' y='164' width='350' height='72' rx='12' fill='#ffffff'/>
+<text x='32' y='190' font-family='system-ui,sans-serif' font-size='15' font-weight='600' fill='#000000'>Dinsdag</text>
+<text x='32' y='214' font-family='system-ui,sans-serif' font-size='14' fill='#3c3c43'>Kip tikka masala</text>
+<rect x='20' y='248' width='350' height='96' rx='12' fill='#ffffff'/>
+<text x='32' y='274' font-family='system-ui,sans-serif' font-size='15' font-weight='600' fill='#000000'>Woensdag</text>
+<text x='32' y='296' font-family='system-ui,sans-serif' font-size='14' fill='#3c3c43'>Pasta pesto</text>
+<rect x='250' y='282' width='108' height='24' rx='12' fill='#fff3cd'/>
+<text x='304' y='299' text-anchor='middle' font-family='system-ui,sans-serif' font-size='12' font-weight='600' fill='#8a6d00'>⏱ nog 2 dagen</text>
+<text x='32' y='332' font-family='system-ui,sans-serif' font-size='13' fill='#007aff'>Alternatief kiesbaar: Kip tikka masala</text>
+<rect x='20' y='356' width='350' height='72' rx='12' fill='#ffffff'/>
+<text x='32' y='382' font-family='system-ui,sans-serif' font-size='15' font-weight='600' fill='#000000'>Donderdag</text>
+<text x='32' y='406' font-family='system-ui,sans-serif' font-size='14' fill='#3c3c43'>Griekse salade</text>
+</svg>

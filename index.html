@@ -13,7 +13,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Weekmenu" />
-  <link rel="stylesheet" href="styles.css?v=20" />
+  <link rel="stylesheet" href="styles.css?v=21" />
 </head>
 <body class="bg-stone-50 text-stone-800">
   <div id="root"></div>
@@ -29,10 +29,11 @@
     }
     window.addEventListener("error", function (e) { showFatal((e && (e.message || e.error)) || "onbekende fout"); });
   </script>
-  <script src="vendor/react.min.js?v=20"></script>
-  <script src="vendor/react-dom.min.js?v=20"></script>
-  <script src="src/productNormalisatie.js?v=20"></script>
-  <script src="src/app.js?v=20"></script>
+  <script src="vendor/react.min.js?v=21"></script>
+  <script src="vendor/react-dom.min.js?v=21"></script>
+  <script src="src/productNormalisatie.js?v=21"></script>
+  <script src="src/timetags.js?v=21"></script>
+  <script src="src/app.js?v=21"></script>
   <script>
     try {
       var root = ReactDOM.createRoot(document.getElementById("root"));
