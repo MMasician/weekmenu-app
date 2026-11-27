@@ -128,3 +128,10 @@ Zie INTENT.md voor doel en principes; ADR-009 t/m ADR-011 voor configuratie, pri
 - Per-recept tags: `ing.tags` op het ingrediënt in dat recept; chips in de ingrediënt-rij (verwijderbaar), zichtbaar in recept én weekmenu (#60), nooit in de algemene productlijst.
 - Eenheidsomrekening bestaat al in App.jsx (`UNIT_FACTOR`/`convertAmount`); de module voegt `el`/`tl` conversie en `validateAmount` toe. Ongeldige hoeveelheid → geen opslag.
 - Cache: deze release bumped `CACHE_VERSION` naar `weekmenu-app-v21` in `sw.js` en `?v=20` in `index.html`.
+
+## Timetags per product (issue #58, ADR-015)
+- Logica in `src/timetags.js` (`globalThis.Timetags`; in tests via `require`); UI additief in `src/App.jsx`.
+- Per product optioneel `timetag: { days: 1..365 } | null` (max 1). Opslag per huishouden in de productcatalogus (zelfde localStorage als tagRules, ADR-009/010). Backwards compatible: ontbrekend/corrupt veld = geen restrictie.
+- Productkaart (Instellingen → catalogus → klik product): numeriek veld "Timetag" in dagen (0 = geen tag, max 365, clamp bij >365); ongeldige invoer → oude waarde behouden (`TT.validateTimetagInput`).
+- Weekmenu: bij een dag met een gerecht dat een product bevat met timetag dat **vóór** die dag al in het plan/history staat binnen het interval → inline ⏱-chip met resterende dagen (visueel, nooit blokkerend; `dayTimetagMarks` + `TT.intervalStatus`).
+- Cache: `CACHE_VERSION` → `weekmenu-app-v22` in `sw.js`, `?v=21` in `index.html`.
