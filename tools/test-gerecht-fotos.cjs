@@ -118,9 +118,9 @@ async function main() {
 
   // --- module roundtrip via fake IndexedDB (Node-zijde: global.indexedDB) ---
   const idb = makeFakeIDB();
-  global.indexedDB = idb;
-  global.document = makeFakeDoc();
-  global.createImageBitmap = fakeBitmap;
+  global.indexedDB = /** @type {any} */ (idb);
+  global.document = /** @type {any} */ (makeFakeDoc());
+  global.createImageBitmap = /** @type {any} */ (fakeBitmap);
   await GF.saveDishImage("r1", { size: 123, type: "image/jpeg" }, 1024, 768);
   const rec = await GF.getDishImage("r1");
   check("#60: saveDishImage -> getDishImage roundtrip (dishId/width/height)", !!rec && rec.dishId === "r1" && rec.width === 1024 && rec.height === 768 && rec.mime === "image/jpeg");
@@ -131,7 +131,7 @@ async function main() {
   // --- resizeImageBlob: schaling naar max 1024px + quality-lus tot <= 2MB ---
   {
     const doc = makeFakeDoc();
-    global.document = doc;
+    global.document = /** @type {any} */ (doc);
     const out = await GF.resizeImageBlob({ width: 4000, height: 3000 });
     check("#60: resize 4000x3000 -> 1024x768 (max dim 1024)", out.width === 1024 && out.height === 768);
     check("#60: quality-lus: blob <= 2MB (toBlob vaker aangeroepen)", out.blob && out.blob.size <= GF.MAX_IMAGE_BYTES && doc.calls.toBlob >= 2);
@@ -141,15 +141,15 @@ async function main() {
 
   // --- resizeImageBlob guards (reliability): null 2d-context / null toBlob ---
   {
-    global.document = makeFakeDoc({ nullCtx: true });
+    global.document = /** @type {any} */ (makeFakeDoc({ nullCtx: true }));
     let threw = null;
     try { await GF.resizeImageBlob({ width: 100, height: 100 }); } catch (e) { threw = e; }
     check("#60: getContext('2d') null -> gooit (geen null-deref crash)", !!threw && /2d-canvascontext/.test(threw.message));
-    global.document = makeFakeDoc({ nullBlob: true });
+    global.document = /** @type {any} */ (makeFakeDoc({ nullBlob: true }));
     threw = null;
     try { await GF.resizeImageBlob({ width: 100, height: 100 }); } catch (e) { threw = e; }
     check("#60: toBlob null -> gooit (geen null-blob opgeslagen)", !!threw && /toBlob/.test(threw.message));
-    global.document = makeFakeDoc();
+    global.document = /** @type {any} */ (makeFakeDoc());
   }
 
   // --- App-flow met GF in de sandbox (fake IDB + fake canvas + fake URL) ---
@@ -228,7 +228,7 @@ async function main() {
       menuByDate: {}, stock: [], extraItems: [], checked: {},
     };
     const t = makeApp(seed); // GF-module is geladen in de sandbox, maar indexedDB niet
-    delete t.m.sandbox.indexedDB; // simuleer: geen IDB beschikbaar
+    delete /** @type {any} */ (t.m.sandbox).indexedDB; // simuleer: geen IDB beschikbaar
     t.findTab("Recepten").props.onClick();
     const row = t.findAll((n) => n.type === "button" && JSON.stringify(n.children || []).indexOf("Gerecht A") !== -1)[0];
     row.props.onClick();
