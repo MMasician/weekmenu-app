@@ -24,6 +24,7 @@ ACTIVITIES = [
     ir.generate_issue_dor,
     ir.generate_work_product,
     ir.main_sha,
+    ir.repo_context,
     ir.create_branch,
     ir.get_file_sha,
     ir.get_file_content,
@@ -42,6 +43,7 @@ class FakeGitHub:
         existing_branch: bool = False,
         existing_pr: bool = False,
         file_contents: dict[str, str] | None = None,
+        tree: list[dict[str, Any]] | None = None,
     ) -> None:
         self.issues = issues or []
         self.issue = issue or {}
@@ -50,6 +52,17 @@ class FakeGitHub:
         self.existing_branch = existing_branch
         self.existing_pr = existing_pr
         self.file_contents = file_contents or {}
+        self.tree = tree if tree is not None else [
+            {"path": "src/App.jsx", "type": "blob", "size": 220000},
+            {"path": "src/app.js", "type": "blob", "size": 260000},
+            {"path": "index.html", "type": "blob", "size": 8000},
+            {"path": "sw.js", "type": "blob", "size": 4000},
+            {"path": "styles.css", "type": "blob", "size": 30000},
+            {"path": "docs/ux/test/mock.svg", "type": "blob", "size": 1200},
+            {"path": "tools/run-tests.cjs", "type": "blob", "size": 500},
+            {"path": "node_modules/x/index.js", "type": "blob", "size": 99},
+            {"path": "docs", "type": "tree"},
+        ]
         self.calls: list[tuple[str, str, dict[str, Any] | None]] = []
         self.raw_calls: list[tuple[str, str, dict[str, Any] | None]] = []
 
@@ -77,6 +90,8 @@ class FakeGitHub:
             return {"ok": True}  # issue-body bijgewerkt (DoR); "Update an issue" is PATCH, geen PUT
         if method == "GET" and base == f"/repos/{REPO}/git/ref/heads/main":
             return {"object": {"sha": "abc123"}}
+        if method == "GET" and re.fullmatch(r"/repos/[^/]+/[^/]+/git/trees/[^/]+", base):
+            return {"tree": self.tree, "truncated": False}
         if method == "GET" and base.startswith(f"/repos/{REPO}/git/ref/heads/"):
             return {"object": {"sha": "def456"}} if self.existing_branch else None  # 404 -> branch bestaat niet
         if method == "GET" and base == f"/repos/{REPO}/pulls":
@@ -470,3 +485,115 @@ async def test_agent_run_waarschuwt_bij_code_zonder_cache_bump(temporal_env, mon
     result = await _run_agent(temporal_env, monkeypatch, fake, dry_run=False, product_json=product)
     assert result["files_changed"] == ["src/nieuw.js"]
     assert any("CACHE_VERSION" in b for b in _comment_bodies(fake))
+
+
+# ---------- repo-context (HUIDIGE code van main in de prompt) ----------
+
+APPJS_SAMPLE = """// weekmenu-app
+"use strict";
+function productKey(s) {
+  return String(s || "").toLowerCase();
+}
+function App() {
+  const [products, setProducts] = useState([]);
+  const renderMenuTab = () => (null);
+  return null;
+}
+"""
+
+
+def test_app_outline_pakt_signatures_met_regelnummers() -> None:
+    out = ir._app_outline(APPJS_SAMPLE)
+    assert "3: function productKey" in out
+    assert "6: function App" in out
+    assert "8: const renderMenuTab" in out
+    # const met destructuring (const [x, setX] = ...) wordt niet als const-declaratie gepakt
+    assert "useState" not in out
+    # leeg bestand -> vallen terug op regelcount
+    assert "geen top-level declaraties" in ir._app_outline("// alleen comment\n")
+    # cap: max_entries
+    big = "\n".join(f"function f{i}() {{}}" for i in range(200))
+    out2 = ir._app_outline(big, max_entries=50)
+    assert "150 declaraties meer" in out2
+    assert out2.count("\n") <= 51
+
+
+def test_repo_context_text_filtert_tree_en_bevat_outline_en_full_files() -> None:
+    tree = [
+        {"path": "src/App.jsx", "type": "blob", "size": 220000},
+        {"path": "src/app.js", "type": "blob", "size": 260000},  # gegenereerd -> skip
+        {"path": "src/timetags.js", "type": "blob", "size": 5000},
+        {"path": "index.html", "type": "blob", "size": 8000},
+        {"path": "sw.js", "type": "blob", "size": 4000},
+        {"path": "docs/ux/x/mock.svg", "type": "blob", "size": 100},  # mocks -> skip
+        {"path": "node_modules/y.js", "type": "blob", "size": 100},  # -> skip
+        {"path": "docs", "type": "tree"},  # geen blob -> skip
+        {"path": "README.md", "type": "blob", "size": 900},
+    ]
+    text = ir._repo_context_text(
+        "abc1234567890",
+        tree,
+        full_contents={"index.html": "<html>?v=22</html>", "sw.js": 'CACHE_VERSION = "weekmenu-app-v23"'},
+        outlines={"src/App.jsx": ir._app_outline(APPJS_SAMPLE)},
+    )
+    assert "Repo-structuur van main @ abc1234" in text
+    assert "- src/App.jsx (220000 bytes)" in text
+    assert "3: function productKey" in text  # outline van App.jsx
+    assert "- src/timetags.js (5000 bytes)" in text
+    assert "- index.html (8000 bytes)" in text
+    assert "- README.md (900 bytes)" in text
+    assert "- src/app.js" not in text  # gegenereerd artefact niet in de boom (wel in de header-uitleg)
+    assert "- docs/ux/" not in text and "- node_modules/" not in text  # mocks/node_modules niet in de boom
+    assert "### index.html (volledig" in text and "?v=22" in text
+    assert "### sw.js (volledig" in text and "weekmenu-app-v23" in text
+    # harde cap
+    capped = ir._repo_context_text("abc123", tree, {"index.html": "x" * 100000}, {})
+    assert len(capped) <= ir.CONTEXT_MAX_CHARS + 40
+    assert "afgekapt" in capped
+
+
+async def test_agent_run_stuurt_repo_context_naar_model(temporal_env, monkeypatch) -> None:
+    # de agent krijgt boom + outline van src/App.jsx + volledige index.html/sw.js in de prompt,
+    # en de git-tree wordt opgehaald; patch-anchors moeten daarop gebaseerd zijn
+    fake = FakeGitHub(
+        issue=_issue(37, ["ready"]),
+        comments={37: []},
+        file_contents={
+            "src/App.jsx": APPJS_SAMPLE,
+            "index.html": "<html><script src=\"src/app.js?v=22\"></script></html>",
+            "sw.js": 'const CACHE_VERSION = "weekmenu-app-v23";',
+        },
+    )
+    monkeypatch.setattr(ir, "_gh", fake)
+    captured: list[list[dict[str, str]]] = []
+
+    async def _capture(messages, model):
+        captured.append(messages)
+        return '{"pr_title":"t","pr_body":"b","summary":"s","files":[]}'
+
+    monkeypatch.setattr(ir, "_mistral_chat", _capture)
+    async with create_test_worker(temporal_env, workflows=[ir.IssueAgentRunWorkflow], activities=ACTIVITIES):
+        handle = await temporal_env.client.start_workflow(
+            "issue_agent_run",
+            {"repo": REPO, "issue_number": 37, "dry_run": True},
+            id="test-agent-run-ctx",
+            task_queue="test-task-queue",
+            execution_timeout=timedelta(seconds=20),
+        )
+        await asyncio.wait_for(handle.result(), timeout=25)
+    # git-tree opgehaald voor de context
+    assert any(c[0] == "GET" and "/git/trees/" in c[1] for c in fake.calls)
+    assert len(captured) == 2  # DoR-call + work-product-call
+    for messages in captured:
+        user = messages[-1]["content"]
+        assert "HUIDIGE REPO-CONTEXT (main)" in user
+        assert "Repo-structuur van main @ abc123" in user
+        assert "6: function App" in user  # outline uit HUIDIGE src/App.jsx
+        assert "### index.html (volledig" in user and "?v=22" in user
+        assert "### sw.js (volledig" in user and "weekmenu-app-v23" in user
+        assert "- src/app.js" not in user  # gegenereerd artefact niet in de boom
+        assert "- docs/ux/" not in user and "node_modules" not in user  # mocks/node_modules niet in context
+    # system-prompt van de work-product-call instrucciones anchors uit de context te kopieren
+    work_system = captured[1][0]["content"]
+    assert "HUIDIGE REPO-CONTEXT" in work_system
+    assert "src/app.js" in work_system and "NOOIT" in work_system  # gegenereerd bestand niet patchen
