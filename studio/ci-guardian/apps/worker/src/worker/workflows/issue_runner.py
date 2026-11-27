@@ -304,16 +304,19 @@ async def generate_issue_dor(
     comments_text: str,
     mode: str,
     model: str,
+    repo_context: str = "",
 ) -> dict[str, Any]:
     """Aparte call voor de DoR: gestructureerde velden (geen hele doc reproduceren), die de
     workflow deterministisch in de issue-body merget via _merge_dor_into_body."""
     system = (
         "Je bent de repo-agent voor het GitHub-repo " + repo + " (zie docs/domeinproces.md). "
-        "Je taak nu: vul ALLEEN de Definition of Ready van het issue in — de eigenaar reviewt de DoR in het issue zelf."
+        "Je taak nu: vul ALLEEN de Definition of Ready van het issue in — de eigenaar reviewt de DoR in het issue zelf. "
+        "Baseer scope_getroffen/scope_buiten op de HUIDIGE repo-structuur hieronder (welke tabs/functies er echt zijn)."
     )
     user = (
         f"Issue #{issue_number}: {title}\n\n--- issue body ---\n{body}\n\n--- comments ---\n{comments_text}\n\n"
-        'Geef ALLEEN JSON terug met dit schema (vul ALLE velden in; leeg mag alleen als echt niet van toepassing): '
+        + (f"--- HUIDIGE REPO-CONTEXT (main) ---\n{repo_context}\n\n" if repo_context else "")
+        + 'Geef ALLEEN JSON terug met dit schema (vul ALLE velden in; leeg mag alleen als echt niet van toepassing): '
         '{"acceptatiecriteria": ["Given ..., When ..., Then ...", ...], '
         '"scope_getroffen": "...", "scope_buiten": "...", '
         '"ux_mocks": "docs/ux/<onderwerp>/ met N versies per scherm: ...", '
@@ -337,6 +340,107 @@ def _line_count(s: str) -> int:
     if not s:
         return 0
     return s.count("\n") + (0 if s.endswith("\n") else 1)
+
+
+# ---------- repo-context: de agent krijgt de HUIDIGE code/structuur van main in de prompt,
+# zodat patch-anchors op de werkelicke code gebaseerd zijn (minder rework/gutting) ----------
+
+# welke bestanden nemen we op in de context-boom (mocks/coverage/artifacts niet)
+CONTEXT_PATH_PREFIXES = ("src/", "tools/", "docs/", ".github/workflows/")
+CONTEXT_ROOT_FILES = {
+    "index.html", "sw.js", "styles.css", "package.json", "manifest.webmanifest",
+    "README.md", "eslint.config.mjs", "tsconfig.json", "tsconfig.sw.json",
+}
+CONTEXT_SKIP_PREFIXES = ("docs/ux/", "coverage/", "node_modules/", ".git/")
+CONTEXT_SKIP_FILES = {"src/app.js"}  # gegenereerd door `npm run build` (tools/jsx-transform.cjs) — nooit patchen
+CONTEXT_FULL_FILES = ("index.html", "sw.js")  # kleine sleutelbestanden: volledig in de prompt
+CONTEXT_OUTLINE_FILES = {"src/App.jsx": 120}  # groot bestand: alleen regel:declaratie-outline
+CONTEXT_MAX_CHARS = 60_000
+
+_OUTLINE_FUNC_RE = re.compile(r"^ {0,2}(?:async )?function (\w+)")
+_OUTLINE_CONST_RE = re.compile(r"^ {0,2}const (\w+) = ")
+
+
+def _app_outline(source: str, max_entries: int = 120) -> str:
+    """Structuur-outline van een groot bronbestand: regelnummer + top-level declaratie
+    (function/const op indent 0 of 2, bijv. binnen function App())."""
+    entries: list[str] = []
+    for i, ln in enumerate(source.split("\n"), 1):
+        m = _OUTLINE_FUNC_RE.match(ln) or _OUTLINE_CONST_RE.match(ln)
+        if m:
+            kind = "function" if _OUTLINE_FUNC_RE.match(ln) else "const"
+            entries.append(f"  {i}: {kind} {m.group(1)}")
+    if not entries:
+        return f"  ({len(source.splitlines())} regels, geen top-level declaraties gevonden)"
+    shown = entries[:max_entries]
+    tail = f"\n  ... ({len(entries) - max_entries} declaraties meer)" if len(entries) > max_entries else ""
+    return "\n".join(shown) + tail
+
+
+def _repo_context_text(
+    sha: str,
+    tree: list[dict[str, Any]],
+    full_contents: dict[str, str],
+    outlines: dict[str, str],
+    max_chars: int = CONTEXT_MAX_CHARS,
+) -> str:
+    """Stel de compacte repo-context samen: gefilterde bestandsboom (+ outline voor grote
+    bestanden) en volledige inhoud van kleine sleutelbestanden. Harde cap op max_chars."""
+    rows: list[str] = []
+    for item in sorted((t for t in tree if isinstance(t, dict)), key=lambda x: str(x.get("path", ""))):
+        p = str(item.get("path", ""))
+        if item.get("type") != "blob":
+            continue
+        if p in CONTEXT_SKIP_FILES or any(p.startswith(pref) for pref in CONTEXT_SKIP_PREFIXES):
+            continue
+        if not (p in CONTEXT_ROOT_FILES or any(p.startswith(pref) for pref in CONTEXT_PATH_PREFIXES)):
+            continue
+        size = item.get("size") or 0
+        if p in outlines:
+            rows.append(f"- {p} ({size} bytes) — outline (regel: declaratie):\n{outlines[p]}")
+        else:
+            rows.append(f"- {p} ({size} bytes)")
+    parts = [f"### Repo-structuur van main @ {sha[:7]} (relevante bestanden; docs/ux/, src/app.js en coverage niet opgenomen)"]
+    parts.extend(rows)
+    parts.append("")
+    for p in CONTEXT_FULL_FILES:
+        if p in full_contents:
+            parts.append(f"### {p} (volledig, HUIDIGE versie op main)\n{full_contents[p]}\n")
+    text = "\n".join(parts)
+    if len(text) > max_chars:
+        text = text[:max_chars] + "\n... (afgekapt op CONTEXT_MAX_CHARS)"
+    return text
+
+
+async def _fetch_content(repo: str, path: str, ref: str) -> str | None:
+    data = await _gh(
+        "GET", f"/repos/{repo}/contents/{urllib.parse.quote(path, safe='')}?ref={urllib.parse.quote(ref, safe='')}"
+    )
+    if not data or not data.get("content"):
+        return None
+    raw = base64.b64decode("".join(str(data["content"]).split()))
+    return raw.decode("utf-8")
+
+
+@workflows.activity(start_to_close_timeout=timedelta(seconds=90), retry_policy_max_attempts=2)
+async def repo_context(repo: str, ref: str) -> str:
+    """Compacte context van de huidige main-branch: gefilterde git-tree, outline van
+    src/App.jsx (regel: declaratie) en de volledige inhoud van index.html + sw.js.
+    Wordt in de prompt van de agent meegeven zodat patch-anchors letterlijke, unieke
+    stukken HUIDIGE code zijn (anti-gutting / minder rework)."""
+    tree_data = await _gh("GET", f"/repos/{repo}/git/trees/{urllib.parse.quote(ref, safe='')}?recursive=1")
+    tree = (tree_data or {}).get("tree") or []
+    full_contents: dict[str, str] = {}
+    for p in CONTEXT_FULL_FILES:
+        c = await _fetch_content(repo, p, ref)
+        if c:
+            full_contents[p] = c
+    outlines: dict[str, str] = {}
+    for p, max_entries in CONTEXT_OUTLINE_FILES.items():
+        c = await _fetch_content(repo, p, ref)
+        if c:
+            outlines[p] = _app_outline(c, max_entries)
+    return _repo_context_text(ref, tree, full_contents, outlines)
 
 
 def _apply_patch(current: str, edits: list[dict[str, Any]]) -> str:
@@ -374,6 +478,7 @@ async def generate_work_product(
     comments_text: str,
     mode: str,
     model: str,
+    repo_context: str = "",
 ) -> dict[str, Any]:
     system = (
         "Je bent de repo-agent voor het GitHub-repo " + repo + ". Je werkt issues uit volgens "
@@ -394,11 +499,15 @@ async def generate_work_product(
         '{"path": ..., "content": "..."}. '
         "Herschrijf bestaande mocks in docs/ux/ NOOIT — voeg een nieuwe versie toe als nieuw bestand. "
         "Bij codewijzigingen (src/, index.html, styles.css): verhoog CACHE_VERSION in sw.js "
-        "(weekmenu-app-vNN -> vNN+1) en zet ALLE ?v=NN in index.html op hetzelfde NN+1; neem sw.js én index.html op in files."
+        "(weekmenu-app-vNN -> vNN+1) en zet ALLE ?v=NN in index.html op hetzelfde NN+1; neem sw.js én index.html op in files. "
+        "Gebruik de HUIDIGE REPO-CONTEXT onderaan de prompt: kopieer patch-anchors LETTERLIJK uit de "
+        "outline/bestanden van main (exacte tekst die precies 1x voorkomt) — verzin geen anchors en herschrijf "
+        "geen bestaand bestand integraal. src/app.js is gegenereerd (npm run build via tools/jsx-transform.cjs): patch NOOIT src/app.js, alleen src/App.jsx en src/*.js."
     )
     user = (
         f"Issue #{issue_number}: {title}\n\n--- issue body ---\n{body}\n\n--- comments ---\n{comments_text}\n\n"
-        f"Mode: {mode} (auto = als het issue label ready heeft met akkoord-comment: implementeer; "
+        + (f"--- HUIDIGE REPO-CONTEXT (main) ---\n{repo_context}\n\n" if repo_context else "")
+        + f"Mode: {mode} (auto = als het issue label ready heeft met akkoord-comment: implementeer; "
         "anders: elaboratie + mocks).\n\n"
         "Geef ALLEEN JSON terug met dit schema: "
         '{"pr_title": str, "pr_body": str, "summary": str, "files": [{"path": str, "content": str} | '
@@ -452,13 +561,7 @@ async def create_branch(repo: str, branch: str, sha: str) -> None:
 
 @workflows.activity(start_to_close_timeout=timedelta(seconds=60), retry_policy_max_attempts=1)
 async def get_file_content(repo: str, path: str, ref: str) -> str | None:
-    data = await _gh(
-        "GET", f"/repos/{repo}/contents/{urllib.parse.quote(path, safe='')}?ref={urllib.parse.quote(ref, safe='')}"
-    )
-    if not data or not data.get("content"):
-        return None
-    raw = base64.b64decode("".join(str(data["content"]).split()))
-    return raw.decode("utf-8")
+    return await _fetch_content(repo, path, ref)
 
 
 @workflows.activity(start_to_close_timeout=timedelta(seconds=60))
@@ -531,15 +634,21 @@ class IssueAgentRunWorkflow:
                     f"{RUNNER_MARKER}\nissue-runner: agent-run gestart voor dit issue (mode `{data.mode}`, dry_run={data.dry_run}).",
                 )
 
+            # HUIDIGE repo-context ophalen (main @ sha): de agent krijgt de bestandsboom +
+            # outline van src/App.jsx + index.html/sw.js in de prompt, zodat patch-anchors
+            # op deWERKELIJKE code gebaseerd zijn (minder rework/gutting)
+            sha = await main_sha(data.repo)
+            ctx = await repo_context(data.repo, sha)
+
             dor = await generate_issue_dor(
-                data.repo, data.issue_number, title, body, comments_text, data.mode, data.model
+                data.repo, data.issue_number, title, body, comments_text, data.mode, data.model, repo_context=ctx
             )
             new_body = _merge_dor_into_body(body, dor)
             if new_body != body and not data.dry_run:
                 await update_issue_body(data.repo, data.issue_number, new_body)
 
             product = await generate_work_product(
-                data.repo, data.issue_number, title, body, comments_text, data.mode, data.model
+                data.repo, data.issue_number, title, body, comments_text, data.mode, data.model, repo_context=ctx
             )
 
             branch: str | None = None
@@ -547,7 +656,6 @@ class IssueAgentRunWorkflow:
             files_changed: list[str] = []
             skipped: list[str] = []
             if product["files"] and not data.dry_run:
-                sha = await main_sha(data.repo)
                 branch = f"vibe/issue-{data.issue_number}-{_slug(title)}"
                 await create_branch(data.repo, branch, sha)
                 for f in product["files"]:
