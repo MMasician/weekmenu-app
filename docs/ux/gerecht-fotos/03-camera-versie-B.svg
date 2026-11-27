@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
+  <defs>
+    <linearGradient id="podium" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3A3F4A"/><stop offset="1" stop-color="#23262D"/>
+    </linearGradient>
+  </defs>
+  <rect width="390" height="844" fill="#141414"/>
+  <!-- variant B: witte topbalk met titel, viewfinder eronder -->
+  <rect x="0" y="0" width="390" height="88" fill="#FAF6EF"/>
+  <text x="24" y="30" font-size="14" font-weight="600" fill="#2D2A26">9:41</text>
+  <rect x="330" y="18" width="24" height="12" rx="3" fill="none" stroke="#2D2A26" stroke-width="1.5"/>
+  <rect x="332.5" y="20.5" width="15" height="7" rx="1.5" fill="#2D2A26"/>
+  <text x="24" y="66" font-size="22" font-weight="700" fill="#2D2A26">✕</text>
+  <text x="195" y="66" font-size="16" font-weight="600" fill="#2D2A26" text-anchor="middle">Foto maken</text>
+  <circle cx="356" cy="60" r="10" fill="none" stroke="#2D2A26" stroke-width="2"/>
+  <line x1="363" y1="53" x2="368" y2="48" stroke="#2D2A26" stroke-width="2" stroke-linecap="round"/>
+  <rect x="0" y="88" width="390" height="600" fill="url(#podium)"/>
+  <line x1="130" y1="88" x2="130" y2="688" stroke="#FFFFFF" stroke-width="1" opacity="0.15"/>
+  <line x1="260" y1="88" x2="260" y2="688" stroke="#FFFFFF" stroke-width="1" opacity="0.15"/>
+  <text x="195" y="140" font-size="13" fill="#FFFFFF" opacity="0.8" text-anchor="middle">Houd het gerecht in beeld</text>
+  <!-- onderbalk met sluiter + flip -->
+  <rect x="0" y="688" width="390" height="156" fill="#141414"/>
+  <text x="34" y="772" font-size="13" fill="#FFFFFF" opacity="0.85">Galerij</text>
+  <circle cx="195" cy="766" r="34" fill="none" stroke="#FFFFFF" stroke-width="4"/>
+  <circle cx="195" cy="766" r="25" fill="#FFFFFF"/>
+  <path d="M338 748 a18 18 0 1 0 6 26" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round"/>
+  <polygon points="344,772 352,768 350,778" fill="#FFFFFF"/>
+</svg>

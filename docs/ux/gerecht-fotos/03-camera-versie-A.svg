@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
+  <defs>
+    <linearGradient id="podium" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3A3F4A"/><stop offset="1" stop-color="#23262D"/>
+    </linearGradient>
+  </defs>
+  <!-- variant A: full-screen viewfinder, sluiter center -->
+  <rect width="390" height="844" fill="#141414"/>
+  <rect x="0" y="44" width="390" height="656" fill="url(#podium)"/>
+  <!-- zoeker-raster -->
+  <line x1="130" y1="44" x2="130" y2="700" stroke="#FFFFFF" stroke-width="1" opacity="0.15"/>
+  <line x1="260" y1="44" x2="260" y2="700" stroke="#FFFFFF" stroke-width="1" opacity="0.15"/>
+  <line x1="0" y1="261" x2="390" y2="261" stroke="#FFFFFF" stroke-width="1" opacity="0.15"/>
+  <line x1="0" y1="483" x2="390" y2="483" stroke="#FFFFFF" stroke-width="1" opacity="0.15"/>
+  <!-- statusbalk + titel -->
+  <text x="24" y="30" font-size="14" font-weight="600" fill="#FFFFFF">9:41</text>
+  <rect x="330" y="18" width="24" height="12" rx="3" fill="none" stroke="#FFFFFF" stroke-width="1.5"/>
+  <rect x="332.5" y="20.5" width="15" height="7" rx="1.5" fill="#FFFFFF"/>
+  <text x="195" y="66" font-size="16" font-weight="600" fill="#FFFFFF" text-anchor="middle">Foto maken</text>
+  <text x="24" y="66" font-size="22" font-weight="700" fill="#FFFFFF">✕</text>
+  <!-- hint -->
+  <text x="195" y="120" font-size="13" fill="#FFFFFF" opacity="0.8" text-anchor="middle">Houd het gerecht in beeld</text>
+  <!-- onderbalk -->
+  <rect x="0" y="700" width="390" height="144" fill="#141414"/>
+  <!-- galerij-thumbnail links -->
+  <rect x="28" y="744" width="52" height="52" rx="8" fill="#2C2C2C" stroke="#4A4A4A"/>
+  <rect x="36" y="760" width="36" height="28" rx="4" fill="#4A4A4A"/>
+  <circle cx="46" cy="768" r="3" fill="#8A8A8A"/>
+  <!-- sluiterknop center -->
+  <circle cx="195" cy="770" r="36" fill="none" stroke="#FFFFFF" stroke-width="4"/>
+  <circle cx="195" cy="770" r="27" fill="#FFFFFF"/>
+  <!-- camera-flip rechts -->
+  <path d="M338 752 a18 18 0 1 0 6 26" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round"/>
+  <polygon points="344,776 352,772 350,782" fill="#FFFFFF"/>
+</svg>

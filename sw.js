@@ -1,6 +1,6 @@
 /* Service worker: cache-first app shell zodat de geinstalleerde app volledig offline werkt.
    Bij een nieuwe release CACHE_VERSION ophogen. */
-const CACHE_VERSION = "weekmenu-app-v22"; // #58 timetags
+const CACHE_VERSION = "weekmenu-app-v23"; // #60 gerecht-fotos
 const sw = /** @type {ServiceWorkerGlobalScope} */ (/** @type {unknown} */ (self));
 const APP_SHELL = [
   "./",
@@ -10,6 +10,7 @@ const APP_SHELL = [
   "src/app.js",
   "src/productNormalisatie.js",
   "src/timetags.js",
+  "src/gerechtFotos.js",
   "vendor/react.min.js",
   "vendor/react-dom.min.js",
   "icons/icon-192.png",

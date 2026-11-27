@@ -2,7 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const vm = require("vm");
 
-function loadApp(file, seed, now) {
+function loadApp(file, seed, now, extra) {
   const store = seed ? { "weekmenu-app-v1": JSON.stringify(seed) } : {};
   // Optioneel: vaste klok injecteren zodat date-boundary-tests (weekstart za, "vandaag",
   // weekgrens) op elke dag van de week deterministisch zijn. Zonder `now` = echte Date.
@@ -44,6 +44,9 @@ function loadApp(file, seed, now) {
   const Blob = function () {};
   const FileReader = function () {};
   const window = { confirm: () => true };
+  // extra globals (bijv. fake indexedDB/canvas voor src/gerechtFotos.js) gaan de sandbox in
+  // én overschrijven de wrapper-parameters (document/URL/...) als ze daar deel van uitmaken
+  if (extra) Object.assign(sandbox, extra);
   // net als in de browser (script-tags in index.html): laad de src-modules in dezelfde
   // vm-context, zodat ze globalThis.<Module> zetten (ProductNormalisatie / Timetags / GerechtFotos)
   const dir = path.dirname(file);
@@ -57,7 +60,10 @@ function loadApp(file, seed, now) {
   const wrapped = "(function (React, localStorage, document, URL, Blob, FileReader, window) {\n" +
     code + "\n;return { App };\n})";
   const fn = vm.runInNewContext(wrapped, sandbox, { filename: file });
-  return Object.assign(fn(React, localStorage, document, URL, Blob, FileReader, window), { hooks, store });
+  // sandbox meegeven zodat tests extra globals (bijv. een fake indexedDB) kunnen injecteren;
+  // extra-globals zijn ook als wrapper-args beschikbaar (document/URL/... overschreven indien opgegeven)
+  const env = Object.assign({ React, localStorage, document, URL, Blob, FileReader, window }, extra || {});
+  return Object.assign(fn(env.React, env.localStorage, env.document, env.URL, env.Blob, env.FileReader, env.window), { hooks, store, sandbox });
 }
 
 function serialize(node) {

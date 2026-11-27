@@ -4,6 +4,8 @@ import React, { useEffect, useMemo, useState } from "react";
 const PN = (typeof globalThis !== "undefined" && globalThis.ProductNormalisatie) || null;
 // issue #58: timetags-module ( idem )
 const TT = (typeof globalThis !== "undefined" && globalThis.Timetags) || null;
+// issue #60: gerecht-foto's (lokale IndexedDB image-store)
+const GF = (typeof globalThis !== "undefined" && globalThis.GerechtFotos) || null;
 
 const DAY_NAMES = ["Zaterdag", "Zondag", "Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag"]; // index 0 = zaterdag
 const FISH_DAYS = [0, 4]; // standaard vis-dagen, relatief t.o.v. de weekstart
@@ -868,6 +870,9 @@ export default function App() {
   const [undoStack, setUndoStack] = useState([]); // sessie-undo voor merges (in-memory; na herladen permanent)
   const pnDupGroups = useMemo(() => (PN ? PN.findDuplicateGroups(products) : []), [products]);
   const pnBadgeMap = useMemo(() => (PN ? PN.duplicateBadgeMap(products) : {}), [products]);
+  // ---- issue #60: foto per gerecht (recipeId -> objectURL) ----
+  const [dishImgs, setDishImgs] = useState({});
+  const [fotoFor, setFotoFor] = useState(null); // recept-id waarvoor de file-picker open is
   const [openDay, setOpenDay] = useState(null); // weekmenu: gelockte dag met open ingrediënt/bereiding-blok
 
   // ---- Delen via bestand (ADR-019): extra state ----
@@ -1096,6 +1101,45 @@ export default function App() {
     stock.forEach((s) => { if (s.pid === pid) n++; });
     extraItems.forEach((x) => { if (x.pid === pid) n++; });
     return n;
+  }
+  // ---- issue #60: foto per gerecht opslaan/lezen/verwijderen via GF (IndexedDB) ----
+  async function ensureDishFoto(rid) {
+    if (!GF || dishImgs[rid]) return;
+    try {
+      const rec = await GF.getDishImage(rid);
+      if (rec && rec.blob) setDishImgs((m) => ({ ...m, [rid]: URL.createObjectURL(rec.blob) }));
+    } catch (e) { /* IndexedDB niet beschikbaar -> geen foto's */ }
+  }
+  function pickDishFoto(rid) {
+    setFotoFor(rid);
+    const el = typeof document !== "undefined" && document.getElementById ? document.getElementById("dish-foto-input") : null;
+    if (el) el.click();
+  }
+  async function onDishFotoFile(e) {
+    const file = e && e.target && e.target.files && e.target.files[0];
+    const rid = fotoFor;
+    if (!file || !rid || !GF) return;
+    try {
+      const { blob, width, height } = await GF.resizeImageBlob(file);
+      await GF.saveDishImage(rid, blob, width, height);
+      setDishImgs((m) => {
+        if (m[rid]) URL.revokeObjectURL(m[rid]);
+        return { ...m, [rid]: URL.createObjectURL(blob) };
+      });
+    } catch (err) {
+      setPnToast({ msg: "Foto opslaan mislukt: " + (err && err.message ? err.message : String(err)) });
+    }
+    setFotoFor(null);
+    if (e && e.target) e.target.value = "";
+  }
+  async function removeDishFoto(rid) {
+    if (GF) { try { await GF.deleteDishImage(rid); } catch (e) { /* ignore */ } }
+    setDishImgs((m) => {
+      if (m[rid]) URL.revokeObjectURL(m[rid]);
+      const n = { ...m };
+      delete n[rid];
+      return n;
+    });
   }
   function openProdCard(rowKey, pid) {
     const p = prodById[pid];
@@ -2187,7 +2231,7 @@ export default function App() {
       <div key={r.id} className="bg-white rounded-xl shadow-sm overflow-hidden">
         <div className="flex items-center gap-1 px-3 py-2.5">
           <button
-            onClick={() => { setOpenRecipe(isOpen ? null : r.id); if (!isOpen) setEditRecipe(null); setTagDraft(""); }}
+            onClick={() => { setOpenRecipe(isOpen ? null : r.id); if (!isOpen) { setEditRecipe(null); void ensureDishFoto(r.id); } setTagDraft(""); }}
             className="flex-1 text-left min-w-0"
           >
             <div className="flex items-center justify-between gap-2">
@@ -2236,6 +2280,19 @@ export default function App() {
               <div className="text-xs text-stone-400 mb-2">geen ingrediënten bekend</div>
             )}
             {renderProductCard("rec-" + r.id)}
+            <div className="mb-2">
+              {dishImgs[r.id] ? (
+                <div>
+                  <img src={dishImgs[r.id]} alt={r.name} style={{ maxWidth: "100%", maxHeight: "180px", borderRadius: "0.75rem", objectFit: "cover" }} />
+                  <div className="flex gap-2 mt-1">
+                    <button type="button" className="chip" onClick={() => pickDishFoto(r.id)}>📷 Vervangen</button>
+                    <button type="button" className="chip" onClick={() => removeDishFoto(r.id)}>✕ Foto verwijderen</button>
+                  </div>
+                </div>
+              ) : (
+                <button type="button" className="chip" onClick={() => pickDishFoto(r.id)}>📷 Foto toevoegen</button>
+              )}
+            </div>
             <div className="text-xs font-semibold text-stone-700 mb-1">Bereiding</div>
             <div className="text-xs text-stone-600">{r.bereiding || "—"}</div>
           </div>
@@ -2592,7 +2649,7 @@ export default function App() {
                     value={text}
                     placeholder="Typ een gerecht…"
                     readOnly={!!(entry && entry.locked)}
-                    onClick={() => { if (entry && entry.locked) setOpenDay(openDay === key ? null : key); }}
+                    onClick={() => { if (entry && entry.locked) { const willOpen = openDay !== key; setOpenDay(willOpen ? key : null); if (willOpen && entry.id) void ensureDishFoto(entry.id); } }}
                     title={entry && entry.locked ? "Gerecht bekijken (ingrediënten + bereiding) — ontgrendelen via het slot" : undefined}
                     onChange={(e) => {
                       const v = e.target.value;
@@ -2693,6 +2750,9 @@ export default function App() {
                     })}
                   </div>
                   {renderProductCard("menu-" + key)}
+                  {dishImgs[entry.id] && (
+                    <img src={dishImgs[entry.id]} alt={r.name} className="mb-2" style={{ width: "100%", maxHeight: "140px", objectFit: "cover", borderRadius: "0.75rem" }} />
+                  )}
                   <div className="text-xs font-semibold text-stone-700 mb-1">Bereiding</div>
                   <div className="text-xs text-stone-600">{r.bereiding || "—"}</div>
                 </div>
@@ -4202,6 +4262,7 @@ export default function App() {
           ))}
         </nav>
 
+        <input id="dish-foto-input" type="file" accept="image/*" style={{ display: "none" }} onChange={onDishFotoFile} />
         {mergeGroup && renderMergeSheet()}
         {pnToast && (
           <div style={{ position: "fixed", bottom: "1rem", left: "50%", transform: "translateX(-50%)", zIndex: 60, background: "#292524", color: "#fff", borderRadius: "0.75rem", padding: "0.5rem 0.9rem", display: "flex", gap: "0.6rem", alignItems: "center", fontSize: "0.85rem" }}>

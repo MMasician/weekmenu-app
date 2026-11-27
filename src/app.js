@@ -4,6 +4,8 @@ const { useState, useMemo, useEffect } = React; // React global (vendor/react.mi
 const PN = (typeof globalThis !== "undefined" && globalThis.ProductNormalisatie) || null;
 // issue #58: timetags-module ( idem )
 const TT = (typeof globalThis !== "undefined" && globalThis.Timetags) || null;
+// issue #60: gerecht-foto's (lokale IndexedDB image-store)
+const GF = (typeof globalThis !== "undefined" && globalThis.GerechtFotos) || null;
 
 const DAY_NAMES = ["Zaterdag", "Zondag", "Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag"]; // index 0 = zaterdag
 const FISH_DAYS = [0, 4]; // standaard vis-dagen, relatief t.o.v. de weekstart
@@ -868,6 +870,9 @@ function App() {
   const [undoStack, setUndoStack] = useState([]); // sessie-undo voor merges (in-memory; na herladen permanent)
   const pnDupGroups = useMemo(() => (PN ? PN.findDuplicateGroups(products) : []), [products]);
   const pnBadgeMap = useMemo(() => (PN ? PN.duplicateBadgeMap(products) : {}), [products]);
+  // ---- issue #60: foto per gerecht (recipeId -> objectURL) ----
+  const [dishImgs, setDishImgs] = useState({});
+  const [fotoFor, setFotoFor] = useState(null); // recept-id waarvoor de file-picker open is
   const [openDay, setOpenDay] = useState(null); // weekmenu: gelockte dag met open ingrediënt/bereiding-blok
 
   // ---- Delen via bestand (ADR-019): extra state ----
@@ -1096,6 +1101,45 @@ function App() {
     stock.forEach((s) => { if (s.pid === pid) n++; });
     extraItems.forEach((x) => { if (x.pid === pid) n++; });
     return n;
+  }
+  // ---- issue #60: foto per gerecht opslaan/lezen/verwijderen via GF (IndexedDB) ----
+  async function ensureDishFoto(rid) {
+    if (!GF || dishImgs[rid]) return;
+    try {
+      const rec = await GF.getDishImage(rid);
+      if (rec && rec.blob) setDishImgs((m) => ({ ...m, [rid]: URL.createObjectURL(rec.blob) }));
+    } catch (e) { /* IndexedDB niet beschikbaar -> geen foto's */ }
+  }
+  function pickDishFoto(rid) {
+    setFotoFor(rid);
+    const el = typeof document !== "undefined" && document.getElementById ? document.getElementById("dish-foto-input") : null;
+    if (el) el.click();
+  }
+  async function onDishFotoFile(e) {
+    const file = e && e.target && e.target.files && e.target.files[0];
+    const rid = fotoFor;
+    if (!file || !rid || !GF) return;
+    try {
+      const { blob, width, height } = await GF.resizeImageBlob(file);
+      await GF.saveDishImage(rid, blob, width, height);
+      setDishImgs((m) => {
+        if (m[rid]) URL.revokeObjectURL(m[rid]);
+        return { ...m, [rid]: URL.createObjectURL(blob) };
+      });
+    } catch (err) {
+      setPnToast({ msg: "Foto opslaan mislukt: " + (err && err.message ? err.message : String(err)) });
+    }
+    setFotoFor(null);
+    if (e && e.target) e.target.value = "";
+  }
+  async function removeDishFoto(rid) {
+    if (GF) { try { await GF.deleteDishImage(rid); } catch (e) { /* ignore */ } }
+    setDishImgs((m) => {
+      if (m[rid]) URL.revokeObjectURL(m[rid]);
+      const n = { ...m };
+      delete n[rid];
+      return n;
+    });
   }
   function openProdCard(rowKey, pid) {
     const p = prodById[pid];
@@ -2000,7 +2044,7 @@ function App() {
     const isEdit = editRecipe === r.id; // bewerkmodus via ✏️ (ADR-018)
     const lastKey = lastEaten[r.id] || null;
     return (
-      /*#__PURE__*/React.createElement("div", { "key": r.id, "className": "bg-white rounded-xl shadow-sm overflow-hidden" }, /*#__PURE__*/React.createElement("div", { "className": "flex items-center gap-1 px-3 py-2.5" }, /*#__PURE__*/React.createElement("button", { "onClick": () => { setOpenRecipe(isOpen ? null : r.id); if (!isOpen) setEditRecipe(null); setTagDraft(""); }, "className": "flex-1 text-left min-w-0" }, /*#__PURE__*/React.createElement("div", { "className": "flex items-center justify-between gap-2" }, /*#__PURE__*/React.createElement("span", { "className": "font-medium text-sm" }, r.name, inMenu && /*#__PURE__*/React.createElement("span", { "className": "ml-2 text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full" }, "deze week"), (r.ingredients || []).filter(Boolean).length === 0 && (
+      /*#__PURE__*/React.createElement("div", { "key": r.id, "className": "bg-white rounded-xl shadow-sm overflow-hidden" }, /*#__PURE__*/React.createElement("div", { "className": "flex items-center gap-1 px-3 py-2.5" }, /*#__PURE__*/React.createElement("button", { "onClick": () => { setOpenRecipe(isOpen ? null : r.id); if (!isOpen) { setEditRecipe(null); void ensureDishFoto(r.id); } setTagDraft(""); }, "className": "flex-1 text-left min-w-0" }, /*#__PURE__*/React.createElement("div", { "className": "flex items-center justify-between gap-2" }, /*#__PURE__*/React.createElement("span", { "className": "font-medium text-sm" }, r.name, inMenu && /*#__PURE__*/React.createElement("span", { "className": "ml-2 text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full" }, "deze week"), (r.ingredients || []).filter(Boolean).length === 0 && (
                   /*#__PURE__*/React.createElement("span", { "className": "ml-1.5 text-[10px] bg-stone-100 text-stone-500 px-1.5 py-0.5 rounded-full" }, "geen ingredienten bekend")
                 )), /*#__PURE__*/React.createElement("span", { "className": "text-stone-400 text-xs shrink-0" }, isOpen || isEdit ? "▴" : "▾")), /*#__PURE__*/React.createElement("div", { "className": "metarow" }, /*#__PURE__*/React.createElement("span", { "className": `text-[10px] px-1.5 rounded ${CAT_STYLE[r.cat]}` }, CAT_LABEL[r.cat]), /*#__PURE__*/React.createElement("span", { "className": `tb tb-${r.timeCat || "normaal"}` }, TIME_LABEL[r.timeCat || "normaal"]), (r.tags || []).map((t) => (
                 /*#__PURE__*/React.createElement("span", { "key": t, "className": "tag" }, t)
@@ -2016,7 +2060,11 @@ function App() {
                 }))
             ) : (
               /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-400 mb-2" }, "geen ingrediënten bekend")
-            ), renderProductCard("rec-" + r.id), /*#__PURE__*/React.createElement("div", { "className": "text-xs font-semibold text-stone-700 mb-1" }, "Bereiding"), /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-600" }, r.bereiding || "—"))
+            ), renderProductCard("rec-" + r.id), /*#__PURE__*/React.createElement("div", { "className": "mb-2" }, dishImgs[r.id] ? (
+                /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("img", { "src": dishImgs[r.id], "alt": r.name, "style": { maxWidth: "100%", maxHeight: "180px", borderRadius: "0.75rem", objectFit: "cover" } }), /*#__PURE__*/React.createElement("div", { "className": "flex gap-2 mt-1" }, /*#__PURE__*/React.createElement("button", { "type": "button", "className": "chip", "onClick": () => pickDishFoto(r.id) }, "📷 Vervangen"), /*#__PURE__*/React.createElement("button", { "type": "button", "className": "chip", "onClick": () => removeDishFoto(r.id) }, "✕ Foto verwijderen")))
+              ) : (
+                /*#__PURE__*/React.createElement("button", { "type": "button", "className": "chip", "onClick": () => pickDishFoto(r.id) }, "📷 Foto toevoegen")
+              )), /*#__PURE__*/React.createElement("div", { "className": "text-xs font-semibold text-stone-700 mb-1" }, "Bereiding"), /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-600" }, r.bereiding || "—"))
         ), isEdit && (
           /*#__PURE__*/React.createElement("div", { "className": "px-3 pb-3 border-t border-stone-100" }, /*#__PURE__*/React.createElement("div", { "className": "mt-3 text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, "Naam"), /*#__PURE__*/React.createElement("input", { "value": r.name, "onChange": (e) => updateRecipe(r.id, { name: e.target.value }), "className": "w-full border rounded-lg px-2 py-1.5 mt-0.5" })), /*#__PURE__*/React.createElement("div", { "className": "mt-3 text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, "Categorie"), /*#__PURE__*/React.createElement("div", { "className": "filterrow", "style": { marginTop: ".25rem" } }, ["vega", "vis", "vlees", "extra"].map((c) => (
                   /*#__PURE__*/React.createElement("button", { "key": c, "className": `chip${r.cat === c ? " on" : ""}`, "onClick": () => updateRecipe(r.id, { cat: c }) }, CAT_LABEL[c])
@@ -2248,7 +2296,7 @@ function App() {
           return (
             /*#__PURE__*/React.createElement("div", { "key": key, "className": `rounded-xl shadow-sm p-3 ${isToday ? "bg-emerald-100" : "bg-white"}` }, /*#__PURE__*/React.createElement("div", { "className": "flex items-center gap-3" }, /*#__PURE__*/React.createElement("div", { "className": "w-20 shrink-0" }, /*#__PURE__*/React.createElement("div", { "className": `text-sm font-semibold ${isToday ? "text-emerald-700" : ""}` }, day), /*#__PURE__*/React.createElement("div", { "className": "text-[10px] text-stone-400" }, fmtDay(key), isToday ? " · vandaag" : ""), ttMarks.length > 0 && (
                     /*#__PURE__*/React.createElement("span", { "className": "chip", "style": { background: "#fef3c7", color: "#92400e" }, "title": ttMarks.map((m) => `${m.name}: nog ${m.remaining} dag(en) binnen de timetag`).join("; ") }, "⏱", ttMarks.reduce((a, m) => a + m.remaining, 0), " d")
-                  )), /*#__PURE__*/React.createElement("div", { "className": "flex-1 min-w-0 suggest-wrap" }, /*#__PURE__*/React.createElement("input", { "className": "dish-input", "value": text, "placeholder": "Typ een gerecht…", "readOnly": !!(entry && entry.locked), "onClick": () => { if (entry && entry.locked) setOpenDay(openDay === key ? null : key); }, "title": entry && entry.locked ? "Gerecht bekijken (ingrediënten + bereiding) — ontgrendelen via het slot" : undefined, "onChange": (e) => {
+                  )), /*#__PURE__*/React.createElement("div", { "className": "flex-1 min-w-0 suggest-wrap" }, /*#__PURE__*/React.createElement("input", { "className": "dish-input", "value": text, "placeholder": "Typ een gerecht…", "readOnly": !!(entry && entry.locked), "onClick": () => { if (entry && entry.locked) { const willOpen = openDay !== key; setOpenDay(willOpen ? key : null); if (willOpen && entry.id) void ensureDishFoto(entry.id); } }, "title": entry && entry.locked ? "Gerecht bekijken (ingrediënten + bereiding) — ontgrendelen via het slot" : undefined, "onChange": (e) => {
                       const v = e.target.value;
                       setDrafts((d) => ({ ...d, [key]: v }));
                       setOpenSuggest(v.trim().length >= 2 ? key : null);
@@ -2291,7 +2339,9 @@ function App() {
                       return (
                         /*#__PURE__*/React.createElement("button", { "key": ii, "type": "button", "className": "prodchip", "onClick": () => p && openProdCard("menu-" + key, p.id) }, ingLabel(ing, prodById))
                       );
-                    })), renderProductCard("menu-" + key), /*#__PURE__*/React.createElement("div", { "className": "text-xs font-semibold text-stone-700 mb-1" }, "Bereiding"), /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-600" }, r.bereiding || "—"))
+                    })), renderProductCard("menu-" + key), dishImgs[entry.id] && (
+                    /*#__PURE__*/React.createElement("img", { "src": dishImgs[entry.id], "alt": r.name, "className": "mb-2", "style": { width: "100%", maxHeight: "140px", objectFit: "cover", borderRadius: "0.75rem" } })
+                  ), /*#__PURE__*/React.createElement("div", { "className": "text-xs font-semibold text-stone-700 mb-1" }, "Bereiding"), /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-600" }, r.bereiding || "—"))
               ), eatersOpen === key && entry && !isCustom && (
                 /*#__PURE__*/React.createElement("div", { "className": "mt-2 pt-2 border-t flex items-center gap-2 flex-wrap" }, /*#__PURE__*/React.createElement("div", { "className": "stepper" }, /*#__PURE__*/React.createElement("button", { "onClick": () => setEaters(i, Math.max(1, effectiveEaters - 1)) }, "−"), /*#__PURE__*/React.createElement("span", null, effectiveEaters), /*#__PURE__*/React.createElement("button", { "onClick": () => setEaters(i, Math.min(99, effectiveEaters + 1)) }, "+")), /*#__PURE__*/React.createElement("span", { "className": "text-xs text-stone-500" }, "standaard: ", settings.householdSize, " eters"), /*#__PURE__*/React.createElement("button", { "className": "text-xs text-emerald-700 font-semibold", "onClick": () => setEaters(i, null) }, "Standaard herstellen"), factor !== 1 && (
                     /*#__PURE__*/React.createElement("span", { "className": "text-[10px] text-stone-400 ml-auto" }, "boodschappenlijst ×", fmtFactor(factor), " voor deze dag")
@@ -2683,7 +2733,7 @@ function App() {
             /*#__PURE__*/React.createElement("button", { "key": t.key, "onClick": () => goTab(t.key), "title": t.label, "aria-label": t.label, "className": `tabbtn ${tab === t.key ? "bg-stone-800 text-white" : "text-stone-500 hover:bg-stone-100"}` }, /*#__PURE__*/React.createElement("span", { "className": "tabicon" }, t.icon), tab === t.key && /*#__PURE__*/React.createElement("span", { "className": "tablabel" }, t.label), t.key === "shopping" && totalItems > 0 && (
                 /*#__PURE__*/React.createElement("span", { "className": "tabbadge", "title": `${doneItems} van ${totalItems} afgevinkt` }, `${doneItems}/${totalItems}`)
               ))
-          ))), mergeGroup && renderMergeSheet(), pnToast && (
+          ))), /*#__PURE__*/React.createElement("input", { "id": "dish-foto-input", "type": "file", "accept": "image/*", "style": { display: "none" }, "onChange": onDishFotoFile }), mergeGroup && renderMergeSheet(), pnToast && (
           /*#__PURE__*/React.createElement("div", { "style": { position: "fixed", bottom: "1rem", left: "50%", transform: "translateX(-50%)", zIndex: 60, background: "#292524", color: "#fff", borderRadius: "0.75rem", padding: "0.5rem 0.9rem", display: "flex", gap: "0.6rem", alignItems: "center", fontSize: "0.85rem" } }, /*#__PURE__*/React.createElement("span", null, pnToast.msg), pnToast.canUndo && /*#__PURE__*/React.createElement("button", { "onClick": undoMerge, "style": { color: "#fbbf24" } }, "\\u27f2 Ongedaan maken"), /*#__PURE__*/React.createElement("button", { "onClick": () => setPnToast(null), "style": { color: "#d6d3d1" } }, "\\u2715"))
         ), tab === "menu" && renderMenuTab(), tab === "recipes" && renderRecipesTab(), tab === "stock" && renderStockTab(), tab === "shopping" && renderShoppingTab(), tab === "settings" && renderSettingsTab(), tab === "settings" && renderDelenSheets(), tab === "menu" && dateSheetOpen && renderDateSheet(), tab === "menu" && rulesSheetOpen && renderRulesSheet(), tab === "menu" && deviationKey && renderDeviationSheet()))
   );
