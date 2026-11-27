@@ -1,8 +1,24 @@
 const fs = require("fs");
 const vm = require("vm");
 
-function loadApp(file, seed) {
+function loadApp(file, seed, now) {
   const store = seed ? { "weekmenu-app-v1": JSON.stringify(seed) } : {};
+  // Optioneel: vaste klok injecteren zodat date-boundary-tests (weekstart za, "vandaag",
+  // weekgrens) op elke dag van de week deterministisch zijn. Zonder `now` = echte Date.
+  const sandbox = {};
+  if (now) {
+    const RealDate = Date;
+    const t0 = now.getTime();
+    // geen class-extends (tsc TS2556 op de spread); plain wrapper-functie is afdoende
+    // (nergens in app/tests wordt `instanceof Date` gebruikt)
+    sandbox.Date = function (...args) {
+      return args.length ? Reflect.construct(RealDate, args) : new RealDate(t0);
+    };
+    sandbox.Date.prototype = RealDate.prototype;
+    sandbox.Date.now = () => t0;
+    sandbox.Date.parse = RealDate.parse;
+    sandbox.Date.UTC = RealDate.UTC;
+  }
   const hooks = { state: [], cursor: 0 };
   const useState = (init) => {
     const i = hooks.cursor++;
@@ -32,7 +48,7 @@ function loadApp(file, seed) {
   // de code aan dit bestand koppelt in plaats van aan een anoniem script
   const wrapped = "(function (React, localStorage, document, URL, Blob, FileReader, window) {\n" +
     code + "\n;return { App };\n})";
-  const fn = vm.runInNewContext(wrapped, {}, { filename: file });
+  const fn = vm.runInNewContext(wrapped, sandbox, { filename: file });
   return Object.assign(fn(React, localStorage, document, URL, Blob, FileReader, window), { hooks, store });
 }
 

@@ -23,15 +23,20 @@ function addDays(d, n) {
   return x;
 }
 function weekKeysFor(w, offset) {
-  const s = addDays(startOfWeek(new Date(), w), offset * 7);
+  const s = addDays(startOfWeek(todayDate(), w), offset * 7);
   return Array.from({ length: 7 }, (_, i) => dateKey(addDays(s, i)));
 }
 
 let fails = 0;
 const check = (name, ok) => { console.log((ok ? "PASS" : "FAIL") + " - " + name); if (!ok) fails++; };
 
+// Vaste klok (wo 2026-11-25 12:00, midden in een za-start week) zodat weekgrens/"vandaag"-tests
+// op élke dag van de week groen blijven (op de laatste weekdag was d8K == vandaag -> rood).
+const FIXED_NOW = new Date(2026, 10, 25, 12, 0, 0);
+const todayDate = () => new Date(FIXED_NOW.getTime());
+
 function make(seed) {
-  const m = loadApp(APP, seed);
+  const m = loadApp(APP, seed, FIXED_NOW);
   const render = () => { m.hooks.cursor = 0; return m.App(); };
   const walk = (n, f) => {
     if (Array.isArray(n)) { n.forEach((x) => walk(x, f)); return; }
@@ -187,7 +192,7 @@ function make(seed) {
 // 4. Eters per dag: inline stapper, badge bij afwijking, {eaters} in menuByDate, schaling op de boodschappenlijst.
 {
   const keys = weekKeysFor(0, 0);
-  const ti = keys.indexOf(dateKey(new Date())); // vandaag: de boodschappenlijst-scope start bij vandaag (ADR-016)
+  const ti = keys.indexOf(dateKey(todayDate())); // vandaag: de boodschappenlijst-scope start bij vandaag (ADR-016)
   const t = make({ menuByDate: { [keys[ti]]: { id: "r38", locked: true } } }); // Chili con carne ("3 tomaten", "1 ui", "1 blik mais", "Gehakt")
   let eb = t.eatersButtons();
   eb[ti].props.onClick(); // regel openklappen
@@ -237,7 +242,7 @@ function make(seed) {
 
 // ---------- #37: tag-regels in de regels-sheet + generatie respecteert ze ----------
 {
-  const yesterday = dateKey(addDays(new Date(), -1));
+  const yesterday = dateKey(addDays(todayDate(), -1));
   const dayDiff = (a, b) => Math.abs(Math.round((new Date(a + "T00:00:00").getTime() - new Date(b + "T00:00:00").getTime()) / 86400000));
   const t = make({
     settings: { householdSize: 4, weekStartDay: 0, fishDays: [], vegaTarget: 2, tagRules: [] },
@@ -305,7 +310,7 @@ function make(seed) {
 }
 {
   // a1 is het enige vega-gerecht, 20 dagen geleden gelockt: met N=30 mag a1 NOOIT in de week; met N=0 juist wel (via vega-dagen)
-  const longAgo = dateKey(addDays(new Date(), -20));
+  const longAgo = dateKey(addDays(todayDate(), -20));
   const mkRecipes = () => [
     { id: "a1", name: "Enig vega", cat: "vega", ingredients: ["1 aardappel"], bereiding: "", timeCat: "normaal", tags: [] },
     ...["b1", "b2", "b3", "b4", "b5", "b6", "b7", "b8"].map((id, i) => ({ id, name: "Vlees " + i, cat: "vlees", ingredients: ["100 g vlees"], bereiding: "", timeCat: "normaal", tags: [] })),
@@ -335,7 +340,7 @@ function make(seed) {
 
 // ---------- #42: afwijking van het weekplan (🪫 alleen op vandaag; afhaalmaaltijd/instant; shift) ----------
 {
-  const today = new Date();
+  const today = todayDate();
   const todayK = dateKey(today);
   const d1K = dateKey(addDays(today, 1));
   const d2K = dateKey(addDays(today, 2));

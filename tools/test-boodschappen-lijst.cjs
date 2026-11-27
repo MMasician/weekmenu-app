@@ -21,7 +21,10 @@ const dayShortOf = (k) =>
     .slice(0, 2)
     .toLowerCase();
 
-const today = new Date();
+// Vaste klok (wo 2026-11-25, midden in een za-start week) zodat weekgrens/"vandaag"-tests
+// op élke dag van de week deterministisch groen blijven.
+const FIXED_NOW = new Date(2026, 10, 25, 12, 0, 0);
+const today = new Date(FIXED_NOW.getTime());
 const todayK = dateKey(today);
 const d1K = dateKey(addDays(today, 1));
 const d2K = dateKey(addDays(today, 2));
@@ -31,7 +34,7 @@ let fails = 0;
 const check = (name, ok) => { console.log((ok ? "PASS" : "FAIL") + " - " + name); if (!ok) fails++; };
 
 function make(seed) {
-  const m = loadApp(APP, seed);
+  const m = loadApp(APP, seed, FIXED_NOW);
   const render = () => { m.hooks.cursor = 0; return m.App(); };
   const walk = (n, f) => {
     if (Array.isArray(n)) { n.forEach((x) => walk(x, f)); return; }
