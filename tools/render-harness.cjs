@@ -1,4 +1,5 @@
 const fs = require("fs");
+const path = require("path");
 const vm = require("vm");
 
 function loadApp(file, seed, now) {
@@ -43,6 +44,13 @@ function loadApp(file, seed, now) {
   const Blob = function () {};
   const FileReader = function () {};
   const window = { confirm: () => true };
+  // net als in de browser (script-tags in index.html): laad de src-modules in dezelfde
+  // vm-context, zodat ze globalThis.<Module> zetten (ProductNormalisatie / Timetags / GerechtFotos)
+  const dir = path.dirname(file);
+  for (const mod of ["productNormalisatie.js", "timetags.js", "gerechtFotos.js"]) {
+    const p = path.join(dir, mod);
+    if (fs.existsSync(p)) vm.runInNewContext(fs.readFileSync(p, "utf8"), sandbox, { filename: p });
+  }
   const code = fs.readFileSync(file, "utf8");
   // vm (met filename) i.p.v. new Function, zodat V8-coverage (c8/NODE_V8_COVERAGE)
   // de code aan dit bestand koppelt in plaats van aan een anoniem script

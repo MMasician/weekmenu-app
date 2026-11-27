@@ -1,6 +1,6 @@
 /* Service worker: cache-first app shell zodat de geinstalleerde app volledig offline werkt.
    Bij een nieuwe release CACHE_VERSION ophogen. */
-const CACHE_VERSION = "weekmenu-app-v20";
+const CACHE_VERSION = "weekmenu-app-v21"; // #59 productnormalisatie
 const sw = /** @type {ServiceWorkerGlobalScope} */ (/** @type {unknown} */ (self));
 const APP_SHELL = [
   "./",
@@ -8,6 +8,7 @@ const APP_SHELL = [
   "styles.css",
   "manifest.webmanifest",
   "src/app.js",
+  "src/productNormalisatie.js",
   "vendor/react.min.js",
   "vendor/react-dom.min.js",
   "icons/icon-192.png",

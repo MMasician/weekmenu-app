@@ -1,0 +1,32 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='390' height='844' viewBox='0 0 390 844'>
+  <rect width='390' height='844' fill='#ffffff'/>
+  <rect width='390' height='56' fill='#1a73e8'/>
+  <text x='16' y='35' font-family='system-ui,sans-serif' font-size='17' font-weight='600' fill='#ffffff'>Producten</text>
+  <circle cx='356' cy='28' r='16' fill='#ffffff' opacity='0.25'/>
+  <text x='356' y='35' font-family='system-ui,sans-serif' font-size='20' fill='#ffffff' text-anchor='middle'>+</text>
+  <rect x='16' y='66' width='358' height='36' rx='18' fill='#f3f4f6'/>
+  <text x='34' y='89' font-family='system-ui,sans-serif' font-size='13' fill='#9ca3af'>Zoek product…</text>
+  <text x='16' y='146' font-family='system-ui,sans-serif' font-size='14' fill='#1f2937'>Melk 1 L</text>
+  <text x='374' y='146' font-family='system-ui,sans-serif' font-size='12' fill='#6b7280' text-anchor='end'>4 recepten</text>
+  <line x1='16' y1='174' x2='374' y2='174' stroke='#e5e7eb'/>
+  <rect y='174' width='390' height='56' fill='#e8f0fe'/>
+  <rect x='0' y='174' width='4' height='56' fill='#1a73e8'/>
+  <text x='16' y='202' font-family='system-ui,sans-serif' font-size='14' fill='#1f2937'>Melk (volle, 1 L)</text>
+  <text x='374' y='202' font-family='system-ui,sans-serif' font-size='12' fill='#6b7280' text-anchor='end'>2 recepten</text>
+  <line x1='16' y1='230' x2='374' y2='230' stroke='#e5e7eb'/>
+  <text x='16' y='258' font-family='system-ui,sans-serif' font-size='14' fill='#1f2937'>Boter 250 g</text>
+  <line x1='16' y1='286' x2='374' y2='286' stroke='#e5e7eb'/>
+  <text x='16' y='314' font-family='system-ui,sans-serif' font-size='14' fill='#1f2937'>Bloem 1 kg</text>
+  <line x1='16' y1='342' x2='374' y2='342' stroke='#e5e7eb'/>
+  <text x='16' y='370' font-family='system-ui,sans-serif' font-size='14' fill='#1f2937'>Zout</text>
+  <line x1='16' y1='398' x2='374' y2='398' stroke='#e5e7eb'/>
+  <text x='16' y='426' font-family='system-ui,sans-serif' font-size='14' fill='#1f2937'>Suiker 1 kg</text>
+  <rect y='118' width='390' height='726' fill='#000000' opacity='0.25'/>
+  <rect x='176' y='212' width='198' height='136' rx='10' fill='#ffffff' stroke='#e5e7eb'/>
+  <text x='192' y='244' font-family='system-ui,sans-serif' font-size='14' font-weight='600' fill='#1a73e8'>Samenvoegen met…</text>
+  <line x1='176' y1='258' x2='374' y2='258' stroke='#f3f4f6'/>
+  <text x='192' y='280' font-family='system-ui,sans-serif' font-size='14' fill='#1f2937'>Hernoemen</text>
+  <line x1='176' y1='294' x2='374' y2='294' stroke='#f3f4f6'/>
+  <text x='192' y='316' font-family='system-ui,sans-serif' font-size='14' fill='#dc2626'>Verwijderen</text>
+  <rect x='140' y='830' width='110' height='4' rx='2' fill='#d1d5db'/>
+</svg>

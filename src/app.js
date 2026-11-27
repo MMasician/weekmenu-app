@@ -1,5 +1,8 @@
 const { useState, useMemo, useEffect } = React; // React global (vendor/react.min.js)
 
+// issue #59: productnormalisatie-module (geladen via index.html vóór app.js; in Node-tests via require)
+const PN = (typeof globalThis !== "undefined" && globalThis.ProductNormalisatie) || null;
+
 const DAY_NAMES = ["Zaterdag", "Zondag", "Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag"]; // index 0 = zaterdag
 const FISH_DAYS = [0, 4]; // standaard vis-dagen, relatief t.o.v. de weekstart
 // Boodschappenmomenten (runs) zijn vervallen (ADR-016): de boodschappenlijst is van vandaag
@@ -855,6 +858,13 @@ function App() {
   const [prodQuery, setProdQuery] = useState("");
   const [catOpen, setCatOpen] = useState(false); // #44: productcatalogus initieel ingeklapt (vluchtig)
   const [catFilters, setCatFilters] = useState([]); // #44: actieve categorie-filters (leeg = alle)
+  // ---- issue #59: productnormalisatie (duplicaten samenvoegen, per-recept tags, sessie-undo) ----
+  const [mergeGroup, setMergeGroup] = useState(null); // duplicaatgroep in de merge-sheet
+  const [mergeKanjerId, setMergeKanjerId] = useState(null);
+  const [pnToast, setPnToast] = useState(null); // { msg, canUndo }
+  const [undoStack, setUndoStack] = useState([]); // sessie-undo voor merges (in-memory; na herladen permanent)
+  const pnDupGroups = useMemo(() => (PN ? PN.findDuplicateGroups(products) : []), [products]);
+  const pnBadgeMap = useMemo(() => (PN ? PN.duplicateBadgeMap(products) : {}), [products]);
   const [openDay, setOpenDay] = useState(null); // weekmenu: gelockte dag met open ingrediënt/bereiding-blok
 
   // ---- Delen via bestand (ADR-019): extra state ----
@@ -1185,6 +1195,54 @@ function App() {
   }
   function updateTakeawayLink(i, patch) {
     updateSettings({ takeawayLinks: (settings.takeawayLinks || []).map((l, j) => (j === i ? { ...l, ...patch } : l)) });
+  }
+  // ---- issue #59: duplicaten samenvoegen via PN.mergeProducts (kanjer + per-recept tags + undo) ----
+  // PN gebruikt `productId` op ingrediënten; main gebruikt `pid` — hier omgerekend.
+  function pnRecipesToMain(rs) {
+    return (rs || []).map((r) => ({
+      ...r,
+      ingredients: (r.ingredients || []).map((i) => {
+        const copy = { ...i };
+        if (copy.productId != null) { copy.pid = copy.productId; delete copy.productId; }
+        return copy;
+      }),
+    }));
+  }
+  function openMergeGroup(group) {
+    const kanjer = PN ? PN.pickKanjer(group, recipes) : group[0];
+    setMergeGroup(group);
+    setMergeKanjerId(kanjer ? kanjer.id : null);
+  }
+  function doMerge() {
+    if (!PN || !mergeGroup || mergeGroup.length < 2) return;
+    const ids = mergeGroup.map((p) => p.id);
+    const pnRecipes = recipes.map((r) => ({
+      ...r,
+      ingredients: (r.ingredients || []).map((i) => ({ ...i, productId: i.pid != null ? i.pid : i.productId })),
+    }));
+    let res;
+    try {
+      res = PN.mergeProducts({ products, recipes: pnRecipes, ids, kanjerId: mergeKanjerId });
+    } catch (e) {
+      setPnToast({ msg: "Samenvoegen geweigerd: " + (e && e.message ? e.message : String(e)) });
+      return;
+    }
+    setProducts(res.products);
+    setRecipes(pnRecipesToMain(res.recipes));
+    setUndoStack((u) => u.concat([res.undo]));
+    setMergeGroup(null);
+    setPnToast({ msg: "Samengevoegd naar \u201c" + res.kanjer.name + "\u201d", canUndo: true });
+  }
+  function undoMerge() {
+    const u = undoStack.length ? undoStack[undoStack.length - 1] : null;
+    setUndoStack(undoStack.slice(0, -1));
+    if (!u) { setPnToast({ msg: "Undo niet meer beschikbaar (sessie voorbij) \u2014 merge is permanent" }); return; }
+    setProducts(u.productsBefore);
+    setRecipes(pnRecipesToMain(u.recipesBefore));
+    setPnToast(null);
+  }
+  function setIngTags(rid, idx, tags) {
+    setRecipes((rs) => rs.map((r) => (r.id !== rid ? r : { ...r, ingredients: (r.ingredients || []).map((ing, j) => (j === idx && typeof ing === "object" && ing ? { ...ing, tags } : ing)) })));
   }
   function deleteProductCatalog(pid) {
     setProducts((ps) => ps.filter((p) => p.id !== pid));
@@ -1861,7 +1919,11 @@ function App() {
             /*#__PURE__*/React.createElement("div", { "className": "suggest-list" }, sugg.map((s2, si) => (
                 /*#__PURE__*/React.createElement("div", { "key": s2.id, "className": `suggest-item${si === activeIngSuggest ? " active" : ""}`, "onMouseDown": (e) => { e.preventDefault(); selectIngProduct(rid, idx, s2); } }, /*#__PURE__*/React.createElement("span", null, highlightMatch(s2.name, q)), /*#__PURE__*/React.createElement("span", { "className": "text-[10px] text-stone-400 shrink-0" }, s2.cat, s2.unit ? ` · ${s2.unit}` : ""))
               )))
-          )), /*#__PURE__*/React.createElement("button", { "type": "button", "className": "text-stone-300 hover:text-red-500 text-sm", "title": "Ingrediënt verwijderen", "onClick": () => setRecipes((rs) => rs.map((r) => (r.id !== rid ? r : { ...r, ingredients: (r.ingredients || []).filter((_, j) => j !== idx) }))) }, "✕"))
+          )), typeof ing === "object" && ing && Array.isArray(ing.tags) && ing.tags.length > 0 && (
+          /*#__PURE__*/React.createElement("span", { "className": "shrink-0 flex gap-1" }, ing.tags.map((t) => (
+              /*#__PURE__*/React.createElement("span", { "key": t, "className": "tag", "title": "Per-recept tag (geldt alleen in dit recept, #59)" }, t, /*#__PURE__*/React.createElement("button", { "type": "button", "className": "tagx", "title": "Tag verwijderen", "onClick": () => setIngTags(rid, idx, ing.tags.filter((x) => x !== t)) }, "\\u00d7"))
+            )))
+        ), /*#__PURE__*/React.createElement("button", { "type": "button", "className": "text-stone-300 hover:text-red-500 text-sm", "title": "Ingrediënt verwijderen", "onClick": () => setRecipes((rs) => rs.map((r) => (r.id !== rid ? r : { ...r, ingredients: (r.ingredients || []).filter((_, j) => j !== idx) }))) }, "✕"))
     );
   };
 
@@ -2474,16 +2536,27 @@ function App() {
         )), /*#__PURE__*/React.createElement("button", { "onClick": () => updateSettings({ markets: [...markets, { key: "winkel" + (markets.length + 1), label: "Nieuwe winkel", defaultShop: true }] }), "className": "w-full py-2 border rounded-xl text-sm text-stone-500 hover:bg-white" }, "+ Supermarkt toevoegen")), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm p-4 mb-4" }, /*#__PURE__*/React.createElement("div", { "className": "flex items-center gap-2" }, /*#__PURE__*/React.createElement("button", { "className": "iconbtn", "title": "Deelbestand maken (exporteren)", "onClick": () => setDelenOpen("export") }, "📤"), /*#__PURE__*/React.createElement("label", { "className": "iconbtn cursor-pointer", "title": "Bestand overnemen (importeren)" }, "📥", /*#__PURE__*/React.createElement("input", { "type": "file", "accept": "application/json,.json", "className": "hidden", "onChange": (e) => { if (e.target.files && e.target.files[0]) importShareFile(e.target.files[0]); e.target.value = ""; } })), /*#__PURE__*/React.createElement("button", { "className": "iconbtn", "title": "Uitleg over delen via bestand", "onClick": () => setDelenOpen("info") }, "ℹ️"))), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm p-4 mb-4" }, /*#__PURE__*/React.createElement("div", { "className": "text-sm font-medium mb-1" }, "🛵 Afhaalmaaltijden (bestelsites)"), /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-500 mb-2" }, "Deze linkjes verschijnen bij “Afwijking van het weekplan” → afhaalmaaltijd (#42). Alleen lokaal opgeslagen (ADR-010)."), (settings.takeawayLinks || []).map((l, i) => (
           /*#__PURE__*/React.createElement("div", { "key": l.id, "className": "flex gap-2 mb-2" }, /*#__PURE__*/React.createElement("input", { "value": l.label, "onChange": (e) => updateTakeawayLink(i, { label: e.target.value }), "placeholder": "Naam…", "className": "w-32 border rounded-lg px-2 py-1.5 text-sm" }), /*#__PURE__*/React.createElement("input", { "value": l.url, "onChange": (e) => updateTakeawayLink(i, { url: e.target.value }), "placeholder": "URL…", "className": "flex-1 border rounded-lg px-2 py-1.5 text-sm min-w-0" }), /*#__PURE__*/React.createElement("button", { "onClick": () => updateSettings({ takeawayLinks: (settings.takeawayLinks || []).filter((_, j) => j !== i) }), "className": "text-stone-300 hover:text-red-500 text-sm px-1", "title": "Bestelsite verwijderen" }, "✕"))
         )), /*#__PURE__*/React.createElement("button", { "onClick": () => updateSettings({ takeawayLinks: [...(settings.takeawayLinks || []), { id: "tl-" + Date.now().toString(36), label: "Nieuwe bestelsite", url: "" }] }), "className": "w-full py-2 border rounded-xl text-sm text-stone-500 hover:bg-white" }, "+ Bestelsite toevoegen")), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm p-4 mb-4" }, /*#__PURE__*/React.createElement("button", { "type": "button", "className": "w-full flex items-center gap-2 text-left", "onClick": () => setCatOpen((o) => !o), "title": "Productcatalogus in-/uitklappen (#44)" }, /*#__PURE__*/React.createElement("span", { "className": "text-sm font-medium" }, "📦 Productcatalogus"), /*#__PURE__*/React.createElement("span", { "className": "text-xs text-stone-400" }, products.length), /*#__PURE__*/React.createElement("span", { "className": "ml-auto text-xs text-stone-400" }, catOpen ? "▾" : "▸")), catOpen && (
-        /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-500 mb-2" }, `Elk ingrediënt, voorraadproduct en extra artikel is hier een product met categorie, eenheid en optionele winkelvoorkeur. Klik op een naam om te wijzigen; ✕ verwijdert het product uit de catalogus (koppelingen vallen terug op vrije tekst — handig bij typefouten).`), /*#__PURE__*/React.createElement("div", { "className": "searchbar", "style": { boxShadow: "none" } }, /*#__PURE__*/React.createElement("span", { "className": "sicon" }, "🔍"), /*#__PURE__*/React.createElement("input", { "className": "recipe-search", "value": prodQuery, "placeholder": "Zoek product…", "onChange": (e) => setProdQuery(e.target.value) }), prodQuery !== "" && (
+        /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-500 mb-2" }, `Elk ingrediënt, voorraadproduct en extra artikel is hier een product met categorie, eenheid en optionele winkelvoorkeur. Klik op een naam om te wijzigen; ✕ verwijdert het product uit de catalogus (koppelingen vallen terug op vrije tekst — handig bij typefouten).`), pnDupGroups.length > 0 && (
+          /*#__PURE__*/React.createElement("div", { "className": "border border-amber-200 bg-amber-50 rounded-xl px-3 py-2 mb-2 text-xs" }, /*#__PURE__*/React.createElement("div", { "className": "font-semibold mb-1" }, pnDupGroups.length, " duplicaatgroep(en) gevonden"), pnDupGroups.map((g) => (
+              /*#__PURE__*/React.createElement("div", { "key": g[0].id, "className": "flex items-center gap-2 py-0.5" }, /*#__PURE__*/React.createElement("span", { "className": "flex-1 min-w-0 truncate" }, g.map((p) => p.name).join(" \u00b7 ")), /*#__PURE__*/React.createElement("button", { "type": "button", "className": "chip", "onClick": () => openMergeGroup(g) }, "Samenvoegen\\u2026"))
+            )))
+        ), /*#__PURE__*/React.createElement("div", { "className": "searchbar", "style": { boxShadow: "none" } }, /*#__PURE__*/React.createElement("span", { "className": "sicon" }, "🔍"), /*#__PURE__*/React.createElement("input", { "className": "recipe-search", "value": prodQuery, "placeholder": "Zoek product…", "onChange": (e) => setProdQuery(e.target.value) }), prodQuery !== "" && (
             /*#__PURE__*/React.createElement("button", { "className": "sicon", "title": "Zoekopdracht wissen", "onClick": () => setProdQuery("") }, "✕")
           )), /*#__PURE__*/React.createElement("div", { "className": "filterrow" }, shopCats.map((c) => (
             /*#__PURE__*/React.createElement("button", { "key": c, "type": "button", "className": `chip${catFilters.includes(c) ? " on" : ""}`, "onClick": () => setCatFilters((f) => (f.includes(c) ? f.filter((x) => x !== c) : [...f, c])) }, c)
           ))), /*#__PURE__*/React.createElement("div", { "className": "divide-y divide-stone-100 border border-stone-100 rounded-xl mt-2" }, filteredProducts.map((p) => (
-            /*#__PURE__*/React.createElement("div", { "key": p.id }, /*#__PURE__*/React.createElement("div", { "className": "flex items-center gap-2 px-3 py-2" }, /*#__PURE__*/React.createElement("span", { "className": "flex-1 min-w-0 text-sm" }, /*#__PURE__*/React.createElement("button", { "type": "button", "className": "prodlink", "onClick": () => openProdCard("cat-" + p.id, p.id) }, p.name)), /*#__PURE__*/React.createElement("span", { "className": "chip" }, p.cat), p.unit && /*#__PURE__*/React.createElement("span", { "className": "chip", "title": "Standaardeenheid" }, p.unit), p.market && /*#__PURE__*/React.createElement("span", { "className": "chip mkt", "title": "Winkelvoorkeur" }, marketChip(p.market)), /*#__PURE__*/React.createElement("span", { "className": "text-xs text-stone-400 shrink-0", "title": "Aantal keer gebruikt" }, usageCount(p.id), "×"), /*#__PURE__*/React.createElement("button", { "className": "delbtn", "title": "Uit catalogus verwijderen (koppelingen vallen terug op vrije tekst)", "onClick": () => deleteProductCatalog(p.id) }, "✕")), renderProductCard("cat-" + p.id))
+            /*#__PURE__*/React.createElement("div", { "key": p.id }, /*#__PURE__*/React.createElement("div", { "className": "flex items-center gap-2 px-3 py-2" }, /*#__PURE__*/React.createElement("span", { "className": "flex-1 min-w-0 text-sm" }, /*#__PURE__*/React.createElement("button", { "type": "button", "className": "prodlink", "onClick": () => openProdCard("cat-" + p.id, p.id) }, p.name)), /*#__PURE__*/React.createElement("span", { "className": "chip" }, p.cat), p.unit && /*#__PURE__*/React.createElement("span", { "className": "chip", "title": "Standaardeenheid" }, p.unit), pnBadgeMap[p.id] ? /*#__PURE__*/React.createElement("span", { "className": "chip", "title": "Aantal duplicaten in de catalogus \\u2014 samenvoegen via de melding hierboven" }, "\\u00d7", pnBadgeMap[p.id]) : null, p.market && /*#__PURE__*/React.createElement("span", { "className": "chip mkt", "title": "Winkelvoorkeur" }, marketChip(p.market)), /*#__PURE__*/React.createElement("span", { "className": "text-xs text-stone-400 shrink-0", "title": "Aantal keer gebruikt" }, usageCount(p.id), "×"), /*#__PURE__*/React.createElement("button", { "className": "delbtn", "title": "Uit catalogus verwijderen (koppelingen vallen terug op vrije tekst)", "onClick": () => deleteProductCatalog(p.id) }, "✕")), renderProductCard("cat-" + p.id))
           )), filteredProducts.length === 0 && (
             /*#__PURE__*/React.createElement("div", { "className": "px-3 py-3 text-sm text-stone-400 text-center" }, "Geen producten gevonden.")
           )), /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-400 mt-1" }, filteredProducts.length, " van ", products.length, " producten · A–Z"))
         )))
+  );
+
+  // issue #59: merge-sheet (kanjer kiezen + bevestigen)
+  const renderMergeSheet = () => (
+    /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", { "className": "backdrop", "onClick": () => setMergeGroup(null) }), /*#__PURE__*/React.createElement("div", { "className": "sheet" }, /*#__PURE__*/React.createElement("div", { "className": "handle" }), /*#__PURE__*/React.createElement("div", { "className": "px-4 pb-4" }, /*#__PURE__*/React.createElement("div", { "className": "flex items-center justify-between mb-2" }, /*#__PURE__*/React.createElement("div", { "className": "text-sm font-semibold" }, "Producten samenvoegen (#59)"), /*#__PURE__*/React.createElement("button", { "onClick": () => setMergeGroup(null), "className": "text-stone-400 px-1 text-lg leading-none" }, "\\u2715")), /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-500 mb-2" }, "Kies de kanjer (het product dat behouden blijft). Recept-koppelingen gaan over naar de kanjer; varianten uit de benaming worden als per-recept tag voorgesteld."), mergeGroup && mergeGroup.map((p) => (
+            /*#__PURE__*/React.createElement("label", { "key": p.id, "className": "flex items-center gap-2 py-1 text-sm" }, /*#__PURE__*/React.createElement("input", { "type": "radio", "name": "kanjer", "checked": mergeKanjerId === p.id, "onChange": () => setMergeKanjerId(p.id) }), /*#__PURE__*/React.createElement("span", { "className": "flex-1 min-w-0 truncate" }, p.name), /*#__PURE__*/React.createElement("span", { "className": "text-xs text-stone-400" }, usageCount(p.id), "\\u00d7"))
+          )), /*#__PURE__*/React.createElement("div", { "className": "flex gap-2 mt-3" }, /*#__PURE__*/React.createElement("button", { "className": "btn-primary flex-1", "onClick": doMerge, "disabled": !mergeKanjerId }, "Samenvoegen"), /*#__PURE__*/React.createElement("button", { "className": "btn-ghost", "onClick": () => setMergeGroup(null) }, "Annuleren")))))
   );
 
   const renderDateSheet = () => (
@@ -2577,7 +2650,9 @@ function App() {
             /*#__PURE__*/React.createElement("button", { "key": t.key, "onClick": () => goTab(t.key), "title": t.label, "aria-label": t.label, "className": `tabbtn ${tab === t.key ? "bg-stone-800 text-white" : "text-stone-500 hover:bg-stone-100"}` }, /*#__PURE__*/React.createElement("span", { "className": "tabicon" }, t.icon), tab === t.key && /*#__PURE__*/React.createElement("span", { "className": "tablabel" }, t.label), t.key === "shopping" && totalItems > 0 && (
                 /*#__PURE__*/React.createElement("span", { "className": "tabbadge", "title": `${doneItems} van ${totalItems} afgevinkt` }, `${doneItems}/${totalItems}`)
               ))
-          ))), tab === "menu" && renderMenuTab(), tab === "recipes" && renderRecipesTab(), tab === "stock" && renderStockTab(), tab === "shopping" && renderShoppingTab(), tab === "settings" && renderSettingsTab(), tab === "settings" && renderDelenSheets(), tab === "menu" && dateSheetOpen && renderDateSheet(), tab === "menu" && rulesSheetOpen && renderRulesSheet(), tab === "menu" && deviationKey && renderDeviationSheet()))
+          ))), mergeGroup && renderMergeSheet(), pnToast && (
+          /*#__PURE__*/React.createElement("div", { "style": { position: "fixed", bottom: "1rem", left: "50%", transform: "translateX(-50%)", zIndex: 60, background: "#292524", color: "#fff", borderRadius: "0.75rem", padding: "0.5rem 0.9rem", display: "flex", gap: "0.6rem", alignItems: "center", fontSize: "0.85rem" } }, /*#__PURE__*/React.createElement("span", null, pnToast.msg), pnToast.canUndo && /*#__PURE__*/React.createElement("button", { "onClick": undoMerge, "style": { color: "#fbbf24" } }, "\\u27f2 Ongedaan maken"), /*#__PURE__*/React.createElement("button", { "onClick": () => setPnToast(null), "style": { color: "#d6d3d1" } }, "\\u2715"))
+        ), tab === "menu" && renderMenuTab(), tab === "recipes" && renderRecipesTab(), tab === "stock" && renderStockTab(), tab === "shopping" && renderShoppingTab(), tab === "settings" && renderSettingsTab(), tab === "settings" && renderDelenSheets(), tab === "menu" && dateSheetOpen && renderDateSheet(), tab === "menu" && rulesSheetOpen && renderRulesSheet(), tab === "menu" && deviationKey && renderDeviationSheet()))
   );
 }
 
