@@ -28,7 +28,7 @@ export default [
     },
   },
   {
-    files: ["tools/**/*.cjs", "sw.js"],
+    files: ["tools/**/*.cjs", "sw.js", "src/**/*.js"],
     languageOptions: {
       ecmaVersion: "latest",
       sourceType: "script",

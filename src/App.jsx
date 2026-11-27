@@ -1,5 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 
+// issue #59: productnormalisatie-module (geladen via index.html vóór app.js; in Node-tests via require)
+const PN = (typeof globalThis !== "undefined" && globalThis.ProductNormalisatie) || null;
+
 const DAY_NAMES = ["Zaterdag", "Zondag", "Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag"]; // index 0 = zaterdag
 const FISH_DAYS = [0, 4]; // standaard vis-dagen, relatief t.o.v. de weekstart
 // Boodschappenmomenten (runs) zijn vervallen (ADR-016): de boodschappenlijst is van vandaag
@@ -855,6 +858,13 @@ export default function App() {
   const [prodQuery, setProdQuery] = useState("");
   const [catOpen, setCatOpen] = useState(false); // #44: productcatalogus initieel ingeklapt (vluchtig)
   const [catFilters, setCatFilters] = useState([]); // #44: actieve categorie-filters (leeg = alle)
+  // ---- issue #59: productnormalisatie (duplicaten samenvoegen, per-recept tags, sessie-undo) ----
+  const [mergeGroup, setMergeGroup] = useState(null); // duplicaatgroep in de merge-sheet
+  const [mergeKanjerId, setMergeKanjerId] = useState(null);
+  const [pnToast, setPnToast] = useState(null); // { msg, canUndo }
+  const [undoStack, setUndoStack] = useState([]); // sessie-undo voor merges (in-memory; na herladen permanent)
+  const pnDupGroups = useMemo(() => (PN ? PN.findDuplicateGroups(products) : []), [products]);
+  const pnBadgeMap = useMemo(() => (PN ? PN.duplicateBadgeMap(products) : {}), [products]);
   const [openDay, setOpenDay] = useState(null); // weekmenu: gelockte dag met open ingrediënt/bereiding-blok
 
   // ---- Delen via bestand (ADR-019): extra state ----
@@ -1185,6 +1195,54 @@ export default function App() {
   }
   function updateTakeawayLink(i, patch) {
     updateSettings({ takeawayLinks: (settings.takeawayLinks || []).map((l, j) => (j === i ? { ...l, ...patch } : l)) });
+  }
+  // ---- issue #59: duplicaten samenvoegen via PN.mergeProducts (kanjer + per-recept tags + undo) ----
+  // PN gebruikt `productId` op ingrediënten; main gebruikt `pid` — hier omgerekend.
+  function pnRecipesToMain(rs) {
+    return (rs || []).map((r) => ({
+      ...r,
+      ingredients: (r.ingredients || []).map((i) => {
+        const copy = { ...i };
+        if (copy.productId != null) { copy.pid = copy.productId; delete copy.productId; }
+        return copy;
+      }),
+    }));
+  }
+  function openMergeGroup(group) {
+    const kanjer = PN ? PN.pickKanjer(group, recipes) : group[0];
+    setMergeGroup(group);
+    setMergeKanjerId(kanjer ? kanjer.id : null);
+  }
+  function doMerge() {
+    if (!PN || !mergeGroup || mergeGroup.length < 2) return;
+    const ids = mergeGroup.map((p) => p.id);
+    const pnRecipes = recipes.map((r) => ({
+      ...r,
+      ingredients: (r.ingredients || []).map((i) => ({ ...i, productId: i.pid != null ? i.pid : i.productId })),
+    }));
+    let res;
+    try {
+      res = PN.mergeProducts({ products, recipes: pnRecipes, ids, kanjerId: mergeKanjerId });
+    } catch (e) {
+      setPnToast({ msg: "Samenvoegen geweigerd: " + (e && e.message ? e.message : String(e)) });
+      return;
+    }
+    setProducts(res.products);
+    setRecipes(pnRecipesToMain(res.recipes));
+    setUndoStack((u) => u.concat([res.undo]));
+    setMergeGroup(null);
+    setPnToast({ msg: "Samengevoegd naar \u201c" + res.kanjer.name + "\u201d", canUndo: true });
+  }
+  function undoMerge() {
+    const u = undoStack.length ? undoStack[undoStack.length - 1] : null;
+    setUndoStack(undoStack.slice(0, -1));
+    if (!u) { setPnToast({ msg: "Undo niet meer beschikbaar (sessie voorbij) \u2014 merge is permanent" }); return; }
+    setProducts(u.productsBefore);
+    setRecipes(pnRecipesToMain(u.recipesBefore));
+    setPnToast(null);
+  }
+  function setIngTags(rid, idx, tags) {
+    setRecipes((rs) => rs.map((r) => (r.id !== rid ? r : { ...r, ingredients: (r.ingredients || []).map((ing, j) => (j === idx && typeof ing === "object" && ing ? { ...ing, tags } : ing)) })));
   }
   function deleteProductCatalog(pid) {
     setProducts((ps) => ps.filter((p) => p.id !== pid));
@@ -1971,6 +2029,16 @@ export default function App() {
             </div>
           )}
         </span>
+        {typeof ing === "object" && ing && Array.isArray(ing.tags) && ing.tags.length > 0 && (
+          <span className="shrink-0 flex gap-1">
+            {ing.tags.map((t) => (
+              <span key={t} className="tag" title="Per-recept tag (geldt alleen in dit recept, #59)">
+                {t}
+                <button type="button" className="tagx" title="Tag verwijderen" onClick={() => setIngTags(rid, idx, ing.tags.filter((x) => x !== t))}>\u00d7</button>
+              </span>
+            ))}
+          </span>
+        )}
         <button
           type="button"
           className="text-stone-300 hover:text-red-500 text-sm"
@@ -3660,6 +3728,17 @@ export default function App() {
         {catOpen && (
         <div>
         <div className="text-xs text-stone-500 mb-2">{`Elk ingrediënt, voorraadproduct en extra artikel is hier een product met categorie, eenheid en optionele winkelvoorkeur. Klik op een naam om te wijzigen; ✕ verwijdert het product uit de catalogus (koppelingen vallen terug op vrije tekst — handig bij typefouten).`}</div>
+        {pnDupGroups.length > 0 && (
+          <div className="border border-amber-200 bg-amber-50 rounded-xl px-3 py-2 mb-2 text-xs">
+            <div className="font-semibold mb-1">{pnDupGroups.length} duplicaatgroep(en) gevonden</div>
+            {pnDupGroups.map((g) => (
+              <div key={g[0].id} className="flex items-center gap-2 py-0.5">
+                <span className="flex-1 min-w-0 truncate">{g.map((p) => p.name).join(" \u00b7 ")}</span>
+                <button type="button" className="chip" onClick={() => openMergeGroup(g)}>Samenvoegen\u2026</button>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="searchbar" style={{ boxShadow: "none" }}>
           <span className="sicon">🔍</span>
           <input className="recipe-search" value={prodQuery} placeholder="Zoek product…" onChange={(e) => setProdQuery(e.target.value)} />
@@ -3688,6 +3767,7 @@ export default function App() {
                 </span>
                 <span className="chip">{p.cat}</span>
                 {p.unit && <span className="chip" title="Standaardeenheid">{p.unit}</span>}
+                {pnBadgeMap[p.id] ? <span className="chip" title="Aantal duplicaten in de catalogus \u2014 samenvoegen via de melding hierboven">\u00d7{pnBadgeMap[p.id]}</span> : null}
                 {p.market && <span className="chip mkt" title="Winkelvoorkeur">{marketChip(p.market)}</span>}
                 <span className="text-xs text-stone-400 shrink-0" title="Aantal keer gebruikt">{usageCount(p.id)}×</span>
                 <button className="delbtn" title="Uit catalogus verwijderen (koppelingen vallen terug op vrije tekst)" onClick={() => deleteProductCatalog(p.id)}>✕</button>
@@ -3702,6 +3782,37 @@ export default function App() {
         <div className="text-xs text-stone-400 mt-1">{filteredProducts.length} van {products.length} producten · A–Z</div>
         </div>
         )}
+      </div>
+    </div>
+  );
+
+  // issue #59: merge-sheet (kanjer kiezen + bevestigen)
+  const renderMergeSheet = () => (
+    <div>
+      <div className="backdrop" onClick={() => setMergeGroup(null)} />
+      <div className="sheet">
+        <div className="handle" />
+        <div className="px-4 pb-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-sm font-semibold">Producten samenvoegen (#59)</div>
+            <button onClick={() => setMergeGroup(null)} className="text-stone-400 px-1 text-lg leading-none">\u2715</button>
+          </div>
+          <div className="text-xs text-stone-500 mb-2">
+            Kies de kanjer (het product dat behouden blijft). Recept-koppelingen gaan over naar de kanjer;
+            varianten uit de benaming worden als per-recept tag voorgesteld.
+          </div>
+          {mergeGroup && mergeGroup.map((p) => (
+            <label key={p.id} className="flex items-center gap-2 py-1 text-sm">
+              <input type="radio" name="kanjer" checked={mergeKanjerId === p.id} onChange={() => setMergeKanjerId(p.id)} />
+              <span className="flex-1 min-w-0 truncate">{p.name}</span>
+              <span className="text-xs text-stone-400">{usageCount(p.id)}\u00d7</span>
+            </label>
+          ))}
+          <div className="flex gap-2 mt-3">
+            <button className="btn-primary flex-1" onClick={doMerge} disabled={!mergeKanjerId}>Samenvoegen</button>
+            <button className="btn-ghost" onClick={() => setMergeGroup(null)}>Annuleren</button>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -4041,6 +4152,14 @@ export default function App() {
           ))}
         </nav>
 
+        {mergeGroup && renderMergeSheet()}
+        {pnToast && (
+          <div style={{ position: "fixed", bottom: "1rem", left: "50%", transform: "translateX(-50%)", zIndex: 60, background: "#292524", color: "#fff", borderRadius: "0.75rem", padding: "0.5rem 0.9rem", display: "flex", gap: "0.6rem", alignItems: "center", fontSize: "0.85rem" }}>
+            <span>{pnToast.msg}</span>
+            {pnToast.canUndo && <button onClick={undoMerge} style={{ color: "#fbbf24" }}>\u27f2 Ongedaan maken</button>}
+            <button onClick={() => setPnToast(null)} style={{ color: "#d6d3d1" }}>\u2715</button>
+          </div>
+        )}
         {tab === "menu" && renderMenuTab()}
         {tab === "recipes" && renderRecipesTab()}
 

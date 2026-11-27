@@ -120,3 +120,11 @@ Zie INTENT.md voor doel en principes; ADR-009 t/m ADR-011 voor configuratie, pri
 - Bron: `src/App.jsx`; build: `npm run build` (→ `src/app.js`, meegecommit; CI controleert synchroniteit).
 - Tests: `npm test` draait alle `tools/test-*.cjs` via `tools/run-tests.cjs` tegen de gecompileerde `src/app.js` met `tools/render-harness.cjs`.
 - Elke functionaliteit in dit document moet gedekt zijn door een automatische test (zie docs/TESTS.md).
+
+## Productnormalisatie & merge (issue #59, ADR-015)
+- Logica zit in `src/productNormalisatie.js` (geladen via `index.html` vóór `src/app.js`; in Node-tests via `require`). UI-wiring zit additief in `src/App.jsx`.
+- Duplicaten: producten met gelijke `normalizeKey(name)` (lowercase, diakrieten eraf, tekst na `,`/`(` eraf, variant-kwalificaties en generieke descriptors eraf) groeperen; in de catalogus (Instellingen) met badge `×N` en een gele duplicaat-lijst met "Samenvoegen…".
+- Samenvoegen: merge-sheet met kanjer-keuze (heuristiek `pickKanjer`: minste woorden → kortste basisnaam → meest gebruikt → alfabetisch). `PN.mergeProducts` remapt alle recept-ingrediënten (`pid`) naar de kanjer, voegt per-recept tags toe uit het benamingsverschil (`deriveTags`, alleen gemapte kwalificaties zoals vol/mager — nooit willekeurige woorden), en levert een undo-entry (sessie-undo via toast "Ongedaan maken"; na herladen permanent).
+- Per-recept tags: `ing.tags` op het ingrediënt in dat recept; chips in de ingrediënt-rij (verwijderbaar), zichtbaar in recept én weekmenu (#60), nooit in de algemene productlijst.
+- Eenheidsomrekening bestaat al in App.jsx (`UNIT_FACTOR`/`convertAmount`); de module voegt `el`/`tl` conversie en `validateAmount` toe. Ongeldige hoeveelheid → geen opslag.
+- Cache: deze release bumped `CACHE_VERSION` naar `weekmenu-app-v21` in `sw.js` en `?v=20` in `index.html`.
