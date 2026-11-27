@@ -80,7 +80,8 @@ function parseElement(s, i) {
       while (/\s/.test(s[i])) i++;
       if (s[i] === '"' || s[i] === "'") {
         const end = skipString(s, i);
-        props.push(JSON.stringify(s.slice(i + 1, end - 1)));
+        const val = s.slice(i + 1, end - 1);
+        props.push(TEXT_ATTRS.has(aname) ? wrapT(val) : JSON.stringify(val));
         i = end;
       } else if (s[i] === "{") {
         const end = skipBraces(s, i);
@@ -122,7 +123,7 @@ function parseElement(s, i) {
       while (j < s.length && s[j] !== "<" && s[j] !== "{") j++;
       const raw = s.slice(i, j);
       const txt = jsxText(raw);
-      if (txt !== null) children.push(JSON.stringify(txt));
+      if (txt !== null) children.push(wrapT(txt));
       i = j;
     }
   }
@@ -134,6 +135,13 @@ function parseElement(s, i) {
     (children.length ? ", " + children.join(", ") : "") +
     ")";
   return [{ code }, i];
+}
+
+// Tekst-attributen die vertaalbaar zijn (de rest, bijv. className, blijft literal).
+const TEXT_ATTRS = new Set(["title", "placeholder", "aria-label", "alt"]);
+// Vertaalbare GUI-tekst (bevat letters) -> __t("..."); pictogrammen/getallen blijven literal.
+function wrapT(txt) {
+  return /[A-Za-z\u00c0-\u024f]/.test(txt) ? "__t(" + JSON.stringify(txt) + ")" : JSON.stringify(txt);
 }
 
 // JSX-tekst volgens de JSX/Babel-regels:
@@ -182,14 +190,149 @@ function transform(src) {
   return out;
 }
 
+// ---- mini-bundler: ESM-bronnen (met JSX in .jsx) -> één classic script (src/app.js) ----
+// De app laadt React als globale (vendor/react.min.js); deze bundler verpakt de bronmodules
+// in een kleine module-registry zodat index.html en de test-harness ongewijzigd blijven.
 const fs = require("fs");
-const input = process.argv[2];
-const output = process.argv[3];
-let src = fs.readFileSync(input, "utf8");
-// import-regel vervangen door globale React-destructuring (zoals in de repo)
-src = src.replace(
-  /^import React[^\n]*\n/,
-  'const { useState, useMemo, useEffect } = React; // React global (vendor/react.min.js)\n'
-);
-src = src.replace(/^export default /m, "");
-fs.writeFileSync(output, transform(src) + "\n");
+const path = require("path");
+
+const ROOT = path.resolve(__dirname, "..");
+
+// import/export-regels herschrijven (regel-gebaseerd; imports staan per regel bovenaan)
+function rewriteModule(src) {
+  const out = [];
+  const namedExports = [];
+  let imp = 0;
+  for (const line of src.split("\n")) {
+    let m;
+    if ((m = /^import\s+([^'"]+?)\s+from\s+["']([^"']+)["'];?\s*$/.exec(line))) {
+      const clause = m[1].trim();
+      const spec = m[2];
+      if (spec === "react") {
+        const brace = /\{([^}]*)\}/.exec(clause);
+        if (brace) out.push("const { " + brace[1].trim() + " } = React; // React global (vendor/react.min.js)");
+        continue;
+      }
+      const tmp = "__imp" + imp++;
+      out.push("const " + tmp + " = require(" + JSON.stringify(spec) + ");");
+      const rest = clause.replace(/^[A-Za-z_$][\w$]*\s*,?\s*/, "");
+      const def = /^([A-Za-z_$][\w$]*)/.exec(clause);
+      if (def && rest.charAt(0) !== "{" && rest.charAt(0) !== "*") out.push("const " + def[1] + " = " + tmp + ".default;");
+      const ns = /^\*\s+as\s+([A-Za-z_$][\w$]*)/.exec(rest);
+      if (ns) out.push("const " + ns[1] + " = " + tmp + ";");
+      const brace2 = /\{([^}]*)\}/.exec(rest);
+      if (brace2) {
+        const names = brace2[1].split(",").map((s) => s.trim()).filter(Boolean).map((s) => {
+          const am = /^([A-Za-z_$][\w$]*)\s+as\s+([A-Za-z_$][\w$]*)$/.exec(s);
+          return am ? am[1] + ": " + am[2] : s;
+        });
+        out.push("const { " + names.join(", ") + " } = " + tmp + ";");
+      }
+      continue;
+    }
+    if ((m = /^import\s+["']([^"']+)["'];?\s*$/.exec(line))) {
+      out.push("require(" + JSON.stringify(m[1]) + ");");
+      continue;
+    }
+    if (/^export\s+default\s+/.test(line)) {
+      out.push(line.replace(/^export\s+default\s+/, "module.exports.default = "));
+      continue;
+    }
+    if ((m = /^export\s+(?:async\s+function|function|class|const|let|var)\s+([A-Za-z_$][\w$]*)/.exec(line))) {
+      namedExports.push([m[1], m[1]]);
+      out.push(line.replace(/^export\s+/, ""));
+      continue;
+    }
+    if ((m = /^export\s*\{([^}]*)\};?\s*$/.exec(line))) {
+      for (const part of m[1].split(",")) {
+        const p = part.trim();
+        if (!p) continue;
+        const am = /^([A-Za-z_$][\w$]*)\s+as\s+([A-Za-z_$][\w$]*)$/.exec(p);
+        if (am) namedExports.push([am[1], am[2]]);
+        else namedExports.push([p, p]);
+      }
+      continue;
+    }
+    out.push(line);
+  }
+  for (const pair of namedExports) out.push("exports." + pair[1] + " = " + pair[0] + ";");
+  return out.join("\n");
+}
+
+function resolveSpec(fromId, spec) {
+  if (spec.charAt(0) !== ".") return null; // extern (bijv. react) -> globale
+  const base = path.posix.normalize(path.posix.join(path.posix.dirname(fromId), spec));
+  for (const c of [base, base + ".js", base + ".jsx", base + ".mjs"]) {
+    const p = path.join(ROOT, c);
+    if (fs.existsSync(p) && fs.statSync(p).isFile()) return { id: c, file: p };
+  }
+  throw new Error("Kan module niet vinden: " + spec + " (van " + fromId + ")");
+}
+
+function crawl(entryFile) {
+  const modules = new Map();
+  const visit = (file) => {
+    const id = path.posix.relative(ROOT, file).split(path.sep).join("/");
+    if (modules.has(id)) return;
+    modules.set(id, null);
+    const src = fs.readFileSync(file, "utf8");
+    const specs = [];
+    for (const line of src.split("\n")) {
+      const m = /^import\s+[^'"]+?\s+from\s+["']([^"']+)["']/.exec(line) || /^import\s+["']([^"']+)["']/.exec(line);
+      if (m) specs.push(m[1]);
+    }
+    const rewritten = rewriteModule(src);
+    modules.set(id, id.endsWith(".jsx") ? transform(rewritten) : rewritten);
+    for (const spec of specs) {
+      const r = resolveSpec(id, spec);
+      if (r) visit(r.file);
+    }
+  };
+  visit(entryFile);
+  return modules;
+}
+
+function emit(modules, entryId) {
+  const parts = [];
+  parts.push("/* Gegenereerd door `npm run build` (tools/jsx-transform.cjs) - niet handmatig bewerken. Bron: src/ */");
+  parts.push("(function () {");
+  parts.push("var __modules = {");
+  for (const entry of modules) {
+    parts.push(JSON.stringify(entry[0]) + ": function (module, exports, require) {");
+    parts.push(entry[1]);
+    parts.push("},");
+  }
+  parts.push("};");
+  parts.push([
+    "var __cache = {};",
+    "function __resolve(fromId, spec) {",
+    "  if (spec.charAt(0) !== '.') throw new Error('externe module in bundle: ' + spec);",
+    "  var parts = fromId.split('/'); parts.pop();",
+    "  spec.split('/').forEach(function (p) { if (p === '..') parts.pop(); else if (p !== '.') parts.push(p); });",
+    "  var base = parts.join('/');",
+    "  var cands = [base, base + '.js', base + '.jsx', base + '.mjs'];",
+    "  for (var i = 0; i < cands.length; i++) if (__modules[cands[i]]) return cands[i];",
+    "  throw new Error('module niet in bundle: ' + spec + ' (van ' + fromId + ')');",
+    "}",
+    "function __load(id) {",
+    "  if (__cache[id]) return __cache[id].exports;",
+    "  var m = { exports: {} };",
+    "  __cache[id] = m;",
+    "  __modules[id](m, m.exports, function (spec) { return __load(__resolve(id, spec)); });",
+    "  return m.exports;",
+    "}",
+    // i18n: __t vertaalt GUI-teksten (auto-wrap in .jsx); bij ontbrekende module: identiteit
+    "function __t(key, vars) { return __i18n.t(key, vars); }",
+    "var __i18n = (function () { try { return __load(\"src/i18n/index.js\"); } catch (e) { return { t: function (k) { return k; } }; } })();",
+    "var __entry = __load(" + JSON.stringify(entryId) + ");",
+    "globalThis.App = __entry.default || __entry;",
+    "globalThis.__weekmenuModules = __load; // test/debug: pure modules benaderen (tools/test-*.cjs)",
+    "})();",
+  ].join("\n"));
+  return parts.join("\n") + "\n";
+}
+
+const input = path.resolve(process.argv[2]);
+const output = path.resolve(process.argv[3]);
+const entryId = path.posix.relative(ROOT, input).split(path.sep).join("/");
+fs.writeFileSync(output, emit(crawl(input), entryId));

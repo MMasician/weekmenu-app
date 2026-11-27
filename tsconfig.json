@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "allowJs": true,
@@ -12,7 +16,19 @@
     "strict": false,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "types": ["node"]
+    "types": [
+      "node"
+    ]
   },
-  "include": ["src/App.jsx", "tools/**/*.cjs"]
+  "include": [
+    "src/**/*.js",
+    "src/**/*.jsx",
+    "tools/**/*.cjs"
+  ],
+  "exclude": [
+    "src/app.js",
+    "src/productNormalisatie.js",
+    "src/timetags.js",
+    "src/gerechtFotos.js"
+  ]
 }

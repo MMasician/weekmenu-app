@@ -7,7 +7,7 @@ Accepted (2026-11-16)
 De JSX-compile gebeurde eerder ad-hoc, wat tot een wit scherm leidde doordat `src/app.js` niet synchroon was met `src/App.jsx`. Ook maakten agents losse testscripts met harde paden (`/home/user/weekmenu-app/...`) die alleen op één machine werkten.
 
 ## Besluit
-1. **`package.json` met vaste commando's**: `npm run build` = `node tools/jsx-transform.cjs src/App.jsx src/app.js`; `npm test` = `node tools/run-tests.cjs`; `npm run verify` = build + test. Geen dependencies, alleen de Node-standaardbibliotheek.
+1. **`package.json` met vaste commando's**: `npm run build` = `node tools/jsx-transform.cjs src/App.jsx src/app.js` (bundelt `src/**`); `npm test` = `node tools/run-tests.cjs`; `npm run verify` = build + test. Geen dependencies, alleen de Node-standaardbibliotheek.
 2. **Tests**: alle functionaliteit uit SPECS.md moet gedekt zijn door automatische tests in `tools/test-*.cjs`, gedraaid via `tools/run-tests.cjs` (elke test in een eigen proces; exit-codes worden samengevat). Tests draaien tegen de gecompileerde `src/app.js` via `tools/render-harness.cjs`.
 3. **`src/app.js` wordt meegecommit en CI controleert synchroniteit**: de CI-workflow hieronder wordt geplaatst als `.github/workflows/test.yml` (opmerking: aanmaken van bestanden onder `.github/workflows/` vereist een token met `workflow`-scope) en draait bij elke push/PR: `npm run build`, `git diff --exit-code src/app.js`, `npm test`.
 
@@ -33,7 +33,7 @@ De JSX-compile gebeurde eerder ad-hoc, wat tot een wit scherm leidde doordat `sr
    ```
 
 4. **Geen ad-hoc scripts**: agents mogen geen tijdelijke build/test-scripts aanmaken; ze breiden `tools/test-*.cjs` uit met relatieve paden (`path.join(__dirname, "..")`). Oude absolute paden worden door `tools/legacy-path-shim.cjs` (geladen via `node --require` door de runner) naar de repo-root gemapt.
-5. **Single-file beleid blijft** (ADR-001): `src/App.jsx` is het enige bronbestand; splitsen alleen als het niet meer beheerbaar is — met deze pipeline is dat geen beletsel.
+5. **Bron is modulair** (ADR-022): `src/` bevat ES-modules; `tools/jsx-transform.cjs` bundelt ze naar het enige gecompileerde bestand `src/app.js` (entry: `src/App.jsx`).
 
 ## Gevolgen
 + Eén commando om te builden en één om te testen, op elke machine en in CI.

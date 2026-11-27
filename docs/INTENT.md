@@ -10,7 +10,7 @@ De app is niet aan één huishouden gebonden: elk huishouden kan zelf instellen 
 2. **Privé-context staat niet in GitHub** — household-specifieke context (gezinssamenstelling, routines, voorkeuren) hoort niet in deze repo. In de repo staat alleen de algemene, deelbare app. Privé-context leeft buiten de repo: in een privé-skill en in de lokale app-instellingen (ADR-010).
 3. **Offline-first; geen server** — de app werkt volledig offline en slaat niets op buiten het eigen apparaat (ADR-007, ADR-010).
 4. **Zo min mogelijk handwerk** — weekmenu en boodschappenlijst worden automatisch gegenereerd; per dag kan handmatig worden afgeweken (vergrendelen / override).
-5. **Eén bronbestand** — de app-logica staat in `src/App.jsx` en wordt met een vastgelegde build-stap gecompileerd naar `src/app.js` (`npm run build`). Zo lang dat beheerbaar is, blijft het één bestand (ADR-001, ADR-011).
+5. **Modulaire bron, één gecompileerd bestand** — de app-bron staat in ES-modules onder `src/` (domain/state/ui/i18n, zie ADR-022) en wordt met een vastgelegde build-stap gebundeld naar `src/app.js` (`npm run build`; ADR-011). GUI-taal via `src/i18n` (ADR-023).
 6. **Alle functionaliteit automatisch getest** — alles wat in SPECS.md staat, heeft een automatische test in `tools/test-*.cjs`, te draaien met `npm test` (docs/TESTS.md, ADR-011). Agents maken hiervoor geen losse scripts.
 
 ## Functionele wensen (algemeen; per huishouden instelbaar via Instellingen)
