@@ -28,7 +28,15 @@ export default [
     },
   },
   {
-    files: ["tools/**/*.cjs", "sw.js", "src/**/*.js"],
+    files: ["src/**/*.js"],
+    languageOptions: {
+      ecmaVersion: "latest",
+      sourceType: "module",
+      globals: { ...globals.browser, module: "readonly", require: "readonly", exports: "readonly" },
+    },
+  },
+  {
+    files: ["tools/**/*.cjs", "sw.js"],
     languageOptions: {
       ecmaVersion: "latest",
       sourceType: "script",

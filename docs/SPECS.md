@@ -27,6 +27,7 @@ Zie INTENT.md voor doel en principes; ADR-009 t/m ADR-011 voor configuratie, pri
   - `dishRepeatDays`: getal 0–30 — aantal dagen dat gewacht wordt voordat hetzelfde gerecht opnieuw automatisch gepland mag (#38; standaard **7** = niet vaker dan 1× per week; 0 = mag de volgende dag alweer)
   - `takeawayLinks`: [{ id, label, url }] — bestelsites voor afhaalmaaltijd (#42); lokaal (ADR-010); leeg = geen links
   - `theme`: `"standaard" | "donker" | "roze" | "sinterklaas" | "kerstmis"` — thema/weergave van de app (#40, ADR-021; standaard = huidige kleurstelling; ongeldige/ontbrekende waarde → `"standaard"` bij normaliseren)
+  - `language`: `"nl" | "en" | "fr" | "de"` — GUI-taal (ADR-023; standaard `"nl"`; ongeldige/ontbrekende waarde → `"nl"` bij normaliseren). Kiest de gebruiker via de kaart "Taal" op de Instellingen-tab. Alleen de GUI wordt vertaald; recepten/producten/voorraad/vrije tekst blijven gebruikersdata.
 - Boodschappenmomenten (`shopRuns`) worden niet meer opgeslagen (ADR-016); bij normaliseren wordt het veld weggegooid. Oude data met `shopRuns`/`prices` wordt genegeerd.
 - Dag-indices zijn relatief t.o.v. `weekStartDay` (index 0 = weekstart).
 - Instellingen zijn lokaal: ze worden nooit naar een server of GitHub geschreven en zijn voor andere households niet zichtbaar (ADR-010).

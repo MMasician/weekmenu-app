@@ -1,7 +1,7 @@
 # ADR-001: Single-file React-app, geen dependencies
 
 ## Status
-Geaccepteerd
+**Vervangen door ADR-022** (modulaire bronstructuur, 2026-11-27) — zie aldaar
 
 ## Context
 De app wordt gegenereerd en onderhouden vanuit een Vibe Canvas. De

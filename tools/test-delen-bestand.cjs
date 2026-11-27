@@ -76,14 +76,11 @@ function check(label, ok) {
 
 // ---------- 3. Pure samenvoegregels vanuit app.js ----------
 {
-  const fs = require("fs");
-  const code = fs.readFileSync(path.join(ROOT, "src", "app.js"), "utf8");
-  const React = { createElement: () => null };
-  const fn = new Function("React", "localStorage", "document", "URL", "Blob", "FileReader", "window",
-    code + "\n;return { App, mergeShareBundle, shareStrip, normalizeRecipe, normalizeProducts }");
-  const { mergeShareBundle } = fn(React, { getItem: () => null, setItem: () => {} },
-    { createElement: () => ({ click() {}, style: {} }) }, { createObjectURL: () => "", revokeObjectURL: () => {} },
-    function () {}, function () {}, { confirm: () => true });
+  // Sinds de modulaire split (src/domain/*) zitten de pure functies in aparte modules;
+  // de gebundelde app.js exposeert de module-registry als globalThis.__weekmenuModules.
+  const m0 = loadApp(path.join(ROOT, "src", "app.js"));
+  const loadMod = m0.sandbox.__weekmenuModules;
+  const { mergeShareBundle } = loadMod("src/domain/share.js");
 
   const rec = (id, name, ts, extra) => Object.assign({ id, name, cat: "vega", ingredients: [], bereiding: "", tags: [], timeCat: "normaal", updatedAt: ts }, extra || {});
   const local = () => ({

@@ -9,8 +9,9 @@ De app is per huishouden instelbaar (weekstart, boodschappenmomenten, vis/vega/v
 - Kies "Toevoegen aan beginscherm" / "Installeer" om de app te installeren. Na eerste gebruik werkt hij ook zonder internet.
 
 ## Ontwikkelen
-- Bronbestand: `src/App.jsx` (enige app-bron, ADR-001). Gecompileerde versie: `src/app.js`.
-- Build: `npm run build` — compileert `src/App.jsx` naar `src/app.js` via `tools/jsx-transform.cjs`. `src/app.js` wordt meegecommit; CI controleert dat beide synchroon zijn (ADR-011).
+- Bron: ES-modules onder `src/` — `App.jsx` (compositieroot), `state/store.js` (alle hooks/acties), `domain/` (pure logica), `ui/` (tab-views als render-functies), `i18n/` (GUI-teksten nl/en/fr/de), `lib/externals.js` (UMD-modules). Zie ADR-022 (structuur) en ADR-023 (meertaligheid).
+- Build: `npm run build` — bundelt `src/App.jsx` (+ imports) naar `src/app.js` via `tools/jsx-transform.cjs` (mini-bundler; JSX in `.jsx`, i18n-auto-wrap van GUI-teksten). `src/app.js` wordt meegecommit; CI controleert dat de bundle synchroon is (ADR-011).
+- GUI-taal: instelbaar per huishouden via Instellingen → "Taal" (`settings.language`, default `nl`; ADR-023). Vertalingen voeg je toe in `src/i18n/en.js` / `fr.js` / `de.js` (sleutel = Nederlandse tekst).
 - Tests: `npm test` — draait alle automatische tests in `tools/test-*.cjs` via `tools/run-tests.cjs`. Elke functionaliteit in `docs/SPECS.md` moet gedekt zijn (zie `docs/TESTS.md`). Alles in één keer: `npm run verify`.
 - Lint: `npm run lint` (ESLint, flat config in `eslint.config.mjs`, zie ADR-014). Typecheck: `npm run typecheck` (tsc `--checkJs` via `tsconfig.json` + `tsconfig.sw.json`).
 - Maak geen losse build/test-scripts (ADR-011); breid `tools/test-*.cjs` uit met relatieve paden.
@@ -22,4 +23,4 @@ De app is per huishouden instelbaar (weekstart, boodschappenmomenten, vis/vega/v
 - `docs/domeinproces.md` — domeinproces (strategie t/m koken) + werkwijze met issues (Definition of Ready/Done, labels, conflictafspraken bij parallel werken)
 - `docs/SPECS.md` — functionaliteit per tab + schema van de per-huishouden instellingen
 - `docs/TESTS.md` — testbeleid en checklist
-- `docs/adr/` — ADR-001 t/m ADR-011
+- `docs/adr/` — ADR-001 t/m ADR-023
