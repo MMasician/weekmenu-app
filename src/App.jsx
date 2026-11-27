@@ -2231,7 +2231,7 @@ export default function App() {
       <div key={r.id} className="bg-white rounded-xl shadow-sm overflow-hidden">
         <div className="flex items-center gap-1 px-3 py-2.5">
           <button
-            onClick={() => { setOpenRecipe(isOpen ? null : r.id); if (!isOpen) { setEditRecipe(null); ensureDishFoto(r.id); } setTagDraft(""); }}
+            onClick={() => { setOpenRecipe(isOpen ? null : r.id); if (!isOpen) { setEditRecipe(null); void ensureDishFoto(r.id); } setTagDraft(""); }}
             className="flex-1 text-left min-w-0"
           >
             <div className="flex items-center justify-between gap-2">
@@ -2649,7 +2649,7 @@ export default function App() {
                     value={text}
                     placeholder="Typ een gerecht…"
                     readOnly={!!(entry && entry.locked)}
-                    onClick={() => { if (entry && entry.locked) { const willOpen = openDay !== key; setOpenDay(willOpen ? key : null); if (willOpen && entry.id) ensureDishFoto(entry.id); } }}
+                    onClick={() => { if (entry && entry.locked) { const willOpen = openDay !== key; setOpenDay(willOpen ? key : null); if (willOpen && entry.id) void ensureDishFoto(entry.id); } }}
                     title={entry && entry.locked ? "Gerecht bekijken (ingrediënten + bereiding) — ontgrendelen via het slot" : undefined}
                     onChange={(e) => {
                       const v = e.target.value;
