@@ -84,10 +84,12 @@
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Geen 2d-canvascontext beschikbaar \u2014 foto niet saved');
     ctx.drawImage(bitmap, 0, 0, width, height);
     if (bitmap.close) bitmap.close();
     let quality = JPEG_QUALITY;
     let blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
+    if (!blob) throw new Error('Foto exporteren mislukt (toBlob gaf null)');
     while (blob && blob.size > MAX_IMAGE_BYTES && quality > 0.35) {
       quality = Math.max(0.35, quality - 0.1);
       blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
