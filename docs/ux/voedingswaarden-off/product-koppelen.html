@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang='nl'>
+<head>
+<meta charset='utf-8'>
+<title>S2 — Product koppelen via Open Food Facts (3 versies)</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:2rem;background:#f6f7f9;color:#1c1c1c}
+h1{font-size:1.2rem} h3{margin:.2rem 0 .6rem;font-size:.95rem;color:#444}
+section{background:#fff;border:1px solid #ddd;border-radius:10px;padding:1rem;margin-bottom:1.5rem;max-width:460px}
+.dialog{border:1px solid #e4e4e4;border-radius:8px;padding:.8rem}
+label{display:block;font-size:.8rem;color:#555;margin:.5rem 0 .2rem}
+input{width:100%;box-sizing:border-box;font:inherit;padding:.45rem;border:1px solid #bbb;border-radius:6px}
+button{font:inherit;font-size:.85rem;padding:.45rem .8rem;border-radius:6px;border:1px solid #1a56db;background:#1a56db;color:#fff;margin-top:.7rem}
+button.ghost{background:#fff;color:#1a56db}
+.hint{font-size:.75rem;color:#777;margin-top:.5rem}
+.scan{display:flex;align-items:center;gap:.5rem;border:1px dashed #999;border-radius:6px;padding:.6rem;font-size:.85rem;color:#444}
+.chip{display:inline-block;border:1px solid #ccc;border-radius:20px;padding:.2rem .6rem;font-size:.78rem;margin:.15rem .2rem .15rem 0;background:#fafafa}
+.warn{background:#fff4e5;border:1px solid #f0c36d;border-radius:6px;padding:.5rem;font-size:.8rem;margin-top:.6rem}
+</style>
+</head>
+<body>
+<h1>S2 — Product koppelen: EAN invoeren/scannen of naam zoeken · 3 versies</h1>
+
+<section>
+<h3>v1 — input-only</h3>
+<div class='dialog'>
+  <strong>Koppel 'Appelstroop' via Open Food Facts</strong>
+  <label>EAN-barcode</label>
+  <input placeholder='bijv. 8718452304653'>
+  <label>of zoek op productnaam</label>
+  <input placeholder='bijv. appelstroop jumbo 450 g'>
+  <button>Zoek product</button>
+</div>
+</section>
+
+<section>
+<h3>v2 — + camera-scan + recente koppelingen</h3>
+<div class='dialog'>
+  <strong>Koppel 'Appelstroop' via Open Food Facts</strong>
+  <label>EAN-barcode</label>
+  <input placeholder='bijv. 8718452304653'>
+  <div class='scan'>📷 EAN scannen met camera</div>
+  <label>of zoek op productnaam</label>
+  <input placeholder='bijv. appelstroop jumbo 450 g'>
+  <div class='hint'>Recent gekoppeld: Duetti hazelnootpasta (20662929)</div>
+  <button>Zoek product</button>
+  <div class='warn'>Let op: EAN-8 codes beginnend met 20–29 (o.a. Lidl) zijn niet uniek per product.</div>
+</div>
+</section>
+
+<section>
+<h3>v3 — + suggesties uit lokaal opgeslagen producten (aanbevolen)</h3>
+<div class='dialog'>
+  <strong>Koppel 'Appelstroop' via Open Food Facts</strong>
+  <label>EAN-barcode</label>
+  <input placeholder='bijv. 8718452304653'>
+  <div class='scan'>📷 EAN scannen met camera</div>
+  <label>of zoek op productnaam</label>
+  <input placeholder='bijv. appelstroop jumbo 450 g' value='appelstroop'>
+  <div class='hint'>Suggesties uit je eigen catalogus:</div>
+  <span class='chip'>Appelstroop — Jumbo 450 g</span>
+  <span class='chip'>Duetti hazelnootpasta — EAN 20662929 (al gekoppeld)</span>
+  <button>Zoek product</button>
+  <div class='warn'>EAN-8 (20–29…) niet uniek → controleer het gevonden product op merk + foto.</div>
+  <div class='hint'>Bron: gegevens & foto's van Open Food Facts (CC BY-SA 3.0). Alleen HTTPS naar world.openfoodfacts.org / images.openfoodfacts.org.</div>
+</div>
+</section>
+</body>
+</html>

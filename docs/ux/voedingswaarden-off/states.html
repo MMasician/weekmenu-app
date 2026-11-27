@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang='nl'>
+<head>
+<meta charset='utf-8'>
+<title>S5 — States: leeg / offline / geen match / EAN-8 / fout (3 versies)</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:2rem;background:#f6f7f9;color:#1c1c1c}
+h1{font-size:1.2rem} h3{margin:.2rem 0 .6rem;font-size:.95rem;color:#444}
+section{background:#fff;border:1px solid #ddd;border-radius:10px;padding:1rem;margin-bottom:1.5rem;max-width:480px}
+.state{border:1px solid #e4e4e4;border-radius:8px;padding:.8rem;margin-bottom:.5rem;font-size:.88rem}
+.fallback{font-size:2rem}
+.warn{background:#fff4e5;border:1px solid #f0c36d}
+.err{background:#fdecea;border:1px solid #f5c6c0}
+.ok{background:#eef7ee;border:1px solid #bfe0bf}
+.muted{color:#666;font-size:.78rem}
+button{font:inherit;font-size:.8rem;padding:.35rem .7rem;border-radius:6px;border:1px solid #1a56db;background:#1a56db;color:#fff}
+</style>
+</head>
+<body>
+<h1>S5 — Randgevallen · per state 3 versies (minimal / +uitleg / +actie)</h1>
+
+<section>
+<h3>Lege state — product zonder foto (geen image_front_url)</h3>
+<div class='state'><span class='fallback'>📦</span> Geen productfoto beschikbaar.</div>
+<div class='state'><span class='fallback'>📦</span> Geen productfoto bij Open Food Facts gevonden.</div>
+<div class='state ok'><span class='fallback'>📦</span> Geen foto, maar voedingswaarden wel opgeslagen (NEVO/OFF-fallback). <button>Waarden tonen</button></div>
+</section>
+
+<section>
+<h3>Offline — geen netwerk, wel cache</h3>
+<div class='state err'>Offline: geen verbinding.</div>
+<div class='state err'>Offline — geopende pagina's werken niet.</div>
+<div class='state ok'>Offline modus: gegevens & foto uit lokale cache (`weekmenu-app-v1`). <button>Toon gecachte waarden</button> <span class='muted'>(Cache API, werkt zonder netwerk)</span></div>
+</section>
+
+<section>
+<h3>Geen match / ongeldige EAN</h3>
+<div class='state'>Geen product gevonden.</div>
+<div class='state'>Geen product gevonden voor EAN 123 — controleer de code.</div>
+<div class='state warn'>Geen hit in Open Food Facts. <button>Opnieuw proberen</button> <button>Handmatig invoeren</button> <button>NEVO-fallback gebruiken</button></div>
+</section>
+
+<section>
+<h3>EAN-8 restricted circulation (20–29…)</h3>
+<div class='state warn'>Let op: EAN-8 warning.</div>
+<div class='state warn'>Deze code (20662929) is een restricted-circulation EAN-8 en kan voor méér producten gebruikt worden.</div>
+<div class='state warn'>EAN-8 (20–29…, o.a. Lidl) is niet uniek per product — controleer merk + foto vóór je koppelt. <button>Toch koppelen</button> <button>Ander product kiezen</button></div>
+</section>
+
+<section>
+<h3>Foutafhandeling API (timeout / 404 / ongeldige numerieke data)</h3>
+<div class='state err'>Er ging iets mis.</div>
+<div class='state err'>Open Food Facts reageerde niet (timeout). Probeer het later opnieuw.</div>
+<div class='state err'>Ophalen mislukt of ongeldige waarden (NaN/negatief) — niets opgeslagen. <button>Opnieuw proberen</button> <span class='muted'>Alleen HTTPS naar world.openfoodfacts.org; data wordt gevalideerd vóór opslag.</span></div>
+</section>
+</body>
+</html>

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang='nl'>
+<head>
+<meta charset='utf-8'>
+<title>S1 — Productkaart in catalogus (3 versies)</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:2rem;background:#f6f7f9;color:#1c1c1c}
+h1{font-size:1.2rem} h3{margin:.2rem 0 .6rem;font-size:.95rem;color:#444}
+section{background:#fff;border:1px solid #ddd;border-radius:10px;padding:1rem;margin-bottom:1.5rem;max-width:440px}
+.card{display:flex;gap:.75rem;align-items:center;border:1px solid #e4e4e4;border-radius:8px;padding:.6rem;margin-bottom:.5rem}
+.thumb{width:48px;height:48px;border-radius:6px;object-fit:cover;background:#eee;flex:none}
+.fallback{width:48px;height:48px;border-radius:6px;background:#eef1f5;display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex:none}
+.badge{font-size:.68rem;background:#e8f0fe;color:#1a56db;border-radius:4px;padding:.1rem .4rem;white-space:nowrap}
+.muted{color:#666;font-size:.78rem}
+button{font:inherit;font-size:.8rem;padding:.35rem .6rem;border-radius:6px;border:1px solid #1a56db;background:#1a56db;color:#fff}
+</style>
+</head>
+<body>
+<h1>S1 — Productkaart in catalogus · 3 versies</h1>
+
+<section>
+<h3>v1 — compact: huidige kaart + koppel-actie</h3>
+<div class='card'>
+  <div><strong>Appelstroop</strong><div class='muted'>Jumbo · 450 g · categorie: broodbeleg</div></div>
+  <button>Koppel via Open Food Facts</button>
+</div>
+</section>
+
+<section>
+<h3>v2 — + foto-thumbnail + kcal</h3>
+<div class='card'>
+  <img class='thumb' src='https://images.openfoodfacts.org/images/products/871/845/230/4653/front_nl.1.100.jpg' alt='productfoto appelstroop'>
+  <div><strong>Appelstroop 450 g (Jumbo)</strong><div class='muted'>EAN 8718452304653 · 268 kcal/100 g</div></div>
+</div>
+</section>
+
+<section>
+<h3>v3 — + cache-badge + portie + bronvermelding + fallback-icoon (aanbevolen)</h3>
+<div class='card'>
+  <img class='thumb' src='https://images.openfoodfacts.org/images/products/871/845/230/4653/front_nl.1.100.jpg' alt='productfoto appelstroop'>
+  <div>
+    <strong>Appelstroop 450 g (Jumbo)</strong> <span class='badge'>uit cache · offline OK</span>
+    <div class='muted'>EAN 8718452304653 · 268 kcal/100 g · 21 kcal/portie (15 g)</div>
+    <div class='muted'>Gegevens & foto's: <a href='https://world.openfoodfacts.org/terms-of-use'>Open Food Facts</a> (CC BY-SA 3.0)</div>
+  </div>
+</div>
+<div class='card'>
+  <div class='fallback'>🥦</div>
+  <div><strong>Bloemkool</strong><div class='muted'>merkloos · geen barcode · NEVO-fallback (gelijk voor alle supermarkten)</div></div>
+</div>
+</section>
+</body>
+</html>
