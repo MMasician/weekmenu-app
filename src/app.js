@@ -1378,7 +1378,7 @@ function useAppStore() {
       const unit = sumN ? sumN.unit : g.unit;
       const pid = parts.map((pp) => pp.pid).find(Boolean) || null;
       const name = (pid && prodById[pid] && prodById[pid].name) || parts.map((pp) => pp.name).find(Boolean) || parts[0].label;
-      const dayKeys = [...new Set(parts.map((pp) => pp.dayKey).filter(Boolean))].sort();
+      const dayKeys = [...new Set(parts.map((pp) => pp.dayKey).filter(Boolean))].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
       const mkt0 = parts[0].mkt;
       const mkt = parts.every((pp) => pp.mkt === mkt0) ? mkt0 : null;
       const cat = parts.map((pp) => pp.cat).find(Boolean) || null;
