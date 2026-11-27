@@ -3797,7 +3797,7 @@ export default function App() {
             <div className="text-sm font-semibold">Producten samenvoegen (#59)</div>
             <button onClick={() => setMergeGroup(null)} className="text-stone-400 px-1 text-lg leading-none">\u2715</button>
           </div>
-          <div className="text-xs text-stone-500 mb-2">Kies de kanjer (het product dat behouden blijft). Recept-koppelingen gaan over naar de kanjer; varianten uit de benaming worden als per-recept tag vorgestellt.</div>
+          <div className="text-xs text-stone-500 mb-2">Kies de kanjer (het product dat behouden blijft). Recept-koppelingen gaan over naar de kanjer; varianten uit de benaming worden als per-recept tag voorgesteld.</div>
           {mergeGroup && mergeGroup.map((p) => (
             <label key={p.id} className="flex items-center gap-2 py-1 text-sm">
               <input type="radio" name="kanjer" checked={mergeKanjerId === p.id} onChange={() => setMergeKanjerId(p.id)} />
