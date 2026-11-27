@@ -135,3 +135,9 @@ Zie INTENT.md voor doel en principes; ADR-009 t/m ADR-011 voor configuratie, pri
 - Productkaart (Instellingen → catalogus → klik product): numeriek veld "Timetag" in dagen (0 = geen tag, max 365, clamp bij >365); ongeldige invoer → oude waarde behouden (`TT.validateTimetagInput`).
 - Weekmenu: bij een dag met een gerecht dat een product bevat met timetag dat **vóór** die dag al in het plan/history staat binnen het interval → inline ⏱-chip met resterende dagen (visueel, nooit blokkerend; `dayTimetagMarks` + `TT.intervalStatus`).
 - Cache: `CACHE_VERSION` → `weekmenu-app-v22` in `sw.js`, `?v=21` in `index.html`.
+
+## Foto's per gerecht (issue #60, ADR-015)
+- Lokale IndexedDB image-store `dish-images` (keyed per recept-id) in `src/gerechtFotos.js` (`globalThis.GerechtFotos`; tests via `require`). Foto's blijven behouden na legen van het fotoalbum van de telefoon; offline-waardig.
+- Opslag: max 1024px (langste zijde), JPEG q=0.8, quality wordt verlaagd tot ≤ 2 MB (`resizeImageBlob`).
+- UI: readonly recept-detail toont foto (groot) + "📷 Foto toevoegen / Vervangen / ✕ verwijderen" (verborgen file-input `#dish-foto-input`); weekmenu bij een gelockte dag toont een thumbnail. In de vm-testharness is GF=null → knop rendert, geen crash.
+- Cache: `CACHE_VERSION` → `weekmenu-app-v23` in `sw.js`, `?v=22` in `index.html`.

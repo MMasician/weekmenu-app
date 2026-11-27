@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
+  <defs>
+    <linearGradient id="foto1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F4A259"/><stop offset="1" stop-color="#D9480F"/>
+    </linearGradient>
+    <linearGradient id="foto2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8CE99A"/><stop offset="1" stop-color="#2F9E44"/>
+    </linearGradient>
+  </defs>
+  <rect width="390" height="844" fill="#FAF6EF"/>
+  <!-- statusbalk -->
+  <text x="24" y="30" font-size="14" font-weight="600" fill="#2D2A26">9:41</text>
+  <rect x="330" y="18" width="24" height="12" rx="3" fill="none" stroke="#2D2A26" stroke-width="1.5"/>
+  <rect x="332.5" y="20.5" width="15" height="7" rx="1.5" fill="#2D2A26"/>
+  <!-- header -->
+  <text x="24" y="76" font-size="28" font-weight="700" fill="#2D2A26">Weekmenu</text>
+  <text x="24" y="98" font-size="14" fill="#8A8378">Week 47 · 17–23 november</text>
+  <circle cx="350" cy="70" r="18" fill="#E8590C"/>
+  <text x="350" y="76" font-size="20" font-weight="700" fill="#FFFFFF" text-anchor="middle">+</text>
+  <!-- kaart maandag: mét foto (thumbnail 60x60 links) -->
+  <rect x="16" y="120" width="358" height="84" rx="12" fill="#FFFFFF"/>
+  <rect x="28" y="132" width="60" height="60" rx="8" fill="url(#foto1)"/>
+  <circle cx="46" cy="148" r="5" fill="#FFFFFF" opacity="0.7"/>
+  <text x="100" y="156" font-size="12" fill="#8A8378">Maandag</text>
+  <text x="100" y="178" font-size="16" font-weight="600" fill="#2D2A26">Pasta pesto met kip</text>
+  <text x="358" y="166" font-size="20" fill="#B9AE9C" text-anchor="middle">›</text>
+  <!-- kaart dinsdag: mét foto -->
+  <rect x="16" y="216" width="358" height="84" rx="12" fill="#FFFFFF"/>
+  <rect x="28" y="228" width="60" height="60" rx="8" fill="url(#foto2)"/>
+  <circle cx="46" cy="244" r="5" fill="#FFFFFF" opacity="0.7"/>
+  <text x="100" y="252" font-size="12" fill="#8A8378">Dinsdag</text>
+  <text x="100" y="274" font-size="16" font-weight="600" fill="#2D2A26">Groene curry met rijst</text>
+  <text x="358" y="262" font-size="20" fill="#B9AE9C" text-anchor="middle">›</text>
+  <!-- kaart woensdag: zónder foto → placeholder + camera-icoon -->
+  <rect x="16" y="312" width="358" height="84" rx="12" fill="#FFFFFF"/>
+  <rect x="28" y="324" width="60" height="60" rx="8" fill="#E9E2D6"/>
+  <rect x="47" y="341" width="22" height="16" rx="4" fill="none" stroke="#8A8378" stroke-width="2"/>
+  <circle cx="58" cy="349" r="4.5" fill="none" stroke="#8A8378" stroke-width="2"/>
+  <rect x="51" y="338" width="6" height="4" rx="1.5" fill="#8A8378"/>
+  <text x="100" y="348" font-size="12" fill="#8A8378">Woensdag</text>
+  <text x="100" y="370" font-size="16" font-weight="600" fill="#2D2A26">Hutspot met worst</text>
+  <text x="358" y="358" font-size="20" fill="#B9AE9C" text-anchor="middle">›</text>
+  <!-- lege hint -->
+  <text x="24" y="440" font-size="13" fill="#8A8378">Tik op een gerecht zonder foto om er een te maken.</text>
+  <!-- tabbalk -->
+  <rect x="0" y="780" width="390" height="64" fill="#FFFFFF"/>
+  <line x1="0" y1="780" x2="390" y2="780" stroke="#E9E2D6" stroke-width="1"/>
+  <text x="65" y="816" font-size="12" font-weight="700" fill="#E8590C" text-anchor="middle">Weekmenu</text>
+  <text x="195" y="816" font-size="12" fill="#8A8378" text-anchor="middle">Recepten</text>
+  <text x="325" y="816" font-size="12" fill="#8A8378" text-anchor="middle">Boodschappen</text>
+</svg>
