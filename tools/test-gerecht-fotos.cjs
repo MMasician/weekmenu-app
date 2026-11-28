@@ -160,8 +160,9 @@ async function main() {
       recipes: [
         { id: "rA", name: "Gerecht A", cat: "vega", timeCat: "normaal", tags: [], bereiding: "Bak 20 min.", ingredients: [{ pid: "p1", amount: 200, unit: "g", name: "Kaas" }] },
         { id: "rB", name: "Gerecht B", cat: "vega", timeCat: "snel", tags: [], bereiding: "Roer.", ingredients: [{ pid: "p1", amount: 50, unit: "g", name: "Kaas" }] },
+        { id: "rC", name: "Gerecht C", cat: "vis", timeCat: "normaal", tags: [], bereiding: "Grill.", ingredients: [{ pid: "p1", amount: 100, unit: "g", name: "Kaas" }] },
       ],
-      menuByDate: { [WEEK0[0]]: { id: "rA", locked: true } },
+      menuByDate: { [WEEK0[0]]: { id: "rA", locked: true }, [WEEK0[1]]: { id: "rC", locked: true } },
       stock: [], extraItems: [], checked: {},
     };
     let urlN = 0;
@@ -179,7 +180,8 @@ async function main() {
     cardB.props.onClick();
     await tick(); await tick();
     let h = t.html();
-    check("#60 UI: foto uit IndexedDB geladen bij openen detail (img + 'Vervangen')", h.indexOf("blob:fake-") !== -1 && h.indexOf("Vervangen") !== -1 && h.indexOf("Foto verwijderen") !== -1);
+    const imgB = t.findAll((n) => n.type === "img" && String(n.props.src || "").indexOf("blob:fake-") !== -1)[0];
+    check("#60 UI: readonly met foto -> compacte 96px img, géén Vervangen/Verwijderen-knoppen (akkoord v2-02)", !!imgB && imgB.props.style && imgB.props.style.width === "96px" && h.indexOf("Vervangen") === -1 && h.indexOf("Foto verwijderen") === -1);
 
     // rA-kaart openen -> geen foto -> 'Foto toevoegen'
     const rowA = t.findAll((n) => n.type === "button" && JSON.stringify(n.children || []).indexOf("Gerecht A") !== -1)[0];
@@ -198,16 +200,25 @@ async function main() {
     await fileInput.props.onChange({ target: { files: [{ width: 4000, height: 3000 }], value: "C:\\fake\\foto.jpg" } });
     await tick(); await tick();
     h = t.html();
-    check("#60 UI: na onDishFotoFile: img in detail + 'Vervangen' (foto opgeslagen)", h.indexOf("blob:fake-") !== -1 && h.indexOf("Vervangen") !== -1);
+    check("#60 UI: na onDishFotoFile: img in readonly detail (zonder knoppen)", h.indexOf("blob:fake-") !== -1 && h.indexOf("Vervangen") === -1);
     const savedA = await GF.getDishImage("rA");
     check("#60 UI: foto van rA staat in IndexedDB (resize 1024x768, <=2MB)", !!savedA && savedA.width === 1024 && savedA.height === 768 && savedA.blob.size <= GF.MAX_IMAGE_BYTES);
 
-    // verwijderen
-    const delBtn = t.btnByText("Foto verwijderen");
+    // edit-mode (✏️): compacte foto met overlay-knop 'Vervangen' ín de foto (akkoord v2-03)
+    const editBtn = t.findNode((n) => n.type === "button" && n.props.title === "Recept bewerken");
+    editBtn.props.onClick();
+    await tick(); await tick();
+    h = t.html();
+    const overlayBtn = t.findNode((n) => n.type === "button" && n.props.title === "Foto vervangen");
+    check("#60 UI: edit-mode toont overlay-knop 'Vervangen' ín de 96px foto", !!overlayBtn && h.indexOf("Vervangen") !== -1);
+
+    // verwijderen via de ✕ op de foto in edit-mode
+    const delBtn = t.findNode((n) => n.type === "button" && n.props.title === "Foto verwijderen");
+    check("#60 UI: edit-mode heeft ✕ 'Foto verwijderen' op de foto", !!delBtn);
     await delBtn.props.onClick();
     await tick(); await tick();
     h = t.html();
-    check("#60 UI: 'Foto verwijderen' -> img weg, 'Foto toevoegen' terug", h.indexOf("Foto toevoegen") !== -1 && (await GF.getDishImage("rA")) === null);
+    check("#60 UI: 'Foto verwijderen' (edit) -> img weg, 'Foto toevoegen' terug", h.indexOf("Foto toevoegen") !== -1 && (await GF.getDishImage("rA")) === null);
 
     // weekmenu: gelockte dag met rA + foto in IDB -> thumbnail in dag-detail
     await GF.saveDishImage("rA", { size: 10, type: "image/jpeg" }, 800, 600);
@@ -217,6 +228,11 @@ async function main() {
     await tick(); await tick();
     const imgs = t.findAll((n) => n.type === "img" && String(n.props.src || "").indexOf("blob:fake-") !== -1);
     check("#60 UI: thumbnail van gelockte dag in weekmenu (ensureDishFoto via day-open)", imgs.length >= 1);
+    const thumb = t.findAll((n) => n.type === "img" && n.props.style && n.props.style.width === "2.75rem")[0];
+    check("#60 UI: dagkaart toont 44px thumbnail op de dag-rij (akkoord v2-01)", !!thumb && String(thumb.props.src || "").indexOf("blob:fake-") !== -1);
+    // dag met gerecht zónder foto (rC) -> placeholder-knop met 📷 'Foto toevoegen'
+    const ph = t.findNode((n) => n.type === "button" && n.props.title === "Foto toevoegen" && JSON.stringify(n.children || []).indexOf("📷") !== -1);
+    check("#60 UI: dagkaart zonder foto toont placeholder-knop 📷 'Foto toevoegen' (akkoord v2-01)", !!ph);
   }
 
   // --- zonder indexedDB: app rendert, foto-knop zichtbaar, geen crash ---

@@ -10,7 +10,7 @@ import { CAT_LABEL, CAT_STYLE, TIME_LABEL, TIME_STYLE } from "./labels.js";
 
 export function createMenuTab(ctx) {
   const { renderProductCard } = createSharedViews(ctx);
-  const { activeSuggest, addTagRule, allRuleTags, applyDeviation, byId, calAnchor, calWeeks, commitDay, dayTimetagMarks, days, devPick, devTab, deviationKey, dishImgs, drafts, eatersOpen, ensureDishFoto, fishDays, generateMenu, haveOfProd, instantProducts, mealStatus, menuByDate, openDay, openProdCard, openSuggest, otherDays, prodById, recipes, removeTagRule, ruleDraft, safeExternalUrl, selectRecipe, setActiveSuggest, setDateSheetOpen, setDay, setDevPick, setDevTab, setDeviationKey, setDrafts, setEaters, setEatersOpen, setOpenDay, setOpenSuggest, setRuleDraft, setRulesSheetOpen, setTab, setTagRuleDays, setWeekOffset, settings, todayKey, todayLabel, updateSettings, vegaCount, weekEntries, weekKeys, weekLabel, weekOffset } = ctx;
+  const { activeSuggest, addTagRule, allRuleTags, applyDeviation, byId, calAnchor, calWeeks, commitDay, dayTimetagMarks, days, devPick, devTab, deviationKey, dishImgs, drafts, pickDishFoto, eatersOpen, ensureDishFoto, fishDays, generateMenu, haveOfProd, instantProducts, mealStatus, menuByDate, openDay, openProdCard, openSuggest, otherDays, prodById, recipes, removeTagRule, ruleDraft, safeExternalUrl, selectRecipe, setActiveSuggest, setDateSheetOpen, setDay, setDevPick, setDevTab, setDeviationKey, setDrafts, setEaters, setEatersOpen, setOpenDay, setOpenSuggest, setRuleDraft, setRulesSheetOpen, setTab, setTagRuleDays, setWeekOffset, settings, todayKey, todayLabel, updateSettings, vegaCount, weekEntries, weekKeys, weekLabel, weekOffset } = ctx;
 
   const renderMenuTab = () => (
     <div>
@@ -55,6 +55,20 @@ export function createMenuTab(ctx) {
           return (
             <div key={key} className={`rounded-xl shadow-sm p-3 ${isToday ? "bg-emerald-100" : "bg-white"}`}>
               <div className="flex items-center gap-3">
+                {entry && entry.id && (
+                  dishImgs[entry.id] ? (
+                    <img src={dishImgs[entry.id]} alt={r ? r.name : ""} style={{ width: "2.75rem", height: "2.75rem", borderRadius: ".5rem", objectFit: "cover", flexShrink: 0 }} />
+                  ) : (
+                    <button
+                      type="button"
+                      title={t("Foto toevoegen")}
+                      onClick={() => pickDishFoto(entry.id)}
+                      style={{ width: "2.75rem", height: "2.75rem", borderRadius: ".5rem", border: "1px dashed var(--stone-300)", background: "var(--stone-100)", color: "var(--stone-400)", fontSize: "1rem", flexShrink: 0 }}
+                    >
+                      📷
+                    </button>
+                  )
+                )}
                 <div className="w-20 shrink-0">
                   <div className={`text-sm font-semibold ${isToday ? "text-emerald-700" : ""}`}>{day}</div>
                   <div className="text-[10px] text-stone-400">

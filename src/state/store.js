@@ -203,6 +203,10 @@ export function useAppStore() {
   const weekStart = weekStartFor(settings.weekStartDay, weekOffset);
   const weekKeys = weekDateKeys(settings.weekStartDay, weekOffset);
   const weekEntries = weekKeys.map((k) => menuByDate[k] || null);
+  // #60: thumbnails op de dagkaarten laden (foto per gerecht uit de lokale image-store)
+  useEffect(() => {
+    weekEntries.forEach((e) => { if (e && e.id) void ensureDishFoto(e.id); });
+  }, [weekEntries]);
   const weekEnd = addDays(weekStart, 6);
   const weekLabel = `${fmtShort(weekStart)} – ${fmtShort(weekEnd)} ${weekEnd.getFullYear()}`;
   const calAnchor = addDays(weekStart, 3); // kalender toont de maand rond het midden van de getoonde week

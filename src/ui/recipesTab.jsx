@@ -47,7 +47,7 @@ export function createRecipesTab(ctx) {
               )}
             </div>
           </button>
-          <button className="iconbtn" title="Recept bewerken" onClick={() => { setEditRecipe(isEdit ? null : r.id); setOpenRecipe(null); setTagDraft(""); }}>
+          <button className="iconbtn" title="Recept bewerken" onClick={() => { setEditRecipe(isEdit ? null : r.id); setOpenRecipe(null); setTagDraft(""); void ensureDishFoto(r.id); }}>
             ✏️
           </button>
           <button className="iconbtn" title="Toevoegen aan een onvergrendelde dag van deze week" onClick={() => setDaySheetRecipe(r)}>📅</button>
@@ -72,13 +72,7 @@ export function createRecipesTab(ctx) {
             {renderProductCard("rec-" + r.id)}
             <div className="mb-2">
               {dishImgs[r.id] ? (
-                <div>
-                  <img src={dishImgs[r.id]} alt={r.name} style={{ maxWidth: "100%", maxHeight: "180px", borderRadius: "0.75rem", objectFit: "cover" }} />
-                  <div className="flex gap-2 mt-1">
-                    <button type="button" className="chip" onClick={() => pickDishFoto(r.id)}>📷 Vervangen</button>
-                    <button type="button" className="chip" onClick={() => removeDishFoto(r.id)}>✕ Foto verwijderen</button>
-                  </div>
-                </div>
+                <img src={dishImgs[r.id]} alt={r.name} style={{ width: "96px", height: "96px", borderRadius: "0.75rem", objectFit: "cover" }} />
               ) : (
                 <button type="button" className="chip" onClick={() => pickDishFoto(r.id)}>📷 Foto toevoegen</button>
               )}
@@ -89,6 +83,17 @@ export function createRecipesTab(ctx) {
         )}
         {isEdit && (
           <div className="px-3 pb-3 border-t border-stone-100">
+            <div className="mt-3">
+              {dishImgs[r.id] ? (
+                <span className="relative inline-block">
+                  <img src={dishImgs[r.id]} alt={r.name} style={{ width: "96px", height: "96px", borderRadius: "0.75rem", objectFit: "cover", display: "block" }} />
+                  <button type="button" className="chip" title="Foto vervangen" onClick={() => pickDishFoto(r.id)} style={{ position: "absolute", left: "50%", bottom: "6px", transform: "translateX(-50%)", background: "rgba(255,255,255,.92)" }}>📷 Vervangen</button>
+                  <button type="button" title="Foto verwijderen" onClick={() => removeDishFoto(r.id)} style={{ position: "absolute", top: "4px", right: "4px", width: "1.25rem", height: "1.25rem", borderRadius: "9999px", border: "none", background: "rgba(0,0,0,.45)", color: "#fff", fontSize: ".6rem", lineHeight: 1 }}>✕</button>
+                </span>
+              ) : (
+                <button type="button" className="chip" onClick={() => pickDishFoto(r.id)}>📷 Foto toevoegen</button>
+              )}
+            </div>
             <div className="mt-3 text-xs">
               <span className="text-stone-500">Naam</span>
               <input

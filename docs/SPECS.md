@@ -141,8 +141,8 @@ Zie INTENT.md voor doel en principes; ADR-009 t/m ADR-011 voor configuratie, pri
 ## Foto's per gerecht (issue #60, ADR-015)
 - Lokale IndexedDB image-store `dish-images` (keyed per recept-id) in `src/gerechtFotos.js` (`globalThis.GerechtFotos`; tests via `require`). Foto's blijven behouden na legen van het fotoalbum van de telefoon; offline-waardig.
 - Opslag: max 1024px (langste zijde), JPEG q=0.8, quality wordt verlaagd tot ≤ 2 MB (`resizeImageBlob`).
-- UI: readonly recept-detail toont foto (groot) + "📷 Foto toevoegen / Vervangen / ✕ verwijderen" (verborgen file-input `#dish-foto-input`); weekmenu bij een gelockte dag toont een thumbnail. In de vm-testharness is GF=null → knop rendert, geen crash.
-- Cache: `CACHE_VERSION` → `weekmenu-app-v23` in `sw.js`, `?v=22` in `index.html`.
+- UI (v2-mocks akkoord, issue #60): weekmenu-dagkaart toont per gepland gerecht een **44px thumbnail** (foto uit de store; zonder foto een placeholder-knop 📷 "Foto toevoegen"); bij het openen van een gelockte dag blijft de grote foto in het detail. Receptentab **readonly** toont een **compacte 96px foto zonder knoppen** (zonder foto alléén de chip "📷 Foto toevoegen"); **edit-mode** toont de compacte foto met een overlay-knop "📷 Vervangen" ín de foto (+ ✕ "Foto verwijderen" op de foto). Foto koppelen via verborgen file-input `#dish-foto-input` (camera/galerij). In de vm-testharness is GF=null → knop rendert, geen crash.
+- Cache: `CACHE_VERSION` → `weekmenu-app-v25` in `sw.js`, `?v=25` in `index.html`.
 
 ## Voedingswaarden & foto's per product via Open Food Facts (issue #48 — elaboratie/mocks)
 - Status: docs-only (mocks in `docs/ux/voedingswaarden-off/`, zie VOORSTEL.md); implementatie volgt in een aparte PR na #59/#58/#60.

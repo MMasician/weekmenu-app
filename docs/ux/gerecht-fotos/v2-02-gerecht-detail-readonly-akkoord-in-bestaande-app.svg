@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844">
+<style>text { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Color Emoji', sans-serif; }</style>
+<defs><linearGradient id="foto1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fbbf24"/><stop offset="1" stop-color="#d97706"/></linearGradient></defs>
+<rect width="390" height="844" fill="#fafaf9"/>
+<text x="16" y="46" font-size="22" font-weight="700" fill="#292524">Weekmenu &amp; Boodschappen</text>
+<text x="374" y="46" font-size="12" fill="#a8a29e" text-anchor="end">4 eters</text>
+<rect x="16" y="64" width="358" height="40" rx="12" fill="#fff" stroke="#f0efed"/>
+<text x="54" y="83" font-size="13" text-anchor="middle">📅</text><rect x="91" y="68" width="66" height="32" rx="8" fill="#292524"/><text x="124" y="83" font-size="13" text-anchor="middle">📖</text><text x="124" y="95" font-size="7.5" font-weight="600" fill="#fff" text-anchor="middle">Recepten</text>
+<text x="195" y="83" font-size="13" text-anchor="middle">🛦</text><text x="266" y="83" font-size="13" text-anchor="middle">🛒</text><text x="338" y="83" font-size="13" text-anchor="middle">⚙️</text>
+<rect x="16" y="118" width="358" height="40" rx="12" fill="#fff" stroke="#d6d3d1"/>
+<text x="34" y="143" font-size="13">🔍</text><text x="52" y="143" font-size="12" fill="#a8a29e">Zoek op receptnaam…</text>
+<rect x="320" y="126" width="44" height="24" rx="8" fill="#fff" stroke="#d6d3d1"/><text x="342" y="142" font-size="11" text-anchor="middle">⚙️ ▾</text>
+<rect x="16" y="168" width="46" height="22" rx="11" fill="#292524"/><text x="39" y="183" font-size="10" fill="#fff" text-anchor="middle">Alle</text>
+<rect x="68" y="168" width="40" height="22" rx="11" fill="#fff" stroke="#d6d3d1"/><text x="88" y="183" font-size="10" fill="#57534e" text-anchor="middle">kort</text>
+<rect x="114" y="168" width="56" height="22" rx="11" fill="#fff" stroke="#d6d3d1"/><text x="142" y="183" font-size="10" fill="#57534e" text-anchor="middle">normaal</text>
+<rect x="176" y="168" width="36" height="22" rx="11" fill="#fff" stroke="#d6d3d1"/><text x="194" y="183" font-size="10" fill="#57534e" text-anchor="middle">lang</text>
+<!-- recept-rij (ingeklapt) -->
+<rect x="16" y="202" width="358" height="52" rx="12" fill="#fff" stroke="#f0efed"/>
+<text x="30" y="224" font-size="13" font-weight="600" fill="#292524">Linzensoep</text><text x="352" y="228" font-size="12" fill="#a8a29e">▾</text>
+<rect x="30" y="232" width="34" height="14" rx="4" fill="#dcfce7"/><text x="47" y="242" font-size="8" fill="#166534" text-anchor="middle">vega</text>
+<rect x="68" y="232" width="42" height="14" rx="4" fill="#f5f5f4"/><text x="89" y="242" font-size="8" fill="#78716c" text-anchor="middle">normaal</text>
+<rect x="288" y="210" width="28" height="28" rx="7" fill="#fff" stroke="#d6d3d1"/><text x="302" y="229" font-size="12" text-anchor="middle">✏️</text>
+<rect x="322" y="210" width="28" height="28" rx="7" fill="#fff" stroke="#d6d3d1"/><text x="336" y="229" font-size="12" text-anchor="middle">📅</text>
+<!-- recept-rij open readonly mét foto: compacte 96px foto, zónder knoppen (versie A) -->
+<rect x="16" y="262" width="358" height="52" rx="12" fill="#fff" stroke="#f0efed"/>
+<text x="30" y="284" font-size="13" font-weight="600" fill="#292524">Pasta pesto pistache</text><text x="352" y="288" font-size="12" fill="#a8a29e">▴</text>
+<rect x="30" y="292" width="34" height="14" rx="4" fill="#dcfce7"/><text x="47" y="302" font-size="8" fill="#166534" text-anchor="middle">vega</text>
+<rect x="68" y="292" width="42" height="14" rx="4" fill="#f5f5f4"/><text x="89" y="302" font-size="8" fill="#78716c" text-anchor="middle">normaal</text>
+<rect x="30" y="318" width="60" height="16" rx="4" fill="#f5f5f4"/><text x="60" y="329" font-size="9" fill="#57534e" text-anchor="middle">pasta</text>
+<rect x="288" y="270" width="28" height="28" rx="7" fill="#fff" stroke="#d6d3d1"/><text x="302" y="289" font-size="12" text-anchor="middle">✏️</text>
+<rect x="322" y="270" width="28" height="28" rx="7" fill="#fff" stroke="#d6d3d1"/><text x="336" y="289" font-size="12" text-anchor="middle">📅</text>
+<rect x="16" y="322" width="358" height="240" fill="#fafaf9"/>
+<line x1="16" y1="322" x2="374" y2="322" stroke="#f0efed"/>
+<text x="30" y="346" font-size="11" font-weight="600" fill="#44403c">Ingrediënten</text>
+<rect x="30" y="354" width="92" height="22" rx="11" fill="#fff" stroke="#d6d3d1"/><text x="76" y="369" font-size="10" fill="#292524" text-anchor="middle">200 g pasta</text>
+<rect x="128" y="354" width="120" height="22" rx="11" fill="#fff" stroke="#d6d3d1"/><text x="188" y="369" font-size="10" fill="#292524" text-anchor="middle">125 g groene pesto</text>
+<rect x="254" y="354" width="104" height="22" rx="11" fill="#fff" stroke="#d6d3d1"/><text x="306" y="369" font-size="10" fill="#292524" text-anchor="middle">50 g amandelen</text>
+<rect x="30" y="388" width="96" height="96" rx="10" fill="url(#foto1)"/>
+<text x="30" y="502" font-size="11" font-weight="600" fill="#44403c">Bereiding</text>
+<text x="30" y="520" font-size="10" fill="#57534e">Snijbonen 6 min. koken, laatste 3 min. broccoli mee,</text>
+<text x="30" y="534" font-size="10" fill="#57534e">2 min. voor het einde kikkererwten. Amandelen,</text>
+<text x="30" y="548" font-size="10" fill="#57534e">pistachenoten en pesto erdoor.</text>
+<!-- lege state: zonder foto toont readonly alléén de CTA -->
+<rect x="16" y="578" width="358" height="52" rx="12" fill="#fff" stroke="#f0efed"/>
+<text x="30" y="600" font-size="13" font-weight="600" fill="#292524">Courgette-broccolisoep</text><text x="352" y="604" font-size="12" fill="#a8a29e">▴</text>
+<rect x="16" y="638" width="358" height="64" fill="#fafaf9"/>
+<line x1="16" y1="638" x2="374" y2="638" stroke="#f0efed"/>
+<text x="30" y="662" font-size="11" font-weight="600" fill="#44403c">Ingrediënten</text>
+<rect x="30" y="670" width="90" height="22" rx="11" fill="#fff" stroke="#d6d3d1"/><text x="75" y="685" font-size="10" fill="#292524" text-anchor="middle">1 broccoli</text>
+<rect x="30" y="700" width="130" height="24" rx="12" fill="#fff" stroke="#d6d3d1"/><text x="95" y="716" font-size="11" fill="#57534e" text-anchor="middle">📷 Foto toevoegen</text>
+<text x="195" y="824" font-size="9" fill="#d6d3d1" text-anchor="middle">❯ v2 gerechtdetail readonly versie A (akkoord) in bestaande app: compacte 96px foto, géén vervangknop; zonder foto alléén "📷 Foto toevoegen"</text>
+</svg>
