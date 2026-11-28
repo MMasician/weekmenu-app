@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844">
+<style>text { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Color Emoji', sans-serif; }</style>
+<rect width="390" height="844" fill="#fafaf9"/>
+<text x="16" y="46" font-size="22" font-weight="700" fill="#292524">Weekmenu &amp; Boodschappen</text>
+<text x="374" y="46" font-size="12" fill="#a8a29e" text-anchor="end">4 eters</text>
+<rect x="16" y="64" width="358" height="40" rx="12" fill="#fff" stroke="#f0efed"/>
+<text x="54" y="83" font-size="13" text-anchor="middle">📅</text><text x="124" y="83" font-size="13" text-anchor="middle">📖</text><text x="195" y="83" font-size="13" text-anchor="middle">🛦</text><text x="266" y="83" font-size="13" text-anchor="middle">🛒</text>
+<rect x="303" y="68" width="68" height="32" rx="8" fill="#292524"/><text x="337" y="83" font-size="13" text-anchor="middle">⚙️</text><text x="337" y="95" font-size="7.5" font-weight="600" fill="#fff" text-anchor="middle">Instellingen</text>
+<text x="16" y="128" font-size="13" font-weight="600" fill="#44403c">Instellingen per huishouden</text><rect x="152" y="117" width="16" height="16" rx="4" fill="#fff" stroke="#d6d3d1"/><text x="160" y="129" font-size="9" text-anchor="middle">ℹ️</text>
+<!-- catalogus-rij -->
+<rect x="16" y="146" width="358" height="120" rx="12" fill="#fff" stroke="#f0efed"/>
+<rect x="16" y="146" width="358" height="34" rx="12" fill="#fff" stroke="#f0efed"/>
+<text x="30" y="168" font-size="13" font-weight="600" fill="#292524">📦 Productcatalogus</text><text x="176" y="168" font-size="10" fill="#a8a29e">12</text><text x="356" y="168" font-size="11" fill="#a8a29e" text-anchor="end">▾</text>
+<rect x="30" y="190" width="90" height="26" rx="8" fill="#fff" stroke="#d6d3d1"/><text x="75" y="207" font-size="11" fill="#1d4ed8" text-anchor="middle">appelstroop</text>
+<rect x="128" y="192" width="64" height="20" rx="10" fill="#f5f5f4"/><text x="160" y="206" font-size="9" fill="#57534e" text-anchor="middle">broodbeleg</text>
+<text x="330" y="207" font-size="11" fill="#a8a29e">✕</text>
+<!-- open product-kaart (bestaande layout) + OFF-koppeling (versie C) -->
+<rect x="16" y="222" width="358" height="420" fill="#fafaf9"/>
+<line x1="16" y1="222" x2="374" y2="222" stroke="#f0efed"/>
+<text x="30" y="242" font-size="10" fill="#78716c">Naam</text>
+<rect x="30" y="248" width="153" height="26" rx="8" fill="#fff" stroke="#d6d3d1"/><text x="38" y="265" font-size="11" fill="#292524">appelstroop</text>
+<text x="197" y="242" font-size="10" fill="#78716c">Categorie</text>
+<rect x="197" y="248" width="153" height="26" rx="8" fill="#fff" stroke="#d6d3d1"/><text x="205" y="265" font-size="11" fill="#57534e">broodbeleg</text><text x="340" y="265" font-size="9" fill="#a8a29e">▾</text>
+<text x="30" y="292" font-size="10" fill="#78716c">Eenheid (standaard bij dit product)</text>
+<rect x="30" y="298" width="153" height="26" rx="8" fill="#fff" stroke="#d6d3d1"/><text x="38" y="315" font-size="11" fill="#57534e">g</text><text x="175" y="315" font-size="9" fill="#a8a29e">▾</text>
+<text x="197" y="292" font-size="10" fill="#78716c">Voorkeurssupermarkt</text>
+<rect x="197" y="300" width="40" height="20" rx="10" fill="#fff" stroke="#d6d3d1"/><text x="217" y="314" font-size="9" fill="#57534e" text-anchor="middle">geen</text>
+<rect x="241" y="300" width="46" height="20" rx="10" fill="#292524"/><text x="264" y="314" font-size="9" fill="#fff" text-anchor="middle">Jumbo</text>
+<text x="30" y="342" font-size="10" fill="#78716c">Timetag</text>
+<rect x="30" y="348" width="52" height="24" rx="8" fill="#fff" stroke="#d6d3d1"/><text x="56" y="364" font-size="11" fill="#292524" text-anchor="middle">0</text><text x="90" y="364" font-size="10" fill="#78716c">dagen</text>
+<text x="30" y="392" font-size="10" fill="#78716c">Tags</text>
+<rect x="30" y="398" width="86" height="24" rx="8" fill="#fff" stroke="#d6d3d1"/><rect x="122" y="398" width="30" height="24" rx="8" fill="#fff" stroke="#d6d3d1"/><text x="137" y="415" font-size="12" fill="#78716c" text-anchor="middle">+</text>
+<!-- OFF-koppeling (versie C): badge + knop in de product-kaart -->
+<line x1="30" y1="436" x2="360" y2="436" stroke="#f0efed"/>
+<rect x="30" y="446" width="118" height="22" rx="11" fill="#fef3c7" stroke="#fde68a"/><text x="89" y="461" font-size="9.5" font-weight="600" fill="#92400e" text-anchor="middle">geen EAN gekoppeld</text>
+<rect x="30" y="476" width="180" height="30" rx="15" fill="#059669"/><text x="120" y="496" font-size="11" font-weight="600" fill="#fff" text-anchor="middle">EAN koppelen / zoeken</text>
+<text x="30" y="524" font-size="9" fill="#a8a29e">Via Open Food Facts: EAN scannen/invoeren of op naam zoeken.</text>
+<text x="30" y="538" font-size="9" fill="#a8a29e">Merkloze basisproducten (bv. bloemkool): NEVO-fallback zoeken.</text>
+<rect x="30" y="560" width="220" height="30" rx="10" fill="#059669"/><text x="140" y="580" font-size="12" font-weight="600" fill="#fff" text-anchor="middle">Opslaan</text>
+<text x="266" y="580" font-size="11" fill="#ef4444">Verwijderen</text>
+<text x="195" y="824" font-size="9" fill="#d6d3d1" text-anchor="middle">❯ v2 product-kaart versie C (akkoord) in bestaande app: EAN-badge + "EAN koppelen / zoeken" in de product-kaart</text>
+</svg>
