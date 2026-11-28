@@ -1,6 +1,6 @@
 # VOORSTEL — Tekstminimalisatie, tag-weergave en kleine letters
 
-Status: geïmplementeerd in deze PR (mocks ter review; versie A voor de info-knopjes is doorgevoerd).
+Status: owner-akkoord ontvangen (issue #76, comment 'akkoord', label `ready`): productkaart-tekstfixes akkoord, instellingen versie A (popover achter het onderwerp) akkoord, tags/categorieën akkoord — zonder de beschrijvende tekst in mock 05 (die is verwijderd). Implementatie in PR #75.
 
 ## Aangevraagde wijzigingen en mocks
 
@@ -11,7 +11,7 @@ Status: geïmplementeerd in deze PR (mocks ter review; versie A voor de info-kno
    - `02-instellingen-versie-A-popover.svg` — **AANBEVOLEN / geïmplementeerd**: ℹ️ achter de kop opent een popover met de uitleg (zelfde patroon als het bestaande ℹ️ op de boodschappen-tab). Toegepast op: intro "Instellingen per huishouden", Weergave, Taal, Afhaalmaaltijden, Productcatalogus, Producten samenvoegen (merge-sheet), Categorieën (boodschappen-tab) en "Inhoud per verpakking" in de product-kaart.
    - `03-instellingen-versie-B-tooltip.svg` — ℹ️ met native tooltip (title). Minder geschikt op mobiel (geen hover).
    - `04-instellingen-versie-C-sheet.svg` — ℹ️ opent een bottom sheet met de uitleg. Zwaarder; meer tikken.
-5. **Tags en categorieën altijd volledig in kleine letters** — 1 mock: `05-tags-categorieen-kleine-letters.svg`. Bestaande data wordt bij het laden genormaliseerd (`normalizeSettings`/`normalizeProducts`/`normalizeStock`/`normalizeExtras`/`normalizeRecipe`, incl. per-ingrediënt-tags); nieuwe tags/categorieën worden direct lowercase opgeslagen en de invulvelden hebben `autoCapitalize="none"` (geen Caps Lock).
+5. **Tags en categorieën altijd volledig in kleine letters** — 1 mock: `05-tags-categorieen-kleine-letters.svg` (zonder beschrijvende tekst onder het veld; het gedrag staat in SPECS/tests). Bestaande data wordt bij het laden genormaliseerd (`normalizeSettings`/`normalizeProducts`/`normalizeStock`/`normalizeExtras`/`normalizeRecipe`, incl. per-ingrediënt-tags); nieuwe tags/categorieën worden direct lowercase opgeslagen en de invulvelden hebben `autoCapitalize="none"` (geen Caps Lock).
 
 ## Implementatie
 
