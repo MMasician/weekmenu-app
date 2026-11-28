@@ -76,7 +76,7 @@ export function normalizeSettings(s) {
     .filter((m, i, arr) => arr.findIndex((x) => x.key === m.key) === i);
   if (!out.markets.length) out.markets = d.markets.map((m) => ({ ...m }));
   const cats = Array.isArray(out.shopCats) && out.shopCats.length ? out.shopCats : d.shopCats;
-  out.shopCats = [...new Set(cats.map((c) => String(c == null ? "" : c).trim()).filter(Boolean))];
+  out.shopCats = [...new Set(cats.map((c) => String(c == null ? "" : c).trim().toLowerCase()).filter(Boolean))];
   if (!out.shopCats.length) out.shopCats = [...d.shopCats];
   // #37: tag-regels normaliseren (kind, lowercase tag, dagen 0..30, dedup per kind+tag)
   out.tagRules = (Array.isArray(out.tagRules) ? out.tagRules : [])

@@ -124,16 +124,14 @@ export function createRecipesTab(ctx) {
             <div className="mt-3 text-xs">
               <span className="text-stone-500">Tags</span>
               <div className="flex flex-wrap gap-1 mt-0.5">
-                {(r.tags || []).map((t) => (
-                  <span key={t} className="tag">
-                    {t} <button className="tagx" onClick={() => removeRecipeTag(r.id, t)}>×</button>
-                  </span>
+                {(r.tags || []).map((tg) => (
+                  <button key={tg} type="button" className="tag" title="Tag verwijderen" onClick={() => removeRecipeTag(r.id, tg)}>{tg}</button>
                 ))}
               </div>
               <div className="tagadd">
                 <input
                   value={tagDraft}
-                  placeholder="＋ tag toevoegen…"
+                  autoCapitalize="none"
                   onChange={(e) => setTagDraft(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addRecipeTag(r.id); } }}
                 />
@@ -381,16 +379,14 @@ export function createRecipesTab(ctx) {
               <div className="text-xs mb-3">
                 <span className="text-stone-500">Tags</span>
                 <div className="flex flex-wrap gap-1 mt-0.5">
-                  {newRecipe.tags.map((t) => (
-                    <span key={t} className="tag">
-                      {t} <button className="tagx" onClick={() => setNewRecipe({ ...newRecipe, tags: newRecipe.tags.filter((x) => x !== t) })}>×</button>
-                    </span>
+                  {newRecipe.tags.map((tg) => (
+                    <button key={tg} type="button" className="tag" title="Tag verwijderen" onClick={() => setNewRecipe({ ...newRecipe, tags: newRecipe.tags.filter((x) => x !== tg) })}>{tg}</button>
                   ))}
                 </div>
                 <div className="tagadd">
                   <input
                     value={newRecipe.tagDraft}
-                    placeholder="＋ tag toevoegen…"
+                    autoCapitalize="none"
                     onChange={(e) => setNewRecipe({ ...newRecipe, tagDraft: e.target.value })}
                     onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addNewTag(); } }}
                   />

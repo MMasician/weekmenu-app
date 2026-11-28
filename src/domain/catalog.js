@@ -116,7 +116,7 @@ export function normalizeProducts(arr) {
     out.push({
       id: String(p.id || "p" + out.length),
       name: String(p.name).trim(),
-      cat: typeof p.cat === "string" && p.cat ? p.cat : "overig",
+      cat: (typeof p.cat === "string" && p.cat ? p.cat : "overig").trim().toLowerCase(),
       market: p.market != null && String(p.market) !== "" ? String(p.market) : null,
       unit: UNITS.includes(p.unit) ? p.unit : (typeof p.unit === "string" && p.unit.trim() ? p.unit.trim().slice(0, 8) : null),
       tags: Array.isArray(p.tags) ? [...new Set(p.tags.map((t) => String(t || "").trim().toLowerCase()).filter(Boolean))] : [], // #37

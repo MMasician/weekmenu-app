@@ -45,7 +45,7 @@ export function normalizeStock(arr, locs) {
     .filter((s) => s && s.name)
     .map((s) => {
       const loc = locIds.has(s.loc) ? s.loc : OLD_LOC_BY_CAT[s.cat] || "loc-kast";
-      const cat = locIds.has(s.loc) ? (typeof s.cat === "string" && s.cat ? s.cat : "conserven") : OLD_CAT_BY_CAT[s.cat] || "conserven";
+      const cat = (locIds.has(s.loc) ? (typeof s.cat === "string" && s.cat ? s.cat : "conserven") : OLD_CAT_BY_CAT[s.cat] || "conserven").trim().toLowerCase();
       return {
         name: String(s.name),
         loc,
@@ -61,6 +61,6 @@ export function normalizeExtras(arr) {
   return (arr || [])
     .map((x) => (typeof x === "string"
       ? { name: x, cat: "" }
-      : { name: String((x && x.name) || ""), cat: (x && x.cat) || "", amount: x && x.amount != null ? x.amount : undefined, unit: x && x.unit ? x.unit : null, ...(x && typeof x.updatedAt === "number" ? { updatedAt: x.updatedAt } : {}) }))
+      : { name: String((x && x.name) || ""), cat: String((x && x.cat) || "").trim().toLowerCase(), amount: x && x.amount != null ? x.amount : undefined, unit: x && x.unit ? x.unit : null, ...(x && typeof x.updatedAt === "number" ? { updatedAt: x.updatedAt } : {}) }))
     .filter((x) => x.name);
 }

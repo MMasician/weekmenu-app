@@ -16,7 +16,9 @@ export function normalizeRecipe(r) {
   out.timeCat = TIME_CATS.includes(out.timeCat) ? out.timeCat : timeCatFromTime(r.time);
   delete out.time;
   delete out.cook;
-  out.tags = Array.isArray(out.tags) ? out.tags.filter(Boolean) : [];
+  const normTags = (arr) => [...new Set((arr || []).map((tg) => String(tg || "").trim().toLowerCase()).filter(Boolean))];
+  out.tags = Array.isArray(out.tags) ? normTags(out.tags) : [];
+  out.ingredients = out.ingredients.map((ing) => (typeof ing === "object" && ing && Array.isArray(ing.tags) ? { ...ing, tags: normTags(ing.tags) } : ing));
   return out;
 }
 

@@ -106,6 +106,7 @@ function useAppStore() {
   const [stockInfoOpen, setStockInfoOpen] = useState(false);
   // boodschappen-tab (ADR-015): categorie-volgorde, categorieën beheren, info-popover
   const [shopInfoOpen, setShopInfoOpen] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(null);
   const [catsOpen, setCatsOpen] = useState(false);
   const [newCat, setNewCat] = useState("");
   const [settings, setSettingsRaw] = useState(() => normalizeSettings(stored && stored.settings)); // per huishouden, lokaal bewaard (ADR-009)
@@ -459,7 +460,7 @@ function useAppStore() {
     // #58: timetag valideren (0 = geen tag, max 365); bij ongeldige invoer oude waarde behouden
     const tt = TT ? TT.validateTimetagInput(prodEdit.timetagDraft == null ? "0" : String(prodEdit.timetagDraft)) : { ok: true, timetag: null };
     const timetag = tt.ok ? tt.timetag : (prodById[prodEdit.id] && prodById[prodEdit.id].timetag) || null;
-    setProducts((ps) => ps.map((p) => (p.id === prodEdit.id ? { ...p, name: name || p.name, cat: prodEdit.cat || "overig", market: prodEdit.market || null, unit: prodEdit.unit || null, tags, pack, timetag } : p)));
+    setProducts((ps) => ps.map((p) => (p.id === prodEdit.id ? { ...p, name: name || p.name, cat: String(prodEdit.cat || "overig").trim().toLowerCase(), market: prodEdit.market || null, unit: prodEdit.unit || null, tags, pack, timetag } : p)));
     setProdEdit(null);
   }
   // #37: product-tags — zelfde look & feel als tags bij recepten (chip + ×, veld "+ tag toevoegen…")
@@ -595,7 +596,8 @@ function useAppStore() {
     setPnToast(null);
   }
   function setIngTags(rid, idx, tags) {
-    setRecipes((rs) => rs.map((r) => (r.id !== rid ? r : { ...r, ingredients: (r.ingredients || []).map((ing, j) => (j === idx && typeof ing === "object" && ing ? { ...ing, tags } : ing)) })));
+    const norm = [...new Set((tags || []).map((x) => String(x || "").trim().toLowerCase()).filter(Boolean))];
+    setRecipes((rs) => rs.map((r) => (r.id !== rid ? r : { ...r, ingredients: (r.ingredients || []).map((ing, j) => (j === idx && typeof ing === "object" && ing ? { ...ing, tags: norm } : ing)) })));
   }
   function deleteProductCatalog(pid) {
     setProducts((ps) => ps.filter((p) => p.id !== pid));
@@ -739,7 +741,7 @@ function useAppStore() {
     setStock(stock.map((x, j) => (j === i ? { ...x, want: Math.max(0, x.want + d) } : x)));
   }
   function addCat() {
-    const c = newCat.trim();
+    const c = newCat.trim().toLowerCase();
     if (!c) return;
     if (!settings.shopCats.includes(c)) updateSettings({ shopCats: [...settings.shopCats, c] });
     setNewCat("");
@@ -1477,7 +1479,7 @@ function useAppStore() {
 
 
   return {
-    activeIngSuggest, activeMenuIds, activeSuggest, addCat, addExtraRowFn, addLocOpen, addLocation, addNewTag, addProdRow, addProdTag, addProductRow, addRecipe, addRecipeTag, addRecipeToWeek, addSheetOpen, addTagRule, allProductTags, allRuleTags, allTags, anyScaled, applyDeviation, applyImportReview, blockedByRules, buildShareName, bumpDeleted, bumpHave, bumpWant, byId, byLastEaten, calAnchor, calWeeks, catFilters, catMap, catOf, catOpen, catRank, catalog0, catsOpen, checked, checkedAt, clearRecipeFilters, commitDay, commitIngAmount, commitNewIngAmount, curWeekEnd, curWeekKeys, curWeekLabel, curWeekStart, dateSheetOpen, daySheetRecipe, dayTimetagMarks, days, deelChips, deelRapportLines, delenOpen, deleteLocation, deleteProduct, deleteProductCatalog, deleteRecipe, deleted, devPick, devTab, deviationKey, dishImgs, doMerge, doneItems, drafts, eatersOpen, editLoc, editRecipe, ensureDishFoto, ensureProduct, exportRecipes, exportShare, extraItems, extraSuggest, filterSheetOpen, filteredProducts, filteredRecipes, fishDays, fotoFor, generateMenu, goTab, hasRecipeFilters, haveOfProd, hiddenChecked, importRecipes, importReview, importShareFile, ingDrafts, ingFilter, ingQ, ingSuggest, instantProducts, isRowChecked, lastEaten, listRows, marketChip, marketOf, markets, maxShopDays, mealOk, mealStatus, mealWarn, menuByDate, mergeGroup, mergeKanjerId, moveCat, newCat, newExtra, newLocName, newProdRow, newRecipe, onDishFotoFile, openDay, openLocs, openMergeGroup, openProd, openProdCard, openRecipe, openSuggest, otherDays, pickDishFoto, pnBadgeMap, pnDupGroups, pnRecipesToMain, pnToast, pq, prepareImport, processChecked, prodById, prodByKey, prodEdit, prodOfLabel, prodQuery, prodRowSuggest, products, productsOf, recipeInfoOpen, recipeQuery, recipeSort, recipes, removeCat, removeDishFoto, removeProdTag, removeRecipeTag, removeTagRule, resetRecipes, resolveIng, resolveNewIng, reviewImport, rowVisible, rq, ruleDraft, rulesSheetOpen, safeExternalUrl, saveProductEdit, scaledFactors, scopeKeys, selectIngProduct, selectNewIngProduct, selectRecipe, setActiveIngSuggest, setActiveSuggest, setAddLocOpen, setAddProdRow, setAddSheetOpen, setCatFilters, setCatOpen, setCatsOpen, setChecked, setCheckedAtRaw, setCheckedRaw, setDateSheetOpen, setDay, setDaySheetRecipe, setDeelChips, setDelenOpen, setDeletedRaw, setDevPick, setDevTab, setDeviationKey, setDishImgs, setDrafts, setEaters, setEatersOpen, setEditLoc, setEditRecipe, setExtraItems, setExtraItemsRaw, setExtraSuggest, setFilterSheetOpen, setFotoFor, setHiddenChecked, setImportReview, setIngAmount, setIngDrafts, setIngFilter, setIngSuggest, setIngTags, setIngUnit, setMenuByDate, setMenuByDateRaw, setMergeGroup, setMergeKanjerId, setNewCat, setNewExtra, setNewIngAmount, setNewIngUnit, setNewLocName, setNewProdRow, setNewRecipe, setOpenDay, setOpenLocs, setOpenProd, setOpenRecipe, setOpenSuggest, setPnToast, setProdEdit, setProdQuery, setProdRowSuggest, setProducts, setProductsRaw, setRecipeInfoOpen, setRecipeQuery, setRecipeSort, setRecipes, setRecipesRaw, setRuleDraft, setRulesSheetOpen, setSettings, setSettingsRaw, setShareToast, setShopDays, setShopDone, setShopInfoOpen, setShopMarkets, setShowChecked, setSortMenuOpen, setStock, setStockInfoOpen, setStockLocations, setStockLocationsRaw, setStockRaw, setTab, setTagDraft, setTagFilters, setTagRuleDays, setTimeFilter, setUndoStack, setWeekOffset, setWeekToast, settings, shareToast, shopCats, shopDays, shopDaysEff, shopDone, shopInfoOpen, shopMarkets, shopMarketsEff, shoppingRows, showChecked, showFlatList, sortLast, sortMenuOpen, sortRowsByCat, stock, stockInfoOpen, stockLocations, stockShort, stored, tab, tagCounts, tagDraft, tagFilters, timeFilter, todayDayIdx, todayKey, todayLabel, toggleLoc, toggleTagFilter, topTags, totalItems, ttCtx, undoMerge, undoStack, unfilteredCount, updateMarket, updateRecipe, updateSettings, updateTakeawayLink, usageCount, vegaCount, visibleRows, weekEnd, weekEntries, weekKeys, weekLabel, weekOffset, weekStart, weekToast
+    activeIngSuggest, activeMenuIds, activeSuggest, addCat, addExtraRowFn, addLocOpen, addLocation, addNewTag, addProdRow, addProdTag, addProductRow, addRecipe, addRecipeTag, addRecipeToWeek, addSheetOpen, addTagRule, allProductTags, allRuleTags, allTags, anyScaled, applyDeviation, applyImportReview, blockedByRules, buildShareName, bumpDeleted, bumpHave, bumpWant, byId, byLastEaten, calAnchor, calWeeks, catFilters, catMap, catOf, catOpen, catRank, catalog0, catsOpen, checked, checkedAt, clearRecipeFilters, commitDay, commitIngAmount, commitNewIngAmount, curWeekEnd, curWeekKeys, curWeekLabel, curWeekStart, dateSheetOpen, daySheetRecipe, dayTimetagMarks, days, deelChips, deelRapportLines, delenOpen, deleteLocation, deleteProduct, deleteProductCatalog, deleteRecipe, deleted, devPick, devTab, deviationKey, dishImgs, doMerge, doneItems, drafts, eatersOpen, editLoc, editRecipe, ensureDishFoto, ensureProduct, exportRecipes, exportShare, extraItems, extraSuggest, filterSheetOpen, filteredProducts, filteredRecipes, fishDays, fotoFor, generateMenu, goTab, hasRecipeFilters, haveOfProd, hiddenChecked, importRecipes, importReview, importShareFile, ingDrafts, ingFilter, ingQ, ingSuggest, infoOpen, instantProducts, isRowChecked, lastEaten, listRows, marketChip, marketOf, markets, maxShopDays, mealOk, mealStatus, mealWarn, menuByDate, mergeGroup, mergeKanjerId, moveCat, newCat, newExtra, newLocName, newProdRow, newRecipe, onDishFotoFile, openDay, openLocs, openMergeGroup, openProd, openProdCard, openRecipe, openSuggest, otherDays, pickDishFoto, pnBadgeMap, pnDupGroups, pnRecipesToMain, pnToast, pq, prepareImport, processChecked, prodById, prodByKey, prodEdit, prodOfLabel, prodQuery, prodRowSuggest, products, productsOf, recipeInfoOpen, recipeQuery, recipeSort, recipes, removeCat, removeDishFoto, removeProdTag, removeRecipeTag, removeTagRule, resetRecipes, resolveIng, resolveNewIng, reviewImport, rowVisible, rq, ruleDraft, rulesSheetOpen, safeExternalUrl, saveProductEdit, scaledFactors, scopeKeys, selectIngProduct, selectNewIngProduct, selectRecipe, setActiveIngSuggest, setActiveSuggest, setAddLocOpen, setAddProdRow, setAddSheetOpen, setCatFilters, setCatOpen, setCatsOpen, setChecked, setCheckedAtRaw, setCheckedRaw, setDateSheetOpen, setDay, setDaySheetRecipe, setDeelChips, setDelenOpen, setDeletedRaw, setDevPick, setDevTab, setDeviationKey, setDishImgs, setDrafts, setEaters, setEatersOpen, setEditLoc, setEditRecipe, setExtraItems, setExtraItemsRaw, setExtraSuggest, setFilterSheetOpen, setFotoFor, setHiddenChecked, setImportReview, setIngAmount, setIngDrafts, setIngFilter, setIngSuggest, setIngTags, setIngUnit, setInfoOpen, setMenuByDate, setMenuByDateRaw, setMergeGroup, setMergeKanjerId, setNewCat, setNewExtra, setNewIngAmount, setNewIngUnit, setNewLocName, setNewProdRow, setNewRecipe, setOpenDay, setOpenLocs, setOpenProd, setOpenRecipe, setOpenSuggest, setPnToast, setProdEdit, setProdQuery, setProdRowSuggest, setProducts, setProductsRaw, setRecipeInfoOpen, setRecipeQuery, setRecipeSort, setRecipes, setRecipesRaw, setRuleDraft, setRulesSheetOpen, setSettings, setSettingsRaw, setShareToast, setShopDays, setShopDone, setShopInfoOpen, setShopMarkets, setShowChecked, setSortMenuOpen, setStock, setStockInfoOpen, setStockLocations, setStockLocationsRaw, setStockRaw, setTab, setTagDraft, setTagFilters, setTagRuleDays, setTimeFilter, setUndoStack, setWeekOffset, setWeekToast, settings, shareToast, shopCats, shopDays, shopDaysEff, shopDone, shopInfoOpen, shopMarkets, shopMarketsEff, shoppingRows, showChecked, showFlatList, sortLast, sortMenuOpen, sortRowsByCat, stock, stockInfoOpen, stockLocations, stockShort, stored, tab, tagCounts, tagDraft, tagFilters, timeFilter, todayDayIdx, todayKey, todayLabel, toggleLoc, toggleTagFilter, topTags, totalItems, ttCtx, undoMerge, undoStack, unfilteredCount, updateMarket, updateRecipe, updateSettings, updateTakeawayLink, usageCount, vegaCount, visibleRows, weekEnd, weekEntries, weekKeys, weekLabel, weekOffset, weekStart, weekToast
   };
 }
 
@@ -1604,7 +1606,7 @@ function normalizeProducts(arr) {
     out.push({
       id: String(p.id || "p" + out.length),
       name: String(p.name).trim(),
-      cat: typeof p.cat === "string" && p.cat ? p.cat : "overig",
+      cat: (typeof p.cat === "string" && p.cat ? p.cat : "overig").trim().toLowerCase(),
       market: p.market != null && String(p.market) !== "" ? String(p.market) : null,
       unit: UNITS.includes(p.unit) ? p.unit : (typeof p.unit === "string" && p.unit.trim() ? p.unit.trim().slice(0, 8) : null),
       tags: Array.isArray(p.tags) ? [...new Set(p.tags.map((t) => String(t || "").trim().toLowerCase()).filter(Boolean))] : [], // #37
@@ -1774,7 +1776,9 @@ function normalizeRecipe(r) {
   out.timeCat = TIME_CATS.includes(out.timeCat) ? out.timeCat : timeCatFromTime(r.time);
   delete out.time;
   delete out.cook;
-  out.tags = Array.isArray(out.tags) ? out.tags.filter(Boolean) : [];
+  const normTags = (arr) => [...new Set((arr || []).map((tg) => String(tg || "").trim().toLowerCase()).filter(Boolean))];
+  out.tags = Array.isArray(out.tags) ? normTags(out.tags) : [];
+  out.ingredients = out.ingredients.map((ing) => (typeof ing === "object" && ing && Array.isArray(ing.tags) ? { ...ing, tags: normTags(ing.tags) } : ing));
   return out;
 }
 
@@ -1901,7 +1905,7 @@ function normalizeStock(arr, locs) {
     .filter((s) => s && s.name)
     .map((s) => {
       const loc = locIds.has(s.loc) ? s.loc : OLD_LOC_BY_CAT[s.cat] || "loc-kast";
-      const cat = locIds.has(s.loc) ? (typeof s.cat === "string" && s.cat ? s.cat : "conserven") : OLD_CAT_BY_CAT[s.cat] || "conserven";
+      const cat = (locIds.has(s.loc) ? (typeof s.cat === "string" && s.cat ? s.cat : "conserven") : OLD_CAT_BY_CAT[s.cat] || "conserven").trim().toLowerCase();
       return {
         name: String(s.name),
         loc,
@@ -1917,7 +1921,7 @@ function normalizeExtras(arr) {
   return (arr || [])
     .map((x) => (typeof x === "string"
       ? { name: x, cat: "" }
-      : { name: String((x && x.name) || ""), cat: (x && x.cat) || "", amount: x && x.amount != null ? x.amount : undefined, unit: x && x.unit ? x.unit : null, ...(x && typeof x.updatedAt === "number" ? { updatedAt: x.updatedAt } : {}) }))
+      : { name: String((x && x.name) || ""), cat: String((x && x.cat) || "").trim().toLowerCase(), amount: x && x.amount != null ? x.amount : undefined, unit: x && x.unit ? x.unit : null, ...(x && typeof x.updatedAt === "number" ? { updatedAt: x.updatedAt } : {}) }))
     .filter((x) => x.name);
 }
 
@@ -2099,10 +2103,8 @@ module.exports.default = {
   " · alleen onvergrendelde dagen kiesbaar (🔒 = vastgezet)": " · alleen onvergrendelde dagen kiesbaar (🔒 = vastgezet)",
   " · vandaag": " · vandaag",
   " · ❗ {w} mist nog iets": " · ❗ {w} mist nog iets",
-  " — boodschappenlijst toont alleen hele verpakkingen": " — boodschappenlijst toont alleen hele verpakkingen",
   " — niets nieuws in het bestand": " — niets nieuws in het bestand",
   "\" → uit bestand \"": "\" → uit bestand \"",
-  "#35: per 1 ": "#35: per 1 ",
   "({a} van {b})": "({a} van {b})",
   "+ Bestelsite toevoegen": "+ Bestelsite toevoegen",
   "+ Supermarkt toevoegen": "+ Supermarkt toevoegen",
@@ -2151,13 +2153,14 @@ module.exports.default = {
   "De lijst is één platte lijst op categorie-volgorde (zie ⚙️) — ingrediënt, voorraad of extra artikel maakt niet uit.": "De lijst is één platte lijst op categorie-volgorde (zie ⚙️) — ingrediënt, voorraad of extra artikel maakt niet uit.",
   "De volgorde is de volgorde op de boodschappenlijst. Een categorie zegt waar een artikel in de supermarkt ligt — tortilla en kroepoek horen daarom bij “(maaltijd)saus”.": "De volgorde is de volgorde op de boodschappenlijst. Een categorie zegt waar een artikel in de supermarkt ligt — tortilla en kroepoek horen daarom bij “(maaltijd)saus”.",
   "Deelbestand maken (exporteren)": "Deelbestand maken (exporteren)",
-  "Deze linkjes verschijnen bij “Afwijking van het weekplan” → afhaalmaaltijd (#42). Alleen lokaal opgeslagen (ADR-010).": "Deze linkjes verschijnen bij “Afwijking van het weekplan” → afhaalmaaltijd (#42). Alleen lokaal opgeslagen (ADR-010).",
+  "Deze linkjes verschijnen bij “Afwijking van het weekplan” → afhaalmaaltijd. Alleen lokaal opgeslagen.": "Deze linkjes verschijnen bij “Afwijking van het weekplan” → afhaalmaaltijd. Alleen lokaal opgeslagen.",
   "Dit verandert er als je samenvoegt:": "Dit verandert er als je samenvoegt:",
   "Eenheid (alleen converteerbare eenheden wijzigbaar)": "Eenheid (alleen converteerbare eenheden wijzigbaar)",
   "Eenheid (standaard bij dit product)": "Eenheid (standaard bij dit product)",
   "Eenheid van de inhoud": "Eenheid van de inhoud",
   "Eenheid van het product": "Eenheid van het product",
   "Eetpatroon": "Eetpatroon",
+  "Elk ingrediënt, voorraadproduct en extra artikel is hier een product met categorie, eenheid en optionele winkelvoorkeur. Klik op een naam om te wijzigen; ✕ verwijdert het product uit de catalogus (koppelingen vallen terug op vrije tekst — handig bij typefouten).": "Elk ingrediënt, voorraadproduct en extra artikel is hier een product met categorie, eenheid en optionele winkelvoorkeur. Klik op een naam om te wijzigen; ✕ verwijdert het product uit de catalogus (koppelingen vallen terug op vrije tekst — handig bij typefouten).",
   "Eters & supermarkten → Instellingen": "Eters & supermarkten → Instellingen",
   "Exporteren": "Exporteren",
   "Extra's": "Extra's",
@@ -2183,7 +2186,7 @@ module.exports.default = {
   "Inhoud per verpakking": "Inhoud per verpakking",
   "Instant-maaltijd: {lijst}": "Instant-maaltijd: {lijst}",
   "Instellingen": "Instellingen",
-  "Instellingen per huishouden. Ze worden alleen lokaal op dit toestel bewaard (localStorage) en gelden direct voor het weekmenu en de boodschappenlijst. Dagindex 0 is de weekstart (": "Instellingen per huishouden. Ze worden alleen lokaal op dit toestel bewaard (localStorage) en gelden direct voor het weekmenu en de boodschappenlijst. Dagindex 0 is de weekstart (",
+  "Instellingen per huishouden": "Instellingen per huishouden",
   "Instellingen · vinkjes · verwijderingen": "Instellingen · vinkjes · verwijderingen",
   "Is de huidige voorraad lager dan gewenst? Dan staat het product automatisch op de boodschappenlijst.": "Is de huidige voorraad lager dan gewenst? Dan staat het product automatisch op de boodschappenlijst.",
   "Kies de kanjer (het product dat behouden blijft). Recept-koppelingen gaan over naar de kanjer; varianten uit de benaming worden als per-recept tag voorgesteld.": "Kies de kanjer (het product dat behouden blijft). Recept-koppelingen gaan over naar de kanjer; varianten uit de benaming worden als per-recept tag voorgesteld.",
@@ -2214,13 +2217,14 @@ module.exports.default = {
   "Onbekend": "Onbekend",
   "Ontgrendelen": "Ontgrendelen",
   "Opslaan": "Opslaan",
+  "Per 1 {eenheid} = {inhoud} — de boodschappenlijst toont alleen hele verpakkingen.": "Per 1 {eenheid} = {inhoud} — de boodschappenlijst toont alleen hele verpakkingen.",
   "Per product stel je de huidige voorraad in met −/+; de gewenste voorraad staat grijs erachter (“gewenst n”). Met ✏️ achter de locatie pas je de gewenste hoeveelheden aan.": "Per product stel je de huidige voorraad in met −/+; de gewenste voorraad staat grijs erachter (“gewenst n”). Met ✏️ achter de locatie pas je de gewenste hoeveelheden aan.",
-  "Per-recept tag (geldt alleen in dit recept, #59)": "Per-recept tag (geldt alleen in dit recept, #59)",
+  "Per-recept tag (geldt alleen in dit recept) — klik om te verwijderen": "Per-recept tag (geldt alleen in dit recept) — klik om te verwijderen",
   "Product verwijderen": "Product verwijderen",
-  "Productcatalogus in-/uitklappen (#44)": "Productcatalogus in-/uitklappen (#44)",
+  "Productcatalogus in-/uitklappen": "Productcatalogus in-/uitklappen",
   "Producten": "Producten",
   "Producten ({n})": "Producten ({n})",
-  "Producten samenvoegen (#59)": "Producten samenvoegen (#59)",
+  "Producten samenvoegen": "Producten samenvoegen",
   "Productnaam…": "Productnaam…",
   "Recept bewerken": "Recept bewerken",
   "Recept toevoegen": "Recept toevoegen",
@@ -2243,13 +2247,14 @@ module.exports.default = {
   "Standaardlijst terug": "Standaardlijst terug",
   "Stel eerst een weekmenu samen; de ingrediënten verschijnen dan hier automatisch.": "Stel eerst een weekmenu samen; de ingrediënten verschijnen dan hier automatisch.",
   "Supermarkten": "Supermarkten",
+  "Taal van de app (GUI) — lokaal opgeslagen per huishouden.": "Taal van de app (GUI) — lokaal opgeslagen per huishouden.",
   "Tag verwijderen": "Tag verwijderen",
   "Tag-regels (bij automatisch plannen)": "Tag-regels (bij automatisch plannen)",
   "Tags": "Tags",
   "Tags (alle geselecteerde moeten erop — AND)": "Tags (alle geselecteerde moeten erop — AND)",
-  "Thema van de app — lokaal opgeslagen per huishouden (#40).": "Thema van de app — lokaal opgeslagen per huishouden (#40).",
+  "Thema van de app — lokaal opgeslagen per huishouden.": "Thema van de app — lokaal opgeslagen per huishouden.",
   "Thema {thema}": "Thema {thema}",
-  "Timetag (optioneel, #58)": "Timetag (optioneel, #58)",
+  "Timetag": "Timetag",
   "Toevoegen": "Toevoegen",
   "Toevoegen aan een onvergrendelde dag van deze week": "Toevoegen aan een onvergrendelde dag van deze week",
   "Toon alle supermarkten": "Toon alle supermarkten",
@@ -2257,6 +2262,7 @@ module.exports.default = {
   "Typ een gerecht…": "Typ een gerecht…",
   "URL…": "URL…",
   "Uit catalogus verwijderen (koppelingen vallen terug op vrije tekst)": "Uit catalogus verwijderen (koppelingen vallen terug op vrije tekst)",
+  "Uitleg": "Uitleg",
   "Uitleg over delen via bestand": "Uitleg over delen via bestand",
   "VANDAAG": "VANDAAG",
   "Vega-dagen op de overige ": "Vega-dagen op de overige ",
@@ -2284,6 +2290,7 @@ module.exports.default = {
   "Winkelvoorkeur": "Winkelvoorkeur",
   "Winkelvoorkeur: dit artikel wordt daar gehaald": "Winkelvoorkeur: dit artikel wordt daar gehaald",
   "Wis filters": "Wis filters",
+  "Ze worden alleen lokaal op dit toestel bewaard (localStorage) en gelden direct voor het weekmenu en de boodschappenlijst. Dagindex 0 is de weekstart ({dag}).": "Ze worden alleen lokaal op dit toestel bewaard (localStorage) en gelden direct voor het weekmenu en de boodschappenlijst. Dagindex 0 is de weekstart ({dag}).",
   "Zoek op receptnaam en filter op bereidingstijd, ingrediënt of tag(s). Tik op een recept om naam, categorie, bereidingstijd, tags, ingrediënten en bereiding te bewerken. Alles wordt lokaal op je toestel opgeslagen; met exporteren/importeren deel je de lijst als JSON.": "Zoek op receptnaam en filter op bereidingstijd, ingrediënt of tag(s). Tik op een recept om naam, categorie, bereidingstijd, tags, ingrediënten en bereiding te bewerken. Alles wordt lokaal op je toestel opgeslagen; met exporteren/importeren deel je de lijst als JSON.",
   "Zoek op receptnaam…": "Zoek op receptnaam…",
   "Zoek product…": "Zoek product…",
@@ -2291,7 +2298,6 @@ module.exports.default = {
   "\\u00d7": "\\u00d7",
   "\\u2715": "\\u2715",
   "\\u27f2 Ongedaan maken": "\\u27f2 Ongedaan maken",
-  "\\uff0b tag toevoegen\\u2026": "\\uff0b tag toevoegen\\u2026",
   "alle artikelen hebben een winkelvoorkeur voor een andere supermarkt": "alle artikelen hebben een winkelvoorkeur voor een andere supermarkt",
   "altijd": "altijd",
   "bijv. 500": "bijv. 500",
@@ -2376,9 +2382,7 @@ module.exports.default = {
   "＋ Ingrediënt toevoegen": "＋ Ingrediënt toevoegen",
   "＋ Locatie toevoegen": "＋ Locatie toevoegen",
   "＋ Product toevoegen": "＋ Product toevoegen",
-  "＋ tag toevoegen…": "＋ tag toevoegen…",
   "Taal {taal}": "Taal {taal}",
-  "Taal van de app (GUI) — lokaal opgeslagen per huishouden (ADR-023).": "Taal van de app (GUI) — lokaal opgeslagen per huishouden (ADR-023).",
   "Taal": "Taal",
 };
 
@@ -2393,7 +2397,6 @@ module.exports.default = {
   " \\u00b7 \\u2757 {w} mist nog iets": " · ❗ {w} still missing",
   " \\u00b7 alleen onvergrendelde dagen kiesbaar (🔒 = vastgezet)": " · only unlocked days selectable (🔒 = locked)",
   " \\u00b7 vandaag": " · today",
-  " \\u2014 boodschappenlijst toont alleen hele verpakkingen": " — shopping list only shows whole packages",
   " \\u2014 niets nieuws in het bestand": " — nothing new in the file",
   " d": " d",
   " dagen": " days",
@@ -2410,11 +2413,9 @@ module.exports.default = {
   " · alleen onvergrendelde dagen kiesbaar (🔒 = vastgezet)": " · only unlocked days selectable (🔒 = locked)",
   " · vandaag": " · today",
   " · ❗ {w} mist nog iets": " · ❗ {w} still missing",
-  " — boodschappenlijst toont alleen hele verpakkingen": " — shopping list only shows whole packages",
   " — niets nieuws in het bestand": " — nothing new in the file",
   "\" \\u2192 uit bestand \"": "\" → from file \"",
   "\" → uit bestand \"": "\" → from file \"",
-  "#35: per 1 ": "#35: per 1 ",
   "({a} van {b})": "({a} of {b})",
   "+ Bestelsite toevoegen": "+ Add order site",
   "+ Supermarkt toevoegen": "+ Add supermarket",
@@ -2476,14 +2477,14 @@ module.exports.default = {
   "De volgorde is de volgorde op de boodschappenlijst. Een categorie zegt waar een artikel in de supermarkt ligt \\u2014 tortilla en kroepoek horen daarom bij \\u201c(maaltijd)saus\\u201d.": "The order is the order on the shopping list. A category says where an item is in the supermarket — tortilla and kroepoek therefore belong to “(meal)sauce”.",
   "De volgorde is de volgorde op de boodschappenlijst. Een categorie zegt waar een artikel in de supermarkt ligt — tortilla en kroepoek horen daarom bij “(maaltijd)saus”.": "The order is the order on the shopping list. A category says where an item is in the supermarket — tortilla and kroepoek therefore belong to “(meal)sauce”.",
   "Deelbestand maken (exporteren)": "Create share file (export)",
-  "Deze linkjes verschijnen bij \\u201cAfwijking van het weekplan\\u201d \\u2192 afhaalmaaltijd (#42). Alleen lokaal opgeslagen (ADR-010).": "These links appear under “Deviation from the week plan” → takeaway (#42). Stored locally only (ADR-010).",
-  "Deze linkjes verschijnen bij “Afwijking van het weekplan” → afhaalmaaltijd (#42). Alleen lokaal opgeslagen (ADR-010).": "These links appear under “Deviation from the week plan” → takeaway (#42). Stored locally only (ADR-010).",
+  "Deze linkjes verschijnen bij “Afwijking van het weekplan” → afhaalmaaltijd. Alleen lokaal opgeslagen.": "These links appear under “Deviation from the week plan” → takeaway meal. Stored locally only.",
   "Dit verandert er als je samenvoegt:": "This is what changes when you merge:",
   "Eenheid (alleen converteerbare eenheden wijzigbaar)": "Unit (only convertible units editable)",
   "Eenheid (standaard bij dit product)": "Unit (default for this product)",
   "Eenheid van de inhoud": "Unit of the contents",
   "Eenheid van het product": "Unit of the product",
   "Eetpatroon": "Eating pattern",
+  "Elk ingrediënt, voorraadproduct en extra artikel is hier een product met categorie, eenheid en optionele winkelvoorkeur. Klik op een naam om te wijzigen; ✕ verwijdert het product uit de catalogus (koppelingen vallen terug op vrije tekst — handig bij typefouten).": "Every ingredient, stock item and extra item is a product here with category, unit and optional supermarket preference. Click a name to edit it; ✕ removes the product from the catalog (links then fall back to free text — handy for typos).",
   "Eters & supermarkten \\u2192 Instellingen": "Eaters & supermarkets → Settings",
   "Eters & supermarkten → Instellingen": "Eaters & supermarkets → Settings",
   "Exporteren": "Export",
@@ -2517,7 +2518,7 @@ module.exports.default = {
   "Instant-maaltijd: {lijst}": "Instant meal: {lijst}",
   "Instellingen": "Settings",
   "Instellingen \\u00b7 vinkjes \\u00b7 verwijderingen": "Settings · checkboxes · deletions",
-  "Instellingen per huishouden. Ze worden alleen lokaal op dit toestel bewaard (localStorage) en gelden direct voor het weekmenu en de boodschappenlijst. Dagindex 0 is de weekstart (": "Settings per household. They are stored only locally on this device (localStorage) and apply directly to the week menu and shopping list. Day index 0 is the week start (",
+  "Instellingen per huishouden": "Settings per household",
   "Instellingen · vinkjes · verwijderingen": "Settings · checkboxes · deletions",
   "Is de huidige voorraad lager dan gewenst? Dan staat het product automatisch op de boodschappenlijst.": "Is the current stock lower than desired? Then the product is automatically on the shopping list.",
   "Kies de kanjer (het product dat behouden blijft). Recept-koppelingen gaan over naar de kanjer; varianten uit de benaming worden als per-recept tag voorgesteld.": "Choose the keeper (the product that is retained). Recipe links move to the keeper; variants from the name are suggested as per-recipe tags.",
@@ -2557,14 +2558,15 @@ module.exports.default = {
   "Onbekend": "Unknown",
   "Ontgrendelen": "Unlock",
   "Opslaan": "Save",
+  "Per 1 {eenheid} = {inhoud} — de boodschappenlijst toont alleen hele verpakkingen.": "Per 1 {eenheid} = {inhoud} — the shopping list only shows whole packs.",
   "Per product stel je de huidige voorraad in met \\u2212/+; de gewenste voorraad staat grijs erachter (\\u201cgewenst n\\u201d). Met \\u270f\\ufe0f achter de locatie pas je de gewenste hoeveelheden aan.": "Per product you set the current stock with −/+; the desired stock is shown grey behind it (“desired n”). With ✏️ behind the location you adjust the desired quantities.",
   "Per product stel je de huidige voorraad in met −/+; de gewenste voorraad staat grijs erachter (“gewenst n”). Met ✏️ achter de locatie pas je de gewenste hoeveelheden aan.": "Per product you set the current stock with −/+; the desired stock is shown grey behind it (“desired n”). With ✏️ behind the location you adjust the desired quantities.",
-  "Per-recept tag (geldt alleen in dit recept, #59)": "Per-recipe tag (only applies in this recipe, #59)",
+  "Per-recept tag (geldt alleen in dit recept) — klik om te verwijderen": "Per-recipe tag (applies only in this recipe) — click to remove",
   "Product verwijderen": "Delete product",
-  "Productcatalogus in-/uitklappen (#44)": "Expand/collapse product catalog (#44)",
+  "Productcatalogus in-/uitklappen": "Expand/collapse product catalog",
   "Producten": "Products",
   "Producten ({n})": "Products ({n})",
-  "Producten samenvoegen (#59)": "Merge products (#59)",
+  "Producten samenvoegen": "Merge products",
   "Productnaam\\u2026": "Product name…",
   "Productnaam…": "Product name…",
   "Recept bewerken": "Edit recipe",
@@ -2592,15 +2594,15 @@ module.exports.default = {
   "Stel eerst een weekmenu samen; de ingredi\\u00ebnten verschijnen dan hier automatisch.": "First compose a week menu; the ingredients then appear here automatically.",
   "Stel eerst een weekmenu samen; de ingrediënten verschijnen dan hier automatisch.": "First compose a week menu; the ingredients then appear here automatically.",
   "Supermarkten": "Supermarkets",
+  "Taal van de app (GUI) — lokaal opgeslagen per huishouden.": "App language (GUI) — stored locally per household.",
   "Tag verwijderen": "Remove tag",
   "Tag-regels (bij automatisch plannen)": "Tag rules (when auto-planning)",
   "Tags": "Tags",
   "Tags (alle geselecteerde moeten erop \\u2014 AND)": "Tags (all selected must match — AND)",
   "Tags (alle geselecteerde moeten erop — AND)": "Tags (all selected must match — AND)",
-  "Thema van de app \\u2014 lokaal opgeslagen per huishouden (#40).": "App theme — stored locally per household (#40).",
-  "Thema van de app — lokaal opgeslagen per huishouden (#40).": "App theme — stored locally per household (#40).",
+  "Thema van de app — lokaal opgeslagen per huishouden.": "App theme — stored locally per household.",
   "Thema {thema}": "Theme {thema}",
-  "Timetag (optioneel, #58)": "Time tag (optional, #58)",
+  "Timetag": "Time tag",
   "Toevoegen": "Add",
   "Toevoegen aan een onvergrendelde dag van deze week": "Add to an unlocked day of this week",
   "Toon alle supermarkten": "Show all supermarkets",
@@ -2610,6 +2612,7 @@ module.exports.default = {
   "URL\\u2026": "URL…",
   "URL…": "URL…",
   "Uit catalogus verwijderen (koppelingen vallen terug op vrije tekst)": "Remove from catalog (links fall back to free text)",
+  "Uitleg": "Info",
   "Uitleg over delen via bestand": "Explanation about sharing via file",
   "VANDAAG": "TODAY",
   "Vega-dagen op de overige ": "Vega days on the remaining ",
@@ -2638,6 +2641,7 @@ module.exports.default = {
   "Winkelvoorkeur": "Preferred store",
   "Winkelvoorkeur: dit artikel wordt daar gehaald": "Store preference: this item is bought there",
   "Wis filters": "Clear filters",
+  "Ze worden alleen lokaal op dit toestel bewaard (localStorage) en gelden direct voor het weekmenu en de boodschappenlijst. Dagindex 0 is de weekstart ({dag}).": "They are stored only locally on this device (localStorage) and apply directly to the week menu and the shopping list. Day index 0 is the week start ({dag}).",
   "Zoek op receptnaam en filter op bereidingstijd, ingredi\\u00ebnt of tag(s). Tik op een recept om naam, categorie, bereidingstijd, tags, ingredi\\u00ebnten en bereiding te bewerken. Alles wordt lokaal op je toestel opgeslagen; met exporteren/importeren deel je de lijst als JSON.": "Search by recipe name and filter by preparation time, ingredient or tag(s). Tap a recipe to edit name, category, preparation time, tags, ingredients and preparation. Everything is stored locally on your device; with export/import you share the list as JSON.",
   "Zoek op receptnaam en filter op bereidingstijd, ingrediënt of tag(s). Tik op een recept om naam, categorie, bereidingstijd, tags, ingrediënten en bereiding te bewerken. Alles wordt lokaal op je toestel opgeslagen; met exporteren/importeren deel je de lijst als JSON.": "Search by recipe name and filter by preparation time, ingredient or tag(s). Tap a recipe to edit name, category, preparation time, tags, ingredients and preparation. Everything is stored locally on your device; with export/import you share the list as JSON.",
   "Zoek op receptnaam\\u2026": "Search by recipe name…",
@@ -2668,7 +2672,6 @@ module.exports.default = {
   "\\uff0b Ingredi\\u00ebnt toevoegen": "+ Add ingredient",
   "\\uff0b Locatie toevoegen": "+ Add location",
   "\\uff0b Product toevoegen": "+ Add product",
-  "\\uff0b tag toevoegen\\u2026": "+ add tag…",
   "alle artikelen hebben een winkelvoorkeur voor een andere supermarkt": "all items have a store preference for another supermarket",
   "altijd": "always",
   "bijv. 500": "e.g. 500",
@@ -2746,7 +2749,6 @@ module.exports.default = {
   "＋ Ingrediënt toevoegen": "+ Add ingredient",
   "＋ Locatie toevoegen": "+ Add location",
   "＋ Product toevoegen": "+ Add product",
-  "＋ tag toevoegen…": "+ add tag…",
   "🍔 Afhaalmaaltijd": "🍔 Takeaway",
   "🍽\\ufe0f gerecht": "🍽️ dish",
   "🍽️ gerecht": "🍽️ dish",
@@ -2765,8 +2767,6 @@ module.exports.default = {
   "🕒 Laatst gegeten (langst geleden eerst)": "🕒 Last eaten (longest ago first)",
   "🛵 Afhaalmaaltijden (bestelsites)": "🛵 Takeaway (order sites)",
   "Taal {taal}": "Language {taal}",
-  "Taal van de app (GUI) — lokaal opgeslagen per huishouden (ADR-023).": "Language of the app (GUI) — stored locally per household (ADR-023).",
-  "Taal van de app (GUI) \\u2014 lokaal opgeslagen per huishouden (ADR-023).": "Language of the app (GUI) — stored locally per household (ADR-023).",
   "Taal": "Language",
 };
 
@@ -2781,7 +2781,6 @@ module.exports.default = {
   " \\u00b7 \\u2757 {w} mist nog iets": " · ❗ il manque encore {w}",
   " \\u00b7 alleen onvergrendelde dagen kiesbaar (🔒 = vastgezet)": " · seuls les jours non verrouillés sont sélectionnables (🔒 = verrouillé)",
   " \\u00b7 vandaag": " · aujourd'hui",
-  " \\u2014 boodschappenlijst toont alleen hele verpakkingen": " — la liste de courses n'affiche que des emballages entiers",
   " \\u2014 niets nieuws in het bestand": " — rien de nouveau dans le fichier",
   " d": " j",
   " dagen": " jours",
@@ -2798,11 +2797,9 @@ module.exports.default = {
   " · alleen onvergrendelde dagen kiesbaar (🔒 = vastgezet)": " · seuls les jours non verrouillés sont sélectionnables (🔒 = verrouillé)",
   " · vandaag": " · aujourd'hui",
   " · ❗ {w} mist nog iets": " · ❗ il manque encore {w}",
-  " — boodschappenlijst toont alleen hele verpakkingen": " — la liste de courses n'affiche que des emballages entiers",
   " — niets nieuws in het bestand": " — rien de nouveau dans le fichier",
   "\" \\u2192 uit bestand \"": "\" → du fichier \"",
   "\" → uit bestand \"": "\" → du fichier \"",
-  "#35: per 1 ": "#35 : pour 1 ",
   "({a} van {b})": "({a} sur {b})",
   "+ Bestelsite toevoegen": "+ Ajouter un site de commande",
   "+ Supermarkt toevoegen": "+ Ajouter un supermarché",
@@ -2864,14 +2861,14 @@ module.exports.default = {
   "De volgorde is de volgorde op de boodschappenlijst. Een categorie zegt waar een artikel in de supermarkt ligt \\u2014 tortilla en kroepoek horen daarom bij \\u201c(maaltijd)saus\\u201d.": "L'ordre est celui de la liste de courses. Une catégorie indique où se trouve un article dans le supermarché — tortilla et kroepoek appartiennent donc à « (repas)sauce ».",
   "De volgorde is de volgorde op de boodschappenlijst. Een categorie zegt waar een artikel in de supermarkt ligt — tortilla en kroepoek horen daarom bij “(maaltijd)saus”.": "L'ordre est celui de la liste de courses. Une catégorie indique où se trouve un article dans le supermarché — tortilla et kroepoek appartiennent donc à « (repas)sauce ».",
   "Deelbestand maken (exporteren)": "Créer un fichier de partage (export)",
-  "Deze linkjes verschijnen bij \\u201cAfwijking van het weekplan\\u201d \\u2192 afhaalmaaltijd (#42). Alleen lokaal opgeslagen (ADR-010).": "Ces liens apparaissent sous « Écart du planning » → plat à emporter (#42). Stockés localement uniquement (ADR-010).",
-  "Deze linkjes verschijnen bij “Afwijking van het weekplan” → afhaalmaaltijd (#42). Alleen lokaal opgeslagen (ADR-010).": "Ces liens apparaissent sous « Écart du planning » → plat à emporter (#42). Stockés localement uniquement (ADR-010).",
+  "Deze linkjes verschijnen bij “Afwijking van het weekplan” → afhaalmaaltijd. Alleen lokaal opgeslagen.": "Ces liens apparaissent sous « Écart par rapport au plan de la semaine » → repas à emporter. Enregistrés localement uniquement.",
   "Dit verandert er als je samenvoegt:": "Voici ce qui change lors de la fusion :",
   "Eenheid (alleen converteerbare eenheden wijzigbaar)": "Unité (seules les unités convertibles sont modifiables)",
   "Eenheid (standaard bij dit product)": "Unité (par défaut pour ce produit)",
   "Eenheid van de inhoud": "Unité du contenu",
   "Eenheid van het product": "Unité du produit",
   "Eetpatroon": "Rythme alimentaire",
+  "Elk ingrediënt, voorraadproduct en extra artikel is hier een product met categorie, eenheid en optionele winkelvoorkeur. Klik op een naam om te wijzigen; ✕ verwijdert het product uit de catalogus (koppelingen vallen terug op vrije tekst — handig bij typefouten).": "Chaque ingrédient, produit de stock et article supplémentaire est ici un produit avec sa catégorie, son unité et son supermarché préféré facultatif. Cliquez sur un nom pour le modifier ; ✕ supprime le produit du catalogue (les liens retombent alors sur du texte libre — pratique en cas de faute de frappe).",
   "Eters & supermarkten \\u2192 Instellingen": "Convives & supermarchés → Réglages",
   "Eters & supermarkten → Instellingen": "Convives & supermarchés → Réglages",
   "Exporteren": "Exporter",
@@ -2905,7 +2902,7 @@ module.exports.default = {
   "Instant-maaltijd: {lijst}": "Repas instant : {lijst}",
   "Instellingen": "Réglages",
   "Instellingen \\u00b7 vinkjes \\u00b7 verwijderingen": "Réglages · cases · suppressions",
-  "Instellingen per huishouden. Ze worden alleen lokaal op dit toestel bewaard (localStorage) en gelden direct voor het weekmenu en de boodschappenlijst. Dagindex 0 is de weekstart (": "Réglages par ménage. Ils ne sont enregistrés que localement sur cet appareil (localStorage) et s'appliquent directement au menu de la semaine et à la liste de courses. L'index de jour 0 est le début de semaine (",
+  "Instellingen per huishouden": "Paramètres par ménage",
   "Instellingen · vinkjes · verwijderingen": "Réglages · cases · suppressions",
   "Is de huidige voorraad lager dan gewenst? Dan staat het product automatisch op de boodschappenlijst.": "Le stock actuel est-il inférieur au souhaité ? Alors le produit est automatiquement sur la liste de courses.",
   "Kies de kanjer (het product dat behouden blijft). Recept-koppelingen gaan over naar de kanjer; varianten uit de benaming worden als per-recept tag voorgesteld.": "Choisissez le gardien (le produit conservé). Les liens de recettes sont transférés vers le gardien ; les variantes du nom sont proposées comme étiquettes par recette.",
@@ -2945,14 +2942,15 @@ module.exports.default = {
   "Onbekend": "Inconnu",
   "Ontgrendelen": "Déverrouiller",
   "Opslaan": "Enregistrer",
+  "Per 1 {eenheid} = {inhoud} — de boodschappenlijst toont alleen hele verpakkingen.": "Pour 1 {eenheid} = {inhoud} — la liste de courses n'affiche que les emballages entiers.",
   "Per product stel je de huidige voorraad in met \\u2212/+; de gewenste voorraad staat grijs erachter (\\u201cgewenst n\\u201d). Met \\u270f\\ufe0f achter de locatie pas je de gewenste hoeveelheden aan.": "Par produit, vous réglez le stock actuel avec −/+ ; le stock souhaité est en gris derrière (« souhaité n »). Avec ✏️ derrière l'emplacement, vous ajustez les quantités souhaitées.",
   "Per product stel je de huidige voorraad in met −/+; de gewenste voorraad staat grijs erachter (“gewenst n”). Met ✏️ achter de locatie pas je de gewenste hoeveelheden aan.": "Par produit, vous réglez le stock actuel avec −/+ ; le stock souhaité est en gris derrière (« souhaité n »). Avec ✏️ derrière l'emplacement, vous ajustez les quantités souhaitées.",
-  "Per-recept tag (geldt alleen in dit recept, #59)": "Étiquette par recette (valable uniquement dans cette recette, #59)",
+  "Per-recept tag (geldt alleen in dit recept) — klik om te verwijderen": "Étiquette par recette (valable uniquement dans cette recette) — cliquez pour la supprimer",
   "Product verwijderen": "Supprimer le produit",
-  "Productcatalogus in-/uitklappen (#44)": "Déplier/replier le catalogue de produits (#44)",
+  "Productcatalogus in-/uitklappen": "Déplier/replier le catalogue de produits",
   "Producten": "Produits",
   "Producten ({n})": "Produits ({n})",
-  "Producten samenvoegen (#59)": "Fusionner les produits (#59)",
+  "Producten samenvoegen": "Fusionner les produits",
   "Productnaam\\u2026": "Nom du produit…",
   "Productnaam…": "Nom du produit…",
   "Recept bewerken": "Modifier la recette",
@@ -2980,15 +2978,15 @@ module.exports.default = {
   "Stel eerst een weekmenu samen; de ingredi\\u00ebnten verschijnen dan hier automatisch.": "Composez d'abord un menu de la semaine ; les ingrédients apparaissent alors automatiquement ici.",
   "Stel eerst een weekmenu samen; de ingrediënten verschijnen dan hier automatisch.": "Composez d'abord un menu de la semaine ; les ingrédients apparaissent alors automatiquement ici.",
   "Supermarkten": "Supermarchés",
+  "Taal van de app (GUI) — lokaal opgeslagen per huishouden.": "Langue de l'app (GUI) — enregistrée localement par ménage.",
   "Tag verwijderen": "Supprimer l'étiquette",
   "Tag-regels (bij automatisch plannen)": "Règles d'étiquettes (planification automatique)",
   "Tags": "Étiquettes",
   "Tags (alle geselecteerde moeten erop \\u2014 AND)": "Étiquettes (toutes les sélectionnées doivent correspondre — ET)",
   "Tags (alle geselecteerde moeten erop — AND)": "Étiquettes (toutes les sélectionnées doivent correspondre — ET)",
-  "Thema van de app \\u2014 lokaal opgeslagen per huishouden (#40).": "Thème de l'app — enregistré localement par ménage (#40).",
-  "Thema van de app — lokaal opgeslagen per huishouden (#40).": "Thème de l'app — enregistré localement par ménage (#40).",
+  "Thema van de app — lokaal opgeslagen per huishouden.": "Thème de l'app — enregistré localement par ménage.",
   "Thema {thema}": "Thème {thema}",
-  "Timetag (optioneel, #58)": "Étiquette de temps (facultatif, #58)",
+  "Timetag": "Étiquette de temps",
   "Toevoegen": "Ajouter",
   "Toevoegen aan een onvergrendelde dag van deze week": "Ajouter à un jour non verrouillé de cette semaine",
   "Toon alle supermarkten": "Afficher tous les supermarchés",
@@ -2998,6 +2996,7 @@ module.exports.default = {
   "URL\\u2026": "URL…",
   "URL…": "URL…",
   "Uit catalogus verwijderen (koppelingen vallen terug op vrije tekst)": "Retirer du catalogue (les liens retombent en texte libre)",
+  "Uitleg": "Aide",
   "Uitleg over delen via bestand": "Explication sur le partage par fichier",
   "VANDAAG": "AUJOURD'HUI",
   "Vega-dagen op de overige ": "Jours végé sur les autres ",
@@ -3026,6 +3025,7 @@ module.exports.default = {
   "Winkelvoorkeur": "Magasin préféré",
   "Winkelvoorkeur: dit artikel wordt daar gehaald": "Préférence de magasin : cet article est acheté là",
   "Wis filters": "Effacer les filtres",
+  "Ze worden alleen lokaal op dit toestel bewaard (localStorage) en gelden direct voor het weekmenu en de boodschappenlijst. Dagindex 0 is de weekstart ({dag}).": "Elles ne sont enregistrées que localement sur cet appareil (localStorage) et s'appliquent directement au menu de la semaine et à la liste de courses. L'index de jour 0 est le début de la semaine ({dag}).",
   "Zoek op receptnaam en filter op bereidingstijd, ingredi\\u00ebnt of tag(s). Tik op een recept om naam, categorie, bereidingstijd, tags, ingredi\\u00ebnten en bereiding te bewerken. Alles wordt lokaal op je toestel opgeslagen; met exporteren/importeren deel je de lijst als JSON.": "Recherchez par nom de recette et filtrez par temps de préparation, ingrédient ou étiquette(s). Touchez une recette pour modifier nom, catégorie, temps, étiquettes, ingrédients et préparation. Tout est enregistré localement sur votre appareil ; avec exporter/importer, vous partagez la liste en JSON.",
   "Zoek op receptnaam en filter op bereidingstijd, ingrediënt of tag(s). Tik op een recept om naam, categorie, bereidingstijd, tags, ingrediënten en bereiding te bewerken. Alles wordt lokaal op je toestel opgeslagen; met exporteren/importeren deel je de lijst als JSON.": "Recherchez par nom de recette et filtrez par temps de préparation, ingrédient ou étiquette(s). Touchez une recette pour modifier nom, catégorie, temps, étiquettes, ingrédients et préparation. Tout est enregistré localement sur votre appareil ; avec exporter/importer, vous partagez la liste en JSON.",
   "Zoek op receptnaam\\u2026": "Rechercher par nom de recette…",
@@ -3056,7 +3056,6 @@ module.exports.default = {
   "\\uff0b Ingredi\\u00ebnt toevoegen": "+ Ajouter un ingrédient",
   "\\uff0b Locatie toevoegen": "+ Ajouter un emplacement",
   "\\uff0b Product toevoegen": "+ Ajouter un produit",
-  "\\uff0b tag toevoegen\\u2026": "+ ajouter une étiquette…",
   "alle artikelen hebben een winkelvoorkeur voor een andere supermarkt": "tous les articles ont une préférence de magasin pour un autre supermarché",
   "altijd": "toujours",
   "bijv. 500": "p. ex. 500",
@@ -3134,7 +3133,6 @@ module.exports.default = {
   "＋ Ingrediënt toevoegen": "+ Ajouter un ingrédient",
   "＋ Locatie toevoegen": "+ Ajouter un emplacement",
   "＋ Product toevoegen": "+ Ajouter un produit",
-  "＋ tag toevoegen…": "+ ajouter une étiquette…",
   "🍔 Afhaalmaaltijd": "🍔 Plat à emporter",
   "🍽\\ufe0f gerecht": "🍽️ plat",
   "🍽️ gerecht": "🍽️ plat",
@@ -3153,8 +3151,6 @@ module.exports.default = {
   "🕒 Laatst gegeten (langst geleden eerst)": "🕒 Dernier repas (le plus ancien d'abord)",
   "🛵 Afhaalmaaltijden (bestelsites)": "🛵 Plats à emporter (sites de commande)",
   "Taal {taal}": "Langue {taal}",
-  "Taal van de app (GUI) — lokaal opgeslagen per huishouden (ADR-023).": "Langue de l'app (GUI) — enregistrée localement par ménage (ADR-023).",
-  "Taal van de app (GUI) \\u2014 lokaal opgeslagen per huishouden (ADR-023).": "Langue de l'app (GUI) — enregistrée localement par ménage (ADR-023).",
   "Taal": "Langue",
 };
 
@@ -3169,7 +3165,6 @@ module.exports.default = {
   " \\u00b7 \\u2757 {w} mist nog iets": " · ❗ {w} fehlt noch",
   " \\u00b7 alleen onvergrendelde dagen kiesbaar (🔒 = vastgezet)": " · nur entsperrte Tage wählbar (🔒 = gesperrt)",
   " \\u00b7 vandaag": " · heute",
-  " \\u2014 boodschappenlijst toont alleen hele verpakkingen": " — Einkaufsliste zeigt nur ganze Packungen",
   " \\u2014 niets nieuws in het bestand": " — nichts Neues in der Datei",
   " d": " T",
   " dagen": " Tage",
@@ -3186,11 +3181,9 @@ module.exports.default = {
   " · alleen onvergrendelde dagen kiesbaar (🔒 = vastgezet)": " · nur entsperrte Tage wählbar (🔒 = gesperrt)",
   " · vandaag": " · heute",
   " · ❗ {w} mist nog iets": " · ❗ {w} fehlt noch",
-  " — boodschappenlijst toont alleen hele verpakkingen": " — Einkaufsliste zeigt nur ganze Packungen",
   " — niets nieuws in het bestand": " — nichts Neues in der Datei",
   "\" \\u2192 uit bestand \"": "\" → aus Datei \"",
   "\" → uit bestand \"": "\" → aus Datei \"",
-  "#35: per 1 ": "#35: pro 1 ",
   "({a} van {b})": "({a} von {b})",
   "+ Bestelsite toevoegen": "+ Bestellseite hinzufügen",
   "+ Supermarkt toevoegen": "+ Supermarkt hinzufügen",
@@ -3252,14 +3245,14 @@ module.exports.default = {
   "De volgorde is de volgorde op de boodschappenlijst. Een categorie zegt waar een artikel in de supermarkt ligt \\u2014 tortilla en kroepoek horen daarom bij \\u201c(maaltijd)saus\\u201d.": "Die Reihenfolge ist die Reihenfolge auf der Einkaufsliste. Eine Kategorie sagt, wo ein Artikel im Supermarkt liegt — Tortilla und Kroepoek gehören deshalb zu „(Mahlzeit)Soße“.",
   "De volgorde is de volgorde op de boodschappenlijst. Een categorie zegt waar een artikel in de supermarkt ligt — tortilla en kroepoek horen daarom bij “(maaltijd)saus”.": "Die Reihenfolge ist die Reihenfolge auf der Einkaufsliste. Eine Kategorie sagt, wo ein Artikel im Supermarkt liegt — Tortilla und Kroepoek gehören deshalb zu „(Mahlzeit)Soße“.",
   "Deelbestand maken (exporteren)": "Teilungsdatei erstellen (Export)",
-  "Deze linkjes verschijnen bij \\u201cAfwijking van het weekplan\\u201d \\u2192 afhaalmaaltijd (#42). Alleen lokaal opgeslagen (ADR-010).": "Diese Links erscheinen unter „Abweichung vom Wochenplan“ → Zum Mitnehmen (#42). Nur lokal gespeichert (ADR-010).",
-  "Deze linkjes verschijnen bij “Afwijking van het weekplan” → afhaalmaaltijd (#42). Alleen lokaal opgeslagen (ADR-010).": "Diese Links erscheinen unter „Abweichung vom Wochenplan“ → Zum Mitnehmen (#42). Nur lokal gespeichert (ADR-010).",
+  "Deze linkjes verschijnen bij “Afwijking van het weekplan” → afhaalmaaltijd. Alleen lokaal opgeslagen.": "Diese Links erscheinen unter „Abweichung vom Wochenplan“ → Abholessen. Nur lokal gespeichert.",
   "Dit verandert er als je samenvoegt:": "Das ändert sich beim Zusammenführen:",
   "Eenheid (alleen converteerbare eenheden wijzigbaar)": "Einheit (nur konvertierbare Einheiten änderbar)",
   "Eenheid (standaard bij dit product)": "Einheit (Standard für dieses Produkt)",
   "Eenheid van de inhoud": "Inhaltseinheit",
   "Eenheid van het product": "Produkteinheit",
   "Eetpatroon": "Essmuster",
+  "Elk ingrediënt, voorraadproduct en extra artikel is hier een product met categorie, eenheid en optionele winkelvoorkeur. Klik op een naam om te wijzigen; ✕ verwijdert het product uit de catalogus (koppelingen vallen terug op vrije tekst — handig bij typefouten).": "Jede Zutat, jeder Vorratsartikel und jeder Extraartikel ist hier ein Produkt mit Kategorie, Einheit und optionaler Supermarkt-Präferenz. Auf einen Namen klicken zum Ändern; ✕ entfernt das Produkt aus dem Katalog (Verknüpfungen fallen dann auf Freitext zurück — praktisch bei Tippfehlern).",
   "Eters & supermarkten \\u2192 Instellingen": "Personen & Supermärkte → Einstellungen",
   "Eters & supermarkten → Instellingen": "Personen & Supermärkte → Einstellungen",
   "Exporteren": "Exportieren",
@@ -3293,7 +3286,7 @@ module.exports.default = {
   "Instant-maaltijd: {lijst}": "Fertiggericht: {liste}",
   "Instellingen": "Einstellungen",
   "Instellingen \\u00b7 vinkjes \\u00b7 verwijderingen": "Einstellungen · Häkchen · Löschungen",
-  "Instellingen per huishouden. Ze worden alleen lokaal op dit toestel bewaard (localStorage) en gelden direct voor het weekmenu en de boodschappenlijst. Dagindex 0 is de weekstart (": "Einstellungen pro Haushalt. Sie werden nur lokal auf diesem Gerät gespeichert (localStorage) und gelten direkt für das Wochenmenü und die Einkaufsliste. Tag-Index 0 ist der Wochenstart (",
+  "Instellingen per huishouden": "Einstellungen pro Haushalt",
   "Instellingen · vinkjes · verwijderingen": "Einstellungen · Häkchen · Löschungen",
   "Is de huidige voorraad lager dan gewenst? Dan staat het product automatisch op de boodschappenlijst.": "Ist der aktuelle Bestand niedriger als gewünscht? Dann steht das Produkt automatisch auf der Einkaufsliste.",
   "Kies de kanjer (het product dat behouden blijft). Recept-koppelingen gaan over naar de kanjer; varianten uit de benaming worden als per-recept tag voorgesteld.": "Wähle den Keeper (das Produkt, das bleibt). Rezept-Verknüpfungen gehen auf den Keeper über; Varianten aus dem Namen werden als Pro-Rezept-Tag vorgeschlagen.",
@@ -3333,14 +3326,15 @@ module.exports.default = {
   "Onbekend": "Unbekannt",
   "Ontgrendelen": "Entsperren",
   "Opslaan": "Speichern",
+  "Per 1 {eenheid} = {inhoud} — de boodschappenlijst toont alleen hele verpakkingen.": "Pro 1 {eenheid} = {inhoud} — die Einkaufsliste zeigt nur ganze Packungen.",
   "Per product stel je de huidige voorraad in met \\u2212/+; de gewenste voorraad staat grijs erachter (\\u201cgewenst n\\u201d). Met \\u270f\\ufe0f achter de locatie pas je de gewenste hoeveelheden aan.": "Pro Produkt stellst du den aktuellen Bestand mit −/+ ein; der gewünschte Bestand steht grau dahinter („gewünscht n“). Mit ✏️ hinter dem Ort passt du die gewünschten Mengen an.",
   "Per product stel je de huidige voorraad in met −/+; de gewenste voorraad staat grijs erachter (“gewenst n”). Met ✏️ achter de locatie pas je de gewenste hoeveelheden aan.": "Pro Produkt stellst du den aktuellen Bestand mit −/+ ein; der gewünschte Bestand steht grau dahinter („gewünscht n“). Mit ✏️ hinter dem Ort passt du die gewünschten Mengen an.",
-  "Per-recept tag (geldt alleen in dit recept, #59)": "Pro-Rezept-Tag (gilt nur in diesem Rezept, #59)",
+  "Per-recept tag (geldt alleen in dit recept) — klik om te verwijderen": "Rezept-Tag (gilt nur in diesem Rezept) — klicken zum Entfernen",
   "Product verwijderen": "Produkt löschen",
-  "Productcatalogus in-/uitklappen (#44)": "Produktkatalog ein-/ausklappen (#44)",
+  "Productcatalogus in-/uitklappen": "Produktkatalog ein-/ausklappen",
   "Producten": "Produkte",
   "Producten ({n})": "Produkte ({n})",
-  "Producten samenvoegen (#59)": "Produkte zusammenführen (#59)",
+  "Producten samenvoegen": "Produkte zusammenführen",
   "Productnaam\\u2026": "Produktname…",
   "Productnaam…": "Produktname…",
   "Recept bewerken": "Rezept bearbeiten",
@@ -3368,15 +3362,15 @@ module.exports.default = {
   "Stel eerst een weekmenu samen; de ingredi\\u00ebnten verschijnen dan hier automatisch.": "Stelle zuerst ein Wochenmenü zusammen; die Zutaten erscheinen dann automatisch hier.",
   "Stel eerst een weekmenu samen; de ingrediënten verschijnen dan hier automatisch.": "Stelle zuerst ein Wochenmenü zusammen; die Zutaten erscheinen dann automatisch hier.",
   "Supermarkten": "Supermärkte",
+  "Taal van de app (GUI) — lokaal opgeslagen per huishouden.": "App-Sprache (GUI) — lokal pro Haushalt gespeichert.",
   "Tag verwijderen": "Tag entfernen",
   "Tag-regels (bij automatisch plannen)": "Tag-Regeln (bei automatischer Planung)",
   "Tags": "Tags",
   "Tags (alle geselecteerde moeten erop \\u2014 AND)": "Tags (alle ausgewählten müssen passen — UND)",
   "Tags (alle geselecteerde moeten erop — AND)": "Tags (alle ausgewählten müssen passen — UND)",
-  "Thema van de app \\u2014 lokaal opgeslagen per huishouden (#40).": "App-Design — lokal pro Haushalt gespeichert (#40).",
-  "Thema van de app — lokaal opgeslagen per huishouden (#40).": "App-Design — lokal pro Haushalt gespeichert (#40).",
+  "Thema van de app — lokaal opgeslagen per huishouden.": "App-Design — lokal pro Haushalt gespeichert.",
   "Thema {thema}": "Design {thema}",
-  "Timetag (optioneel, #58)": "Zeit-Tag (optional, #58)",
+  "Timetag": "Zeit-Tag",
   "Toevoegen": "Hinzufügen",
   "Toevoegen aan een onvergrendelde dag van deze week": "Zu einem entsperrten Tag dieser Woche hinzufügen",
   "Toon alle supermarkten": "Alle Supermärkte anzeigen",
@@ -3386,6 +3380,7 @@ module.exports.default = {
   "URL\\u2026": "URL…",
   "URL…": "URL…",
   "Uit catalogus verwijderen (koppelingen vallen terug op vrije tekst)": "Aus Katalog entfernen (Verknüpfungen fallen auf Freitext zurück)",
+  "Uitleg": "Info",
   "Uitleg over delen via bestand": "Erklärung zum Teilen per Datei",
   "VANDAAG": "HEUTE",
   "Vega-dagen op de overige ": "Veggie-Tage an den übrigen ",
@@ -3414,6 +3409,7 @@ module.exports.default = {
   "Winkelvoorkeur": "Bevorzugter Laden",
   "Winkelvoorkeur: dit artikel wordt daar gehaald": "Geschäftswahl: dieser Artikel wird dort gekauft",
   "Wis filters": "Filter löschen",
+  "Ze worden alleen lokaal op dit toestel bewaard (localStorage) en gelden direct voor het weekmenu en de boodschappenlijst. Dagindex 0 is de weekstart ({dag}).": "Sie werden nur lokal auf diesem Gerät gespeichert (localStorage) und gelten direkt für das Wochenmenü und die Einkaufsliste. Tag-Index 0 ist der Wochenbeginn ({dag}).",
   "Zoek op receptnaam en filter op bereidingstijd, ingredi\\u00ebnt of tag(s). Tik op een recept om naam, categorie, bereidingstijd, tags, ingredi\\u00ebnten en bereiding te bewerken. Alles wordt lokaal op je toestel opgeslagen; met exporteren/importeren deel je de lijst als JSON.": "Suche nach Rezeptname und filtere nach Zubereitungszeit, Zutat oder Tag(s). Tippe auf ein Rezept, um Name, Kategorie, Zubereitungszeit, Tags, Zutaten und Zubereitung zu bearbeiten. Alles wird lokal auf deinem Gerät gespeichert; mit Export/Import teilst du die Liste als JSON.",
   "Zoek op receptnaam en filter op bereidingstijd, ingrediënt of tag(s). Tik op een recept om naam, categorie, bereidingstijd, tags, ingrediënten en bereiding te bewerken. Alles wordt lokaal op je toestel opgeslagen; met exporteren/importeren deel je de lijst als JSON.": "Suche nach Rezeptname und filtere nach Zubereitungszeit, Zutat oder Tag(s). Tippe auf ein Rezept, um Name, Kategorie, Zubereitungszeit, Tags, Zutaten und Zubereitung zu bearbeiten. Alles wird lokal auf deinem Gerät gespeichert; mit Export/Import teilst du die Liste als JSON.",
   "Zoek op receptnaam\\u2026": "Rezeptname suchen…",
@@ -3444,7 +3440,6 @@ module.exports.default = {
   "\\uff0b Ingredi\\u00ebnt toevoegen": "+ Zutat hinzufügen",
   "\\uff0b Locatie toevoegen": "+ Ort hinzufügen",
   "\\uff0b Product toevoegen": "+ Produkt hinzufügen",
-  "\\uff0b tag toevoegen\\u2026": "+ Tag hinzufügen…",
   "alle artikelen hebben een winkelvoorkeur voor een andere supermarkt": "alle Artikel haben eine Geschäftswahl für einen anderen Supermarkt",
   "altijd": "immer",
   "bijv. 500": "z. B. 500",
@@ -3522,7 +3517,6 @@ module.exports.default = {
   "＋ Ingrediënt toevoegen": "+ Zutat hinzufügen",
   "＋ Locatie toevoegen": "+ Ort hinzufügen",
   "＋ Product toevoegen": "+ Produkt hinzufügen",
-  "＋ tag toevoegen…": "+ Tag hinzufügen…",
   "🍔 Afhaalmaaltijd": "🍔 Zum Mitnehmen",
   "🍽\\ufe0f gerecht": "🍽️ Gericht",
   "🍽️ gerecht": "🍽️ Gericht",
@@ -3541,8 +3535,6 @@ module.exports.default = {
   "🕒 Laatst gegeten (langst geleden eerst)": "🕒 Zuletzt gegessen (längstens her zuerst)",
   "🛵 Afhaalmaaltijden (bestelsites)": "🛵 Mitnahme-Seiten (Bestellseiten)",
   "Taal {taal}": "Sprache {taal}",
-  "Taal van de app (GUI) — lokaal opgeslagen per huishouden (ADR-023).": "Sprache der App (GUI) — lokal pro Haushalt gespeichert (ADR-023).",
-  "Taal van de app (GUI) \\u2014 lokaal opgeslagen per huishouden (ADR-023).": "Sprache der App (GUI) — lokal pro Haushalt gespeichert (ADR-023).",
   "Taal": "Sprache",
 };
 
@@ -3641,7 +3633,7 @@ function normalizeSettings(s) {
     .filter((m, i, arr) => arr.findIndex((x) => x.key === m.key) === i);
   if (!out.markets.length) out.markets = d.markets.map((m) => ({ ...m }));
   const cats = Array.isArray(out.shopCats) && out.shopCats.length ? out.shopCats : d.shopCats;
-  out.shopCats = [...new Set(cats.map((c) => String(c == null ? "" : c).trim()).filter(Boolean))];
+  out.shopCats = [...new Set(cats.map((c) => String(c == null ? "" : c).trim().toLowerCase()).filter(Boolean))];
   if (!out.shopCats.length) out.shopCats = [...d.shopCats];
   // #37: tag-regels normaliseren (kind, lowercase tag, dagen 0..30, dedup per kind+tag)
   out.tagRules = (Array.isArray(out.tagRules) ? out.tagRules : [])
@@ -4083,7 +4075,7 @@ function createMenuTab(ctx) {
                   , "className": `chip fish${fishDays.includes(i) ? " on" : ""}` }, d.slice(0, 2))
               )))), /*#__PURE__*/React.createElement("div", { "className": "mb-3" }, /*#__PURE__*/React.createElement("div", { "className": "text-xs font-medium text-stone-500 mb-1" }, __t("Vega-dagen op de overige "), otherDays.length, __t(" dagen")), /*#__PURE__*/React.createElement("div", { "className": "flex items-center gap-3" }, /*#__PURE__*/React.createElement("div", { "className": "stepper" }, /*#__PURE__*/React.createElement("button", { "onClick": () => updateSettings({ vegaTarget: Math.max(0, vegaCount - 1) }) }, "−"), /*#__PURE__*/React.createElement("span", null, vegaCount), /*#__PURE__*/React.createElement("button", { "onClick": () => updateSettings({ vegaTarget: Math.min(otherDays.length, vegaCount + 1) }) }, "+")), /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-600" }, vegaCount, __t(" vega · "), otherDays.length - vegaCount, __t(" vlees")))), /*#__PURE__*/React.createElement("div", { "className": "mb-3" }, /*#__PURE__*/React.createElement("div", { "className": "text-xs font-medium text-stone-500 mb-1" }, __t("Tag-regels (bij automatisch plannen)")), (settings.tagRules || []).length === 0 && /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-400 mb-1" }, __t("nog geen tag-regels")), (settings.tagRules || []).map((rule, i) => (
               /*#__PURE__*/React.createElement("div", { "key": i, "className": "flex items-center gap-2 mb-1.5" }, /*#__PURE__*/React.createElement("span", { "className": "chip" }, rule.kind === "product" ? "🏷️" : "🍽️", " ", rule.tag), /*#__PURE__*/React.createElement("div", { "className": "stepctrl" }, /*#__PURE__*/React.createElement("button", { "onClick": () => setTagRuleDays(i, rule.days - 1), "disabled": rule.days <= 0 }, "−"), /*#__PURE__*/React.createElement("span", null, rule.days), /*#__PURE__*/React.createElement("button", { "onClick": () => setTagRuleDays(i, rule.days + 1), "disabled": rule.days >= 30 }, "+")), /*#__PURE__*/React.createElement("span", { "className": "text-xs text-stone-500 shrink-0" }, __t("dagen")), /*#__PURE__*/React.createElement("button", { "className": "ml-auto text-stone-300 hover:text-red-500 text-sm", "onClick": () => removeTagRule(i), "title": __t("Regel verwijderen") }, "✕"))
-            )), /*#__PURE__*/React.createElement("div", { "className": "flex items-center gap-1.5 mt-2" }, /*#__PURE__*/React.createElement("select", { "className": "border rounded-lg px-1.5 py-1.5 text-xs text-stone-600 shrink-0", "value": ruleDraft.kind, "onChange": (e) => setRuleDraft({ ...ruleDraft, kind: e.target.value }) }, /*#__PURE__*/React.createElement("option", { "value": "product" }, __t("🏷️ product")), /*#__PURE__*/React.createElement("option", { "value": "recipe" }, __t("🍽️ gerecht"))), /*#__PURE__*/React.createElement("input", { "className": "w-full min-w-0 border rounded-lg px-2 py-1.5 text-xs", "value": ruleDraft.tag, "placeholder": __t("tag…"), "list": "tagrules-tags", "onChange": (e) => setRuleDraft({ ...ruleDraft, tag: e.target.value }), "onKeyDown": (e) => { if (e.key === "Enter") { e.preventDefault(); addTagRule(); } } }), /*#__PURE__*/React.createElement("datalist", { "id": "tagrules-tags" }, allRuleTags.map((t) => (/*#__PURE__*/React.createElement("option", { "key": t, "value": t })))), /*#__PURE__*/React.createElement("div", { "className": "stepctrl shrink-0" }, /*#__PURE__*/React.createElement("button", { "onClick": () => setRuleDraft({ ...ruleDraft, days: Math.max(0, ruleDraft.days - 1) }) }, "−"), /*#__PURE__*/React.createElement("span", null, ruleDraft.days), /*#__PURE__*/React.createElement("button", { "onClick": () => setRuleDraft({ ...ruleDraft, days: Math.min(30, ruleDraft.days + 1) }) }, "+")), /*#__PURE__*/React.createElement("button", { "className": "px-2.5 py-1.5 border rounded-lg text-xs text-stone-600 bg-white shrink-0", "onClick": addTagRule, "title": __t("Regel toevoegen") }, "＋"))), /*#__PURE__*/React.createElement("div", { "className": "mb-3" }, /*#__PURE__*/React.createElement("div", { "className": "text-xs font-medium text-stone-500 mb-1" }, __t("Hetzelfde gerecht opnieuw plannen na")), /*#__PURE__*/React.createElement("div", { "className": "segl" }, [[0, t("altijd")], [3, t("3 dagen")], [7, t("7 dagen")], [14, t("14 dagen")], [30, t("30 dagen")]].map(([v, label]) => (
+            )), /*#__PURE__*/React.createElement("div", { "className": "flex items-center gap-1.5 mt-2" }, /*#__PURE__*/React.createElement("select", { "className": "border rounded-lg px-1.5 py-1.5 text-xs text-stone-600 shrink-0", "value": ruleDraft.kind, "onChange": (e) => setRuleDraft({ ...ruleDraft, kind: e.target.value }) }, /*#__PURE__*/React.createElement("option", { "value": "product" }, __t("🏷️ product")), /*#__PURE__*/React.createElement("option", { "value": "recipe" }, __t("🍽️ gerecht"))), /*#__PURE__*/React.createElement("input", { "className": "w-full min-w-0 border rounded-lg px-2 py-1.5 text-xs", "value": ruleDraft.tag, "placeholder": __t("tag…"), "autoCapitalize": "none", "list": "tagrules-tags", "onChange": (e) => setRuleDraft({ ...ruleDraft, tag: e.target.value }), "onKeyDown": (e) => { if (e.key === "Enter") { e.preventDefault(); addTagRule(); } } }), /*#__PURE__*/React.createElement("datalist", { "id": "tagrules-tags" }, allRuleTags.map((t) => (/*#__PURE__*/React.createElement("option", { "key": t, "value": t })))), /*#__PURE__*/React.createElement("div", { "className": "stepctrl shrink-0" }, /*#__PURE__*/React.createElement("button", { "onClick": () => setRuleDraft({ ...ruleDraft, days: Math.max(0, ruleDraft.days - 1) }) }, "−"), /*#__PURE__*/React.createElement("span", null, ruleDraft.days), /*#__PURE__*/React.createElement("button", { "onClick": () => setRuleDraft({ ...ruleDraft, days: Math.min(30, ruleDraft.days + 1) }) }, "+")), /*#__PURE__*/React.createElement("button", { "className": "px-2.5 py-1.5 border rounded-lg text-xs text-stone-600 bg-white shrink-0", "onClick": addTagRule, "title": __t("Regel toevoegen") }, "＋"))), /*#__PURE__*/React.createElement("div", { "className": "mb-3" }, /*#__PURE__*/React.createElement("div", { "className": "text-xs font-medium text-stone-500 mb-1" }, __t("Hetzelfde gerecht opnieuw plannen na")), /*#__PURE__*/React.createElement("div", { "className": "segl" }, [[0, t("altijd")], [3, t("3 dagen")], [7, t("7 dagen")], [14, t("14 dagen")], [30, t("30 dagen")]].map(([v, label]) => (
                 /*#__PURE__*/React.createElement("button", { "key": v, "className": Math.min(30, Math.max(0, Number(settings.dishRepeatDays) || 0)) === v ? "on" : "", "onClick": () => updateSettings({ dishRepeatDays: v }) }, label)
               )))), /*#__PURE__*/React.createElement("button", { "onClick": () => { setRulesSheetOpen(false); setTab("settings"); }, "className": "block text-xs text-emerald-700 font-medium mb-3" }, __t("Eters & supermarkten → Instellingen")), /*#__PURE__*/React.createElement("button", { "onClick": () => setRulesSheetOpen(false), "className": "w-full bg-stone-800 text-white rounded-xl py-2.5 text-sm font-medium" }, __t("Klaar")))))
   );
@@ -4098,6 +4090,15 @@ exports.createMenuTab = createMenuTab;
 // Gedeelde render-helpers (product-kaart, ingrediënt-rijen) + highlightMatch.
 const __imp0 = require("../domain/catalog.js");
 const { UNITS, UNIT_GROUP, ingUnit, matchProducts } = __imp0;
+const __imp1 = require("../i18n/index.js");
+const { t } = __imp1;
+
+// Klein informatieknopje (ℹ️) direct achter het onderwerp; popover met de uitleg verschijnt op aanvraag.
+function makeInfoBtn(infoOpen, setInfoOpen) {
+  return (id, content) => (
+    /*#__PURE__*/React.createElement("span", { "className": "relative inline-flex align-middle" }, /*#__PURE__*/React.createElement("button", { "type": "button", "className": `iconbtn sm${infoOpen === id ? " on" : ""}`, "title": __t("Uitleg"), "onClick": (e) => { e.stopPropagation(); setInfoOpen(infoOpen === id ? null : id); } }, "ℹ️"), infoOpen === id && /*#__PURE__*/React.createElement("div", { "className": "pop" }, content))
+  );
+}
 
 function highlightMatch(name, q) {
   const i = name.toLowerCase().indexOf(q);
@@ -4116,7 +4117,8 @@ function highlightMatch(name, q) {
 // vaste verpakkingen (blik/pak/zak/...) en tekst zonder getal blijven gelijk.
 
 function createSharedViews(ctx) {
-  const { activeIngSuggest, addProdTag, allProductTags, commitIngAmount, commitNewIngAmount, deleteProductCatalog, ingDrafts, ingSuggest, marketChip, markets, openProd, prodById, prodEdit, products, removeProdTag, resolveIng, resolveNewIng, saveProductEdit, selectIngProduct, selectNewIngProduct, setActiveIngSuggest, setIngAmount, setIngDrafts, setIngSuggest, setIngTags, setIngUnit, setNewIngAmount, setNewIngUnit, setNewRecipe, setProdEdit, setRecipes, shopCats , usageCount } = ctx;
+  const { activeIngSuggest, addProdTag, allProductTags, commitIngAmount, commitNewIngAmount, deleteProductCatalog, infoOpen, ingDrafts, ingSuggest, marketChip, markets, openProd, prodById, prodEdit, products, removeProdTag, resolveIng, resolveNewIng, saveProductEdit, selectIngProduct, selectNewIngProduct, setActiveIngSuggest, setIngAmount, setIngDrafts, setIngSuggest, setIngTags, setIngUnit, setInfoOpen, setNewIngAmount, setNewIngUnit, setNewRecipe, setProdEdit, setRecipes, shopCats , usageCount } = ctx;
+  const infoBtn = makeInfoBtn(infoOpen, setInfoOpen);
 
   const renderProductCard = (rowKey) => {
     if (openProd !== rowKey || !prodEdit) return null;
@@ -4125,9 +4127,9 @@ function createSharedViews(ctx) {
     return (
       /*#__PURE__*/React.createElement("div", { "className": "px-3 py-3 bg-stone-50 border-t border-stone-100" }, /*#__PURE__*/React.createElement("div", { "className": "grid grid-cols-2 gap-2" }, /*#__PURE__*/React.createElement("label", { "className": "text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Naam")), /*#__PURE__*/React.createElement("input", { "className": "w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm", "value": prodEdit.name, "onChange": (e) => setProdEdit({ ...prodEdit, name: e.target.value }) })), /*#__PURE__*/React.createElement("label", { "className": "text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Categorie")), /*#__PURE__*/React.createElement("select", { "className": "w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm text-stone-600", "value": prodEdit.cat, "onChange": (e) => setProdEdit({ ...prodEdit, cat: e.target.value }) }, shopCats.map((c) => (/*#__PURE__*/React.createElement("option", { "key": c, "value": c }, c))), prodEdit.cat !== "overig" && !shopCats.includes(prodEdit.cat) && /*#__PURE__*/React.createElement("option", { "value": prodEdit.cat }, prodEdit.cat), /*#__PURE__*/React.createElement("option", { "value": "overig" }, __t("overig"))))), /*#__PURE__*/React.createElement("div", { "className": "grid grid-cols-2 gap-2 mt-2" }, /*#__PURE__*/React.createElement("label", { "className": "text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Eenheid (standaard bij dit product)")), /*#__PURE__*/React.createElement("select", { "className": "w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm text-stone-600", "value": prodEdit.unit || "", "onChange": (e) => setProdEdit({ ...prodEdit, unit: e.target.value || null }) }, /*#__PURE__*/React.createElement("option", { "value": "" }, "–"), UNITS.map((u) => (/*#__PURE__*/React.createElement("option", { "key": u, "value": u }, u))))), /*#__PURE__*/React.createElement("div", { "className": "text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Voorkeurssupermarkt")), /*#__PURE__*/React.createElement("div", { "className": "filterrow", "style": { marginTop: ".25rem" } }, /*#__PURE__*/React.createElement("button", { "className": `chip${!prodEdit.market ? " on" : ""}`, "onClick": () => setProdEdit({ ...prodEdit, market: null }) }, __t("geen")), markets.map((m) => (
                 /*#__PURE__*/React.createElement("button", { "key": m.key, "className": `chip${prodEdit.market === m.key ? " on" : ""}`, "onClick": () => setProdEdit({ ...prodEdit, market: m.key }) }, marketChip(m.key))
-              ))))), /*#__PURE__*/React.createElement("div", { "className": "grid grid-cols-2 gap-2 mt-2" }, /*#__PURE__*/React.createElement("label", { "className": "text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Inhoud per verpakking")), /*#__PURE__*/React.createElement("input", { "className": "w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm", "type": "number", "min": "0", "step": "any", "placeholder": __t("bijv. 500"), "value": prodEdit.packAmount || "", "onChange": (e) => setProdEdit({ ...prodEdit, packAmount: e.target.value }) })), /*#__PURE__*/React.createElement("label", { "className": "text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Eenheid van de inhoud")), /*#__PURE__*/React.createElement("select", { "className": "w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm text-stone-600", "value": prodEdit.packUnit || "", "onChange": (e) => setProdEdit({ ...prodEdit, packUnit: e.target.value }) }, /*#__PURE__*/React.createElement("option", { "value": "" }, "–"), UNITS.map((u) => (/*#__PURE__*/React.createElement("option", { "key": u, "value": u }, u)))))), /*#__PURE__*/React.createElement("div", { "className": "text-[10px] text-stone-400 mt-0.5" }, __t("#35: per 1 "), prodEdit.unit || "verpakking", " = ", prodEdit.packAmount || "…", " ", prodEdit.packUnit || "…", __t(" — boodschappenlijst toont alleen hele verpakkingen")), /*#__PURE__*/React.createElement("div", { "className": "mt-2 text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Timetag (optioneel, #58)")), /*#__PURE__*/React.createElement("div", { "className": "flex items-center gap-1 mt-0.5" }, /*#__PURE__*/React.createElement("input", { "className": "w-20 border rounded-lg px-2 py-1.5 text-sm", "type": "number", "min": "0", "max": "365", "step": "1", "value": prodEdit.timetagDraft ?? "0", "title": __t("Minimum aantal dagen tussen twee gebruiken van dit product in het weekmenu (0 = geen timetag, max 365)"), "onChange": (e) => setProdEdit({ ...prodEdit, timetagDraft: e.target.value }) }), /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("dagen")))), /*#__PURE__*/React.createElement("div", { "className": "mt-2 text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Tags")), /*#__PURE__*/React.createElement("div", { "className": "flex flex-wrap gap-1 mt-0.5" }, (prodEdit.tags || []).map((t) => (
-              /*#__PURE__*/React.createElement("span", { "key": t, "className": "tag" }, t, " ", /*#__PURE__*/React.createElement("button", { "className": "tagx", "onClick": () => removeProdTag(t) }, __t("\\u00d7")))
-            ))), /*#__PURE__*/React.createElement("div", { "className": "tagadd" }, /*#__PURE__*/React.createElement("input", { "value": prodEdit.tagDraft || "", "placeholder": __t("\\uff0b tag toevoegen\\u2026"), "list": "product-tags-list", "onChange": (e) => setProdEdit({ ...prodEdit, tagDraft: e.target.value }), "onKeyDown": (e) => { if (e.key === "Enter") { e.preventDefault(); addProdTag(); } } }), /*#__PURE__*/React.createElement("datalist", { "id": "product-tags-list" }, allProductTags.map((t) => (/*#__PURE__*/React.createElement("option", { "key": t, "value": t })))), /*#__PURE__*/React.createElement("button", { "onClick": addProdTag }, "+"))), /*#__PURE__*/React.createElement("div", { "className": "text-[10px] text-stone-400 mt-2" }, usageCount(p.id), __t("× gebruikt (recepten, voorraad, extra)")), /*#__PURE__*/React.createElement("div", { "className": "flex gap-2 mt-2" }, /*#__PURE__*/React.createElement("button", { "className": "flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold py-1.5 rounded-lg", "onClick": saveProductEdit }, __t("Opslaan")), /*#__PURE__*/React.createElement("button", { "className": "text-xs text-red-500 px-2", "title": __t("Uit catalogus verwijderen (koppelingen vallen terug op vrije tekst)"), "onClick": () => deleteProductCatalog(p.id) }, __t("Verwijderen"))))
+              ))))), /*#__PURE__*/React.createElement("div", { "className": "grid grid-cols-2 gap-2 mt-2" }, /*#__PURE__*/React.createElement("label", { "className": "text-xs relative" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Inhoud per verpakking")), infoBtn("pack", t("Per 1 {eenheid} = {inhoud} — de boodschappenlijst toont alleen hele verpakkingen.", { eenheid: prodEdit.unit || "verpakking", inhoud: `${prodEdit.packAmount || "…"} ${prodEdit.packUnit || "…"}` })), /*#__PURE__*/React.createElement("input", { "className": "w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm", "type": "number", "min": "0", "step": "any", "placeholder": __t("bijv. 500"), "value": prodEdit.packAmount || "", "onChange": (e) => setProdEdit({ ...prodEdit, packAmount: e.target.value }) })), /*#__PURE__*/React.createElement("label", { "className": "text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Eenheid van de inhoud")), /*#__PURE__*/React.createElement("select", { "className": "w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm text-stone-600", "value": prodEdit.packUnit || "", "onChange": (e) => setProdEdit({ ...prodEdit, packUnit: e.target.value }) }, /*#__PURE__*/React.createElement("option", { "value": "" }, "–"), UNITS.map((u) => (/*#__PURE__*/React.createElement("option", { "key": u, "value": u }, u)))))), /*#__PURE__*/React.createElement("div", { "className": "mt-2 text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Timetag")), /*#__PURE__*/React.createElement("div", { "className": "flex items-center gap-1 mt-0.5" }, /*#__PURE__*/React.createElement("input", { "className": "w-20 border rounded-lg px-2 py-1.5 text-sm", "type": "number", "min": "0", "max": "365", "step": "1", "value": prodEdit.timetagDraft ?? "0", "title": __t("Minimum aantal dagen tussen twee gebruiken van dit product in het weekmenu (0 = geen timetag, max 365)"), "onChange": (e) => setProdEdit({ ...prodEdit, timetagDraft: e.target.value }) }), /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("dagen")))), /*#__PURE__*/React.createElement("div", { "className": "mt-2 text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Tags")), /*#__PURE__*/React.createElement("div", { "className": "flex flex-wrap gap-1 mt-0.5" }, (prodEdit.tags || []).map((tg) => (
+              /*#__PURE__*/React.createElement("button", { "key": tg, "type": "button", "className": "tag", "title": __t("Tag verwijderen"), "onClick": () => removeProdTag(tg) }, tg)
+            ))), /*#__PURE__*/React.createElement("div", { "className": "tagadd" }, /*#__PURE__*/React.createElement("input", { "value": prodEdit.tagDraft || "", "autoCapitalize": "none", "list": "product-tags-list", "onChange": (e) => setProdEdit({ ...prodEdit, tagDraft: e.target.value }), "onKeyDown": (e) => { if (e.key === "Enter") { e.preventDefault(); addProdTag(); } } }), /*#__PURE__*/React.createElement("datalist", { "id": "product-tags-list" }, allProductTags.map((t) => (/*#__PURE__*/React.createElement("option", { "key": t, "value": t })))), /*#__PURE__*/React.createElement("button", { "onClick": addProdTag }, "+"))), /*#__PURE__*/React.createElement("div", { "className": "text-[10px] text-stone-400 mt-2" }, usageCount(p.id), __t("× gebruikt (recepten, voorraad, extra)")), /*#__PURE__*/React.createElement("div", { "className": "flex gap-2 mt-2" }, /*#__PURE__*/React.createElement("button", { "className": "flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold py-1.5 rounded-lg", "onClick": saveProductEdit }, __t("Opslaan")), /*#__PURE__*/React.createElement("button", { "className": "text-xs text-red-500 px-2", "title": __t("Uit catalogus verwijderen (koppelingen vallen terug op vrije tekst)"), "onClick": () => deleteProductCatalog(p.id) }, __t("Verwijderen"))))
     );
   };
 
@@ -4167,8 +4169,8 @@ function createSharedViews(ctx) {
                 /*#__PURE__*/React.createElement("div", { "key": s2.id, "className": `suggest-item${si === activeIngSuggest ? " active" : ""}`, "onMouseDown": (e) => { e.preventDefault(); selectIngProduct(rid, idx, s2); } }, /*#__PURE__*/React.createElement("span", null, highlightMatch(s2.name, q)), /*#__PURE__*/React.createElement("span", { "className": "text-[10px] text-stone-400 shrink-0" }, s2.cat, s2.unit ? ` · ${s2.unit}` : ""))
               )))
           )), typeof ing === "object" && ing && Array.isArray(ing.tags) && ing.tags.length > 0 && (
-          /*#__PURE__*/React.createElement("span", { "className": "shrink-0 flex gap-1" }, ing.tags.map((t) => (
-              /*#__PURE__*/React.createElement("span", { "key": t, "className": "tag", "title": __t("Per-recept tag (geldt alleen in dit recept, #59)") }, t, /*#__PURE__*/React.createElement("button", { "type": "button", "className": "tagx", "title": __t("Tag verwijderen"), "onClick": () => setIngTags(rid, idx, ing.tags.filter((x) => x !== t)) }, __t("\\u00d7")))
+          /*#__PURE__*/React.createElement("span", { "className": "shrink-0 flex gap-1" }, ing.tags.map((tg) => (
+              /*#__PURE__*/React.createElement("button", { "key": tg, "type": "button", "className": "tag", "title": __t("Per-recept tag (geldt alleen in dit recept) — klik om te verwijderen"), "onClick": () => setIngTags(rid, idx, ing.tags.filter((x) => x !== tg)) }, tg)
             )))
         ), /*#__PURE__*/React.createElement("button", { "type": "button", "className": "text-stone-300 hover:text-red-500 text-sm", "title": __t("Ingrediënt verwijderen"), "onClick": () => setRecipes((rs) => rs.map((r) => (r.id !== rid ? r : { ...r, ingredients: (r.ingredients || []).filter((_, j) => j !== idx) }))) }, "✕"))
     );
@@ -4215,6 +4217,7 @@ function createSharedViews(ctx) {
   return { renderProductCard, renderIngRow, renderNewIngRow };
 }
 
+exports.makeInfoBtn = makeInfoBtn;
 exports.highlightMatch = highlightMatch;
 exports.createSharedViews = createSharedViews;
 },
@@ -4302,9 +4305,9 @@ function createRecipesTab(ctx) {
                   /*#__PURE__*/React.createElement("button", { "key": c, "className": `chip${r.cat === c ? " on" : ""}`, "onClick": () => updateRecipe(r.id, { cat: c }) }, CAT_LABEL[c])
                 )))), /*#__PURE__*/React.createElement("div", { "className": "mt-3 text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Bereidingstijd")), /*#__PURE__*/React.createElement("div", { "className": "segl mt-0.5" }, TIME_CATS.map((tc) => (
                   /*#__PURE__*/React.createElement("button", { "key": tc, "className": (r.timeCat || "normaal") === tc ? "on" : "", "onClick": () => updateRecipe(r.id, { timeCat: tc }) }, timeLabelCap(tc))
-                )))), /*#__PURE__*/React.createElement("div", { "className": "mt-3 text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Tags")), /*#__PURE__*/React.createElement("div", { "className": "flex flex-wrap gap-1 mt-0.5" }, (r.tags || []).map((t) => (
-                  /*#__PURE__*/React.createElement("span", { "key": t, "className": "tag" }, t, " ", /*#__PURE__*/React.createElement("button", { "className": "tagx", "onClick": () => removeRecipeTag(r.id, t) }, __t("×")))
-                ))), /*#__PURE__*/React.createElement("div", { "className": "tagadd" }, /*#__PURE__*/React.createElement("input", { "value": tagDraft, "placeholder": __t("＋ tag toevoegen…"), "onChange": (e) => setTagDraft(e.target.value), "onKeyDown": (e) => { if (e.key === "Enter") { e.preventDefault(); addRecipeTag(r.id); } } }), /*#__PURE__*/React.createElement("button", { "onClick": () => addRecipeTag(r.id) }, "+"))), /*#__PURE__*/React.createElement("div", { "className": "mt-3 text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Ingrediënten")), /*#__PURE__*/React.createElement("div", { "className": "mt-1" }, (r.ingredients || []).map((ing, idx) => renderIngRow(r.id, ing, idx))), /*#__PURE__*/React.createElement("button", { "className": "addrow", "style": { border: "1px dashed var(--stone-300)", borderRadius: ".75rem", marginTop: ".4rem" }, "onClick": () => updateRecipe(r.id, { ingredients: [...(r.ingredients || []), { pid: null, amount: null, unit: null, name: "" }] }) }, __t("＋ Ingrediënt toevoegen"))), /*#__PURE__*/React.createElement("div", { "className": "mt-3 text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Bereiding")), /*#__PURE__*/React.createElement("textarea", { "rows": 4, "value": r.bereiding ?? "", "onChange": (e) => updateRecipe(r.id, { bereiding: e.target.value }), "className": "w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm" })), /*#__PURE__*/React.createElement("button", { "onClick": () => deleteRecipe(r.id), "className": "mt-2 text-xs text-red-500 hover:underline" }, __t("Recept verwijderen")))
+                )))), /*#__PURE__*/React.createElement("div", { "className": "mt-3 text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Tags")), /*#__PURE__*/React.createElement("div", { "className": "flex flex-wrap gap-1 mt-0.5" }, (r.tags || []).map((tg) => (
+                  /*#__PURE__*/React.createElement("button", { "key": tg, "type": "button", "className": "tag", "title": __t("Tag verwijderen"), "onClick": () => removeRecipeTag(r.id, tg) }, tg)
+                ))), /*#__PURE__*/React.createElement("div", { "className": "tagadd" }, /*#__PURE__*/React.createElement("input", { "value": tagDraft, "autoCapitalize": "none", "onChange": (e) => setTagDraft(e.target.value), "onKeyDown": (e) => { if (e.key === "Enter") { e.preventDefault(); addRecipeTag(r.id); } } }), /*#__PURE__*/React.createElement("button", { "onClick": () => addRecipeTag(r.id) }, "+"))), /*#__PURE__*/React.createElement("div", { "className": "mt-3 text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Ingrediënten")), /*#__PURE__*/React.createElement("div", { "className": "mt-1" }, (r.ingredients || []).map((ing, idx) => renderIngRow(r.id, ing, idx))), /*#__PURE__*/React.createElement("button", { "className": "addrow", "style": { border: "1px dashed var(--stone-300)", borderRadius: ".75rem", marginTop: ".4rem" }, "onClick": () => updateRecipe(r.id, { ingredients: [...(r.ingredients || []), { pid: null, amount: null, unit: null, name: "" }] }) }, __t("＋ Ingrediënt toevoegen"))), /*#__PURE__*/React.createElement("div", { "className": "mt-3 text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Bereiding")), /*#__PURE__*/React.createElement("textarea", { "rows": 4, "value": r.bereiding ?? "", "onChange": (e) => updateRecipe(r.id, { bereiding: e.target.value }), "className": "w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm" })), /*#__PURE__*/React.createElement("button", { "onClick": () => deleteRecipe(r.id), "className": "mt-2 text-xs text-red-500 hover:underline" }, __t("Recept verwijderen")))
         ))
     );
   };
@@ -4353,9 +4356,9 @@ function createRecipesTab(ctx) {
                     /*#__PURE__*/React.createElement("button", { "key": c, "className": `chip${newRecipe.cat === c ? " on" : ""}`, "onClick": () => setNewRecipe({ ...newRecipe, cat: c }) }, CAT_LABEL[c])
                   )))), /*#__PURE__*/React.createElement("div", { "className": "text-xs mb-3" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Bereidingstijd")), /*#__PURE__*/React.createElement("div", { "className": "segl mt-0.5" }, TIME_CATS.map((tc) => (
                     /*#__PURE__*/React.createElement("button", { "key": tc, "className": newRecipe.timeCat === tc ? "on" : "", "onClick": () => setNewRecipe({ ...newRecipe, timeCat: tc }) }, timeLabelCap(tc))
-                  )))), /*#__PURE__*/React.createElement("div", { "className": "text-xs mb-3" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Tags")), /*#__PURE__*/React.createElement("div", { "className": "flex flex-wrap gap-1 mt-0.5" }, newRecipe.tags.map((t) => (
-                    /*#__PURE__*/React.createElement("span", { "key": t, "className": "tag" }, t, " ", /*#__PURE__*/React.createElement("button", { "className": "tagx", "onClick": () => setNewRecipe({ ...newRecipe, tags: newRecipe.tags.filter((x) => x !== t) }) }, __t("×")))
-                  ))), /*#__PURE__*/React.createElement("div", { "className": "tagadd" }, /*#__PURE__*/React.createElement("input", { "value": newRecipe.tagDraft, "placeholder": __t("＋ tag toevoegen…"), "onChange": (e) => setNewRecipe({ ...newRecipe, tagDraft: e.target.value }), "onKeyDown": (e) => { if (e.key === "Enter") { e.preventDefault(); addNewTag(); } } }), /*#__PURE__*/React.createElement("button", { "onClick": addNewTag }, "+"))), /*#__PURE__*/React.createElement("div", { "className": "text-xs mb-3" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Ingrediënten")), /*#__PURE__*/React.createElement("div", { "className": "mt-1" }, (newRecipe.ingredients || []).map((ing, idx) => renderNewIngRow(ing, idx))), /*#__PURE__*/React.createElement("button", { "className": "addrow", "style": { border: "1px dashed var(--stone-300)", borderRadius: ".75rem", marginTop: ".4rem" }, "onClick": () => setNewRecipe({ ...newRecipe, ingredients: [...(newRecipe.ingredients || []), { pid: null, amount: null, unit: null, name: "" }] }) }, __t("＋ Ingrediënt toevoegen"))), /*#__PURE__*/React.createElement("div", { "className": "text-xs mb-3" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Bereiding (optioneel)")), /*#__PURE__*/React.createElement("textarea", { "rows": 2, "className": "w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm", "value": newRecipe.bereiding, "placeholder": __t("Bereiding…"), "onChange": (e) => setNewRecipe({ ...newRecipe, bereiding: e.target.value }) })), /*#__PURE__*/React.createElement("button", { "className": "w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl text-sm", "onClick": addRecipe }, __t("Toevoegen")))))
+                  )))), /*#__PURE__*/React.createElement("div", { "className": "text-xs mb-3" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Tags")), /*#__PURE__*/React.createElement("div", { "className": "flex flex-wrap gap-1 mt-0.5" }, newRecipe.tags.map((tg) => (
+                    /*#__PURE__*/React.createElement("button", { "key": tg, "type": "button", "className": "tag", "title": __t("Tag verwijderen"), "onClick": () => setNewRecipe({ ...newRecipe, tags: newRecipe.tags.filter((x) => x !== tg) }) }, tg)
+                  ))), /*#__PURE__*/React.createElement("div", { "className": "tagadd" }, /*#__PURE__*/React.createElement("input", { "value": newRecipe.tagDraft, "autoCapitalize": "none", "onChange": (e) => setNewRecipe({ ...newRecipe, tagDraft: e.target.value }), "onKeyDown": (e) => { if (e.key === "Enter") { e.preventDefault(); addNewTag(); } } }), /*#__PURE__*/React.createElement("button", { "onClick": addNewTag }, "+"))), /*#__PURE__*/React.createElement("div", { "className": "text-xs mb-3" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Ingrediënten")), /*#__PURE__*/React.createElement("div", { "className": "mt-1" }, (newRecipe.ingredients || []).map((ing, idx) => renderNewIngRow(ing, idx))), /*#__PURE__*/React.createElement("button", { "className": "addrow", "style": { border: "1px dashed var(--stone-300)", borderRadius: ".75rem", marginTop: ".4rem" }, "onClick": () => setNewRecipe({ ...newRecipe, ingredients: [...(newRecipe.ingredients || []), { pid: null, amount: null, unit: null, name: "" }] }) }, __t("＋ Ingrediënt toevoegen"))), /*#__PURE__*/React.createElement("div", { "className": "text-xs mb-3" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Bereiding (optioneel)")), /*#__PURE__*/React.createElement("textarea", { "rows": 2, "className": "w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm", "value": newRecipe.bereiding, "placeholder": __t("Bereiding…"), "onChange": (e) => setNewRecipe({ ...newRecipe, bereiding: e.target.value }) })), /*#__PURE__*/React.createElement("button", { "className": "w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl text-sm", "onClick": addRecipe }, __t("Toevoegen")))))
       ), daySheetRecipe && (
         /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", { "className": "backdrop", "onClick": () => setDaySheetRecipe(null) }), /*#__PURE__*/React.createElement("div", { "className": "sheet" }, /*#__PURE__*/React.createElement("div", { "className": "handle" }), /*#__PURE__*/React.createElement("div", { "className": "px-4 pb-4" }, /*#__PURE__*/React.createElement("div", { "className": "flex items-center mb-1" }, /*#__PURE__*/React.createElement("span", { "className": "text-lg font-bold" }, __t("Kies een dag deze week")), /*#__PURE__*/React.createElement("button", { "className": "ml-auto text-stone-400", "onClick": () => setDaySheetRecipe(null) }, "✕")), /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-500 mb-2" }, __t("Week van "), curWeekLabel, __t(" · alleen onvergrendelde dagen kiesbaar (🔒 = vastgezet)")), curWeekKeys.map((k, i) => {
                 const entry = menuByDate[k];
@@ -4457,7 +4460,7 @@ exports.createStockTab = createStockTab;
 // Gegenereerd uit de tab-renderfuncties; plain-functie-aanroepen (geen <Component/>),
 // zodat de test-harness de boom kan uitvouwen. Alle hooks zitten in state/store.js.
 const __imp0 = require("./components.jsx");
-const { createSharedViews } = __imp0;
+const { createSharedViews, makeInfoBtn } = __imp0;
 const __imp1 = require("../domain/catalog.js");
 const { matchProducts } = __imp1;
 const __imp2 = require("../domain/dates.js");
@@ -4469,7 +4472,8 @@ const { t } = __imp4;
 
 function createShoppingTab(ctx) {
   const { renderProductCard } = createSharedViews(ctx);
-  const { addCat, addExtraRowFn, anyScaled, catsOpen, checked, doneItems, extraItems, extraSuggest, listRows, marketChip, markets, maxShopDays, mealOk, mealWarn, moveCat, newCat, newExtra, openProdCard, processChecked, products, removeCat, scaledFactors, setCatsOpen, setChecked, setExtraItems, setExtraSuggest, setHiddenChecked, setNewCat, setNewExtra, setShopDays, setShopDone, setShopInfoOpen, setShopMarkets, setShowChecked, settings, shopCats, shopDaysEff, shopDone, shopInfoOpen, shopMarketsEff, showChecked, stock, todayLabel, totalItems, unfilteredCount, visibleRows } = ctx;
+  const { addCat, addExtraRowFn, anyScaled, catsOpen, checked, doneItems, extraItems, extraSuggest, infoOpen, listRows, marketChip, markets, maxShopDays, mealOk, mealWarn, moveCat, newCat, newExtra, openProdCard, processChecked, products, removeCat, scaledFactors, setCatsOpen, setChecked, setExtraItems, setExtraSuggest, setHiddenChecked, setInfoOpen, setNewCat, setNewExtra, setShopDays, setShopDone, setShopInfoOpen, setShopMarkets, setShowChecked, settings, shopCats, shopDaysEff, shopDone, shopInfoOpen, shopMarketsEff, showChecked, stock, todayLabel, totalItems, unfilteredCount, visibleRows } = ctx;
+  const infoBtn = makeInfoBtn(infoOpen, setInfoOpen);
 
   const renderShoppingTab = () => (
     /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", { "className": "flex items-center justify-between mb-2" }, /*#__PURE__*/React.createElement("span", { "className": "text-sm font-semibold text-stone-700" }, `Boodschappenlijst · ${todayLabel}`), /*#__PURE__*/React.createElement("span", { "className": "flex gap-1.5 relative" }, /*#__PURE__*/React.createElement("button", { "className": `iconbtn${shopInfoOpen ? " on" : ""}`, "title": __t("Hoe werkt de boodschappenlijst?"), "onClick": () => setShopInfoOpen((v) => !v) }, "ℹ️"), /*#__PURE__*/React.createElement("button", { "className": `iconbtn${catsOpen ? " on" : ""}`, "title": __t("Categorieën beheren"), "onClick": () => setCatsOpen((v) => !v) }, "⚙️"), shopInfoOpen && (
@@ -4481,12 +4485,12 @@ function createShoppingTab(ctx) {
                 )
                }, marketChip(m.key))
           )))), catsOpen && (
-        /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm p-3 mb-4" }, /*#__PURE__*/React.createElement("div", { "className": "text-sm font-semibold mb-1" }, __t("Categorieën")), /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-500 mb-2" }, __t("De volgorde is de volgorde op de boodschappenlijst. Een categorie zegt waar een artikel in de supermarkt ligt — tortilla en kroepoek horen daarom bij “(maaltijd)saus”.")), /*#__PURE__*/React.createElement("div", { "className": "divide-y divide-stone-100 border border-stone-100 rounded-xl" }, shopCats.map((c, i) => {
+        /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm p-3 mb-4" }, /*#__PURE__*/React.createElement("div", { "className": "text-sm font-semibold mb-1 flex items-center gap-1.5" }, __t("Categorieën"), infoBtn("cats", t("De volgorde is de volgorde op de boodschappenlijst. Een categorie zegt waar een artikel in de supermarkt ligt — tortilla en kroepoek horen daarom bij “(maaltijd)saus”."))), /*#__PURE__*/React.createElement("div", { "className": "divide-y divide-stone-100 border border-stone-100 rounded-xl" }, shopCats.map((c, i) => {
               const used = stock.some((s) => s.cat === c) || extraItems.some((x) => x.cat === c);
               return (
                 /*#__PURE__*/React.createElement("div", { "key": c, "className": "flex items-center gap-2 px-2 py-1.5" }, /*#__PURE__*/React.createElement("span", { "className": "flex flex-col leading-none shrink-0" }, /*#__PURE__*/React.createElement("button", { "className": "text-[9px] text-stone-400 hover:text-stone-700", "disabled": i === 0, "onClick": () => moveCat(i, -1) }, "▲"), /*#__PURE__*/React.createElement("button", { "className": "text-[9px] text-stone-400 hover:text-stone-700", "disabled": i === shopCats.length - 1, "onClick": () => moveCat(i, 1) }, "▼")), /*#__PURE__*/React.createElement("span", { "className": "flex-1 text-sm min-w-0 truncate" }, c), /*#__PURE__*/React.createElement("button", { "className": `text-sm ${used ? "text-stone-300" : "text-stone-300 hover:text-red-500"}`, "disabled": used, "title": used ? t("Verwijderen kan pas als er geen producten/artikelen meer in deze categorie zitten") : t("Categorie verwijderen"), "onClick": () => removeCat(c) }, "✕"))
               );
-            })), /*#__PURE__*/React.createElement("div", { "className": "flex gap-2 mt-2" }, /*#__PURE__*/React.createElement("input", { "value": newCat, "onChange": (e) => setNewCat(e.target.value), "placeholder": __t("Nieuwe categorie…"), "className": "flex-1 border rounded-lg px-2 py-1.5 text-sm", "onKeyDown": (e) => {
+            })), /*#__PURE__*/React.createElement("div", { "className": "flex gap-2 mt-2" }, /*#__PURE__*/React.createElement("input", { "value": newCat, "onChange": (e) => setNewCat(e.target.value), "placeholder": __t("Nieuwe categorie…"), "autoCapitalize": "none", "className": "flex-1 border rounded-lg px-2 py-1.5 text-sm", "onKeyDown": (e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
                   addCat();
@@ -4552,7 +4556,7 @@ exports.createShoppingTab = createShoppingTab;
 // Gegenereerd uit de tab-renderfuncties; plain-functie-aanroepen (geen <Component/>),
 // zodat de test-harness de boom kan uitvouwen. Alle hooks zitten in state/store.js.
 const __imp0 = require("./components.jsx");
-const { createSharedViews } = __imp0;
+const { createSharedViews, makeInfoBtn } = __imp0;
 const __imp1 = require("../i18n/index.js");
 const { LANGUAGES, dayNames, t } = __imp1;
 const __imp2 = require("../domain/settings.js");
@@ -4560,7 +4564,8 @@ const { THEMES } = __imp2;
 
 function createSettingsTab(ctx) {
   const { renderProductCard } = createSharedViews(ctx);
-  const { applyImportReview, catFilters, catOpen, days, deelChips, deelRapportLines, delenOpen, deleteProductCatalog, doMerge, exportShare, filteredProducts, fishDays, importReview, importShareFile, marketChip, markets, menuByDate, mergeGroup, mergeKanjerId, openMergeGroup, openProdCard, pnBadgeMap, pnDupGroups, prodQuery, products, recipes, setCatFilters, setCatOpen, setDeelChips, setDelenOpen, setImportReview, setMergeGroup, setMergeKanjerId, setProdQuery, setShareToast, settings, shareToast, shopCats, stock, updateMarket, updateSettings, updateTakeawayLink, usageCount } = ctx;
+  const { applyImportReview, catFilters, catOpen, days, deelChips, deelRapportLines, delenOpen, deleteProductCatalog, doMerge, exportShare, filteredProducts, fishDays, importReview, importShareFile, infoOpen, marketChip, markets, menuByDate, mergeGroup, mergeKanjerId, openMergeGroup, openProdCard, pnBadgeMap, pnDupGroups, prodQuery, products, recipes, setCatFilters, setCatOpen, setDeelChips, setDelenOpen, setImportReview, setInfoOpen, setMergeGroup, setMergeKanjerId, setProdQuery, setShareToast, settings, shareToast, shopCats, stock, updateMarket, updateSettings, updateTakeawayLink, usageCount } = ctx;
+  const infoBtn = makeInfoBtn(infoOpen, setInfoOpen);
 
   const renderDelenSheets = () => {
     const chipDefs = [
@@ -4594,11 +4599,11 @@ function createSettingsTab(ctx) {
   };
 
   const renderSettingsTab = () => (
-    /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", { "className": "mb-2 text-xs text-stone-500" }, __t("Instellingen per huishouden. Ze worden alleen lokaal op dit toestel bewaard (localStorage) en gelden direct voor het weekmenu en de boodschappenlijst. Dagindex 0 is de weekstart ("), days[0], ")."), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm p-4 mb-4" }, /*#__PURE__*/React.createElement("div", { "className": "text-sm font-medium mb-1" }, __t("Weergave")), /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-500 mb-2" }, __t("Thema van de app — lokaal opgeslagen per huishouden (#40).")), THEMES.map((th) => (
+    /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", { "className": "mb-2 text-xs text-stone-500 flex items-center gap-1.5" }, /*#__PURE__*/React.createElement("span", null, __t("Instellingen per huishouden")), infoBtn("algemeen", t("Ze worden alleen lokaal op dit toestel bewaard (localStorage) en gelden direct voor het weekmenu en de boodschappenlijst. Dagindex 0 is de weekstart ({dag}).", { dag: days[0] }))), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm p-4 mb-4" }, /*#__PURE__*/React.createElement("div", { "className": "text-sm font-medium mb-1 flex items-center gap-1.5" }, __t("Weergave"), infoBtn("thema", t("Thema van de app — lokaal opgeslagen per huishouden."))), THEMES.map((th) => (
           /*#__PURE__*/React.createElement("label", { "key": th.key, "className": "flex items-center gap-2 py-1.5 cursor-pointer text-sm", "title": t("Thema {thema}", { thema: t(th.label) }) }, /*#__PURE__*/React.createElement("input", { "type": "radio", "name": "theme", "checked": settings.theme === th.key, "onChange": () => updateSettings({ theme: th.key }), "className": "accent-emerald-600" }), /*#__PURE__*/React.createElement("span", { "className": settings.theme === th.key ? "font-semibold" : "text-stone-600" }, t(th.label)), /*#__PURE__*/React.createElement("span", { "className": "ml-auto flex gap-1" }, th.dots.map((dot, di) => (
                 /*#__PURE__*/React.createElement("span", { "key": di, "className": "inline-block w-4 h-4 rounded-full border border-stone-300", "style": { background: dot } })
               ))))
-        ))), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm p-4 mb-4" }, /*#__PURE__*/React.createElement("div", { "className": "text-sm font-medium mb-1" }, __t("Taal")), /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-500 mb-2" }, __t("Taal van de app (GUI) — lokaal opgeslagen per huishouden (ADR-023).")), LANGUAGES.map((ln) => (
+        ))), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm p-4 mb-4" }, /*#__PURE__*/React.createElement("div", { "className": "text-sm font-medium mb-1 flex items-center gap-1.5" }, __t("Taal"), infoBtn("taal", t("Taal van de app (GUI) — lokaal opgeslagen per huishouden."))), LANGUAGES.map((ln) => (
           /*#__PURE__*/React.createElement("label", { "key": ln.code, "className": "flex items-center gap-2 py-1.5 cursor-pointer text-sm", "title": t("Taal {taal}", { taal: ln.label }) }, /*#__PURE__*/React.createElement("input", { "type": "radio", "name": "language", "checked": settings.language === ln.code, "onChange": () => updateSettings({ language: ln.code }), "className": "accent-emerald-600" }), /*#__PURE__*/React.createElement("span", { "className": settings.language === ln.code ? "font-semibold" : "text-stone-600" }, ln.label), /*#__PURE__*/React.createElement("span", { "className": "ml-auto text-xs text-stone-400" }, ln.code))
         ))), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm p-4 mb-4" }, /*#__PURE__*/React.createElement("div", { "className": "text-sm font-medium mb-2" }, __t("Huishouden")), /*#__PURE__*/React.createElement("label", { "className": "flex items-center justify-between gap-2 text-sm mb-2" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-600" }, __t("Aantal eters")), /*#__PURE__*/React.createElement("input", { "type": "number", "min": "1", "value": settings.householdSize, "onChange": (e) => updateSettings({ householdSize: Math.max(1, Number(e.target.value) || 1) }), "className": "w-20 border rounded-lg px-2 py-1.5 text-sm text-center" })), /*#__PURE__*/React.createElement("label", { "className": "flex items-center justify-between gap-2 text-sm" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-600" }, __t("Week start op")), /*#__PURE__*/React.createElement("select", { "value": settings.weekStartDay, "onChange": (e) => updateSettings({ weekStartDay: Number(e.target.value) }), "className": "border rounded-lg px-2 py-1.5 text-sm text-stone-600" }, dayNames().map((d, i) => (
               /*#__PURE__*/React.createElement("option", { "key": d, "value": i }, d)
@@ -4608,10 +4613,10 @@ function createSettingsTab(ctx) {
                 , "className": "accent-emerald-600" }), d)
           ))), /*#__PURE__*/React.createElement("label", { "className": "flex items-center justify-between gap-2 text-sm" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-600" }, __t("Aantal vega-dagen (op niet-vis-dagen)")), /*#__PURE__*/React.createElement("input", { "type": "number", "min": "0", "max": "7", "value": settings.vegaTarget, "onChange": (e) => updateSettings({ vegaTarget: Math.max(0, Number(e.target.value) || 0) }), "className": "w-20 border rounded-lg px-2 py-1.5 text-sm text-center" }))), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm p-4 mb-4" }, /*#__PURE__*/React.createElement("div", { "className": "text-sm font-medium mb-2" }, __t("Supermarkten")), markets.map((m, mi) => (
           /*#__PURE__*/React.createElement("div", { "key": mi, "className": "flex gap-2 mb-2" }, /*#__PURE__*/React.createElement("input", { "value": m.key, "onChange": (e) => updateMarket(mi, { key: e.target.value }), "placeholder": __t("sleutel…"), "className": "w-20 border rounded-lg px-2 py-1.5 text-sm" }), /*#__PURE__*/React.createElement("input", { "value": m.label, "onChange": (e) => updateMarket(mi, { label: e.target.value }), "placeholder": __t("Naam…"), "className": "flex-1 border rounded-lg px-2 py-1.5 text-sm min-w-0" }), /*#__PURE__*/React.createElement("label", { "className": "flex items-center gap-1 text-[10px] text-stone-500 shrink-0 cursor-pointer", "title": __t("Standaard geselecteerd op de boodschappenlijst") }, /*#__PURE__*/React.createElement("input", { "type": "checkbox", "checked": m.defaultShop !== false, "onChange": (e) => updateMarket(mi, { defaultShop: e.target.checked }), "className": "accent-emerald-600" }), __t("standaard")), /*#__PURE__*/React.createElement("button", { "onClick": () => updateSettings({ markets: markets.filter((_, j) => j !== mi) }), "className": "text-stone-300 hover:text-red-500 text-sm px-1" }, "✕"))
-        )), /*#__PURE__*/React.createElement("button", { "onClick": () => updateSettings({ markets: [...markets, { key: "winkel" + (markets.length + 1), label: "Nieuwe winkel", defaultShop: true }] }), "className": "w-full py-2 border rounded-xl text-sm text-stone-500 hover:bg-white" }, __t("+ Supermarkt toevoegen"))), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm p-4 mb-4" }, /*#__PURE__*/React.createElement("div", { "className": "flex items-center gap-2" }, /*#__PURE__*/React.createElement("button", { "className": "iconbtn", "title": __t("Deelbestand maken (exporteren)"), "onClick": () => setDelenOpen("export") }, "📤"), /*#__PURE__*/React.createElement("label", { "className": "iconbtn cursor-pointer", "title": __t("Bestand overnemen (importeren)") }, "📥", /*#__PURE__*/React.createElement("input", { "type": "file", "accept": "application/json,.json", "className": "hidden", "onChange": (e) => { if (e.target.files && e.target.files[0]) importShareFile(e.target.files[0]); e.target.value = ""; } })), /*#__PURE__*/React.createElement("button", { "className": "iconbtn", "title": __t("Uitleg over delen via bestand"), "onClick": () => setDelenOpen("info") }, "ℹ️"))), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm p-4 mb-4" }, /*#__PURE__*/React.createElement("div", { "className": "text-sm font-medium mb-1" }, __t("🛵 Afhaalmaaltijden (bestelsites)")), /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-500 mb-2" }, __t("Deze linkjes verschijnen bij “Afwijking van het weekplan” → afhaalmaaltijd (#42). Alleen lokaal opgeslagen (ADR-010).")), (settings.takeawayLinks || []).map((l, i) => (
+        )), /*#__PURE__*/React.createElement("button", { "onClick": () => updateSettings({ markets: [...markets, { key: "winkel" + (markets.length + 1), label: "Nieuwe winkel", defaultShop: true }] }), "className": "w-full py-2 border rounded-xl text-sm text-stone-500 hover:bg-white" }, __t("+ Supermarkt toevoegen"))), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm p-4 mb-4" }, /*#__PURE__*/React.createElement("div", { "className": "flex items-center gap-2" }, /*#__PURE__*/React.createElement("button", { "className": "iconbtn", "title": __t("Deelbestand maken (exporteren)"), "onClick": () => setDelenOpen("export") }, "📤"), /*#__PURE__*/React.createElement("label", { "className": "iconbtn cursor-pointer", "title": __t("Bestand overnemen (importeren)") }, "📥", /*#__PURE__*/React.createElement("input", { "type": "file", "accept": "application/json,.json", "className": "hidden", "onChange": (e) => { if (e.target.files && e.target.files[0]) importShareFile(e.target.files[0]); e.target.value = ""; } })), /*#__PURE__*/React.createElement("button", { "className": "iconbtn", "title": __t("Uitleg over delen via bestand"), "onClick": () => setDelenOpen("info") }, "ℹ️"))), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm p-4 mb-4" }, /*#__PURE__*/React.createElement("div", { "className": "text-sm font-medium mb-1 flex items-center gap-1.5" }, __t("🛵 Afhaalmaaltijden (bestelsites)"), infoBtn("afhaal", t("Deze linkjes verschijnen bij “Afwijking van het weekplan” → afhaalmaaltijd. Alleen lokaal opgeslagen."))), (settings.takeawayLinks || []).map((l, i) => (
           /*#__PURE__*/React.createElement("div", { "key": l.id, "className": "flex gap-2 mb-2" }, /*#__PURE__*/React.createElement("input", { "value": l.label, "onChange": (e) => updateTakeawayLink(i, { label: e.target.value }), "placeholder": __t("Naam…"), "className": "w-32 border rounded-lg px-2 py-1.5 text-sm" }), /*#__PURE__*/React.createElement("input", { "value": l.url, "onChange": (e) => updateTakeawayLink(i, { url: e.target.value }), "placeholder": __t("URL…"), "className": "flex-1 border rounded-lg px-2 py-1.5 text-sm min-w-0" }), /*#__PURE__*/React.createElement("button", { "onClick": () => updateSettings({ takeawayLinks: (settings.takeawayLinks || []).filter((_, j) => j !== i) }), "className": "text-stone-300 hover:text-red-500 text-sm px-1", "title": __t("Bestelsite verwijderen") }, "✕"))
-        )), /*#__PURE__*/React.createElement("button", { "onClick": () => updateSettings({ takeawayLinks: [...(settings.takeawayLinks || []), { id: "tl-" + Date.now().toString(36), label: "Nieuwe bestelsite", url: "" }] }), "className": "w-full py-2 border rounded-xl text-sm text-stone-500 hover:bg-white" }, __t("+ Bestelsite toevoegen"))), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm p-4 mb-4" }, /*#__PURE__*/React.createElement("button", { "type": "button", "className": "w-full flex items-center gap-2 text-left", "onClick": () => setCatOpen((o) => !o), "title": __t("Productcatalogus in-/uitklappen (#44)") }, /*#__PURE__*/React.createElement("span", { "className": "text-sm font-medium" }, __t("📦 Productcatalogus")), /*#__PURE__*/React.createElement("span", { "className": "text-xs text-stone-400" }, products.length), /*#__PURE__*/React.createElement("span", { "className": "ml-auto text-xs text-stone-400" }, catOpen ? "▾" : "▸")), catOpen && (
-        /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-500 mb-2" }, `Elk ingrediënt, voorraadproduct en extra artikel is hier een product met categorie, eenheid en optionele winkelvoorkeur. Klik op een naam om te wijzigen; ✕ verwijdert het product uit de catalogus (koppelingen vallen terug op vrije tekst — handig bij typefouten).`), pnDupGroups.length > 0 && (
+        )), /*#__PURE__*/React.createElement("button", { "onClick": () => updateSettings({ takeawayLinks: [...(settings.takeawayLinks || []), { id: "tl-" + Date.now().toString(36), label: "Nieuwe bestelsite", url: "" }] }), "className": "w-full py-2 border rounded-xl text-sm text-stone-500 hover:bg-white" }, __t("+ Bestelsite toevoegen"))), /*#__PURE__*/React.createElement("div", { "className": "bg-white rounded-xl shadow-sm p-4 mb-4" }, /*#__PURE__*/React.createElement("div", { "className": "flex items-center gap-1" }, /*#__PURE__*/React.createElement("button", { "type": "button", "className": "flex-1 flex items-center gap-2 text-left", "onClick": () => setCatOpen((o) => !o), "title": __t("Productcatalogus in-/uitklappen") }, /*#__PURE__*/React.createElement("span", { "className": "text-sm font-medium" }, __t("📦 Productcatalogus")), /*#__PURE__*/React.createElement("span", { "className": "text-xs text-stone-400" }, products.length), /*#__PURE__*/React.createElement("span", { "className": "ml-auto text-xs text-stone-400" }, catOpen ? "▾" : "▸")), infoBtn("catalogus", t("Elk ingrediënt, voorraadproduct en extra artikel is hier een product met categorie, eenheid en optionele winkelvoorkeur. Klik op een naam om te wijzigen; ✕ verwijdert het product uit de catalogus (koppelingen vallen terug op vrije tekst — handig bij typefouten)."))), catOpen && (
+        /*#__PURE__*/React.createElement("div", null, pnDupGroups.length > 0 && (
           /*#__PURE__*/React.createElement("div", { "className": "border border-amber-200 bg-amber-50 rounded-xl px-3 py-2 mb-2 text-xs" }, /*#__PURE__*/React.createElement("div", { "className": "font-semibold mb-1" }, pnDupGroups.length, __t(" duplicaatgroep(en) gevonden")), pnDupGroups.map((g) => (
               /*#__PURE__*/React.createElement("div", { "key": g[0].id, "className": "flex items-center gap-2 py-0.5" }, /*#__PURE__*/React.createElement("span", { "className": "flex-1 min-w-0 truncate" }, g.map((p) => p.name).join(" \u00b7 ")), /*#__PURE__*/React.createElement("button", { "type": "button", "className": "chip", "onClick": () => openMergeGroup(g) }, __t("Samenvoegen\\u2026")))
             )))
@@ -4629,7 +4634,7 @@ function createSettingsTab(ctx) {
 
   // issue #59: merge-sheet (kanjer kiezen + bevestigen)
   const renderMergeSheet = () => (
-    /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", { "className": "backdrop", "onClick": () => setMergeGroup(null) }), /*#__PURE__*/React.createElement("div", { "className": "sheet" }, /*#__PURE__*/React.createElement("div", { "className": "handle" }), /*#__PURE__*/React.createElement("div", { "className": "px-4 pb-4" }, /*#__PURE__*/React.createElement("div", { "className": "flex items-center justify-between mb-2" }, /*#__PURE__*/React.createElement("div", { "className": "text-sm font-semibold" }, __t("Producten samenvoegen (#59)")), /*#__PURE__*/React.createElement("button", { "onClick": () => setMergeGroup(null), "className": "text-stone-400 px-1 text-lg leading-none" }, __t("\\u2715"))), /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-500 mb-2" }, __t("Kies de kanjer (het product dat behouden blijft). Recept-koppelingen gaan over naar de kanjer; varianten uit de benaming worden als per-recept tag voorgesteld.")), mergeGroup && mergeGroup.map((p) => (
+    /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", { "className": "backdrop", "onClick": () => setMergeGroup(null) }), /*#__PURE__*/React.createElement("div", { "className": "sheet" }, /*#__PURE__*/React.createElement("div", { "className": "handle" }), /*#__PURE__*/React.createElement("div", { "className": "px-4 pb-4" }, /*#__PURE__*/React.createElement("div", { "className": "flex items-center justify-between mb-2" }, /*#__PURE__*/React.createElement("div", { "className": "flex items-center gap-1.5" }, /*#__PURE__*/React.createElement("div", { "className": "text-sm font-semibold" }, __t("Producten samenvoegen")), infoBtn("merge", t("Kies de kanjer (het product dat behouden blijft). Recept-koppelingen gaan over naar de kanjer; varianten uit de benaming worden als per-recept tag voorgesteld."))), /*#__PURE__*/React.createElement("button", { "onClick": () => setMergeGroup(null), "className": "text-stone-400 px-1 text-lg leading-none" }, __t("\\u2715"))), mergeGroup && mergeGroup.map((p) => (
             /*#__PURE__*/React.createElement("label", { "key": p.id, "className": "flex items-center gap-2 py-1 text-sm" }, /*#__PURE__*/React.createElement("input", { "type": "radio", "name": "kanjer", "checked": mergeKanjerId === p.id, "onChange": () => setMergeKanjerId(p.id) }), /*#__PURE__*/React.createElement("span", { "className": "flex-1 min-w-0 truncate" }, p.name), /*#__PURE__*/React.createElement("span", { "className": "text-xs text-stone-400" }, usageCount(p.id), __t("\\u00d7")))
           )), /*#__PURE__*/React.createElement("div", { "className": "flex gap-2 mt-3" }, /*#__PURE__*/React.createElement("button", { "className": "btn-primary flex-1", "onClick": doMerge, "disabled": !mergeKanjerId }, __t("Samenvoegen")), /*#__PURE__*/React.createElement("button", { "className": "btn-ghost", "onClick": () => setMergeGroup(null) }, __t("Annuleren"))))))
   );

@@ -1,7 +1,7 @@
 // Gegenereerd uit de tab-renderfuncties; plain-functie-aanroepen (geen <Component/>),
 // zodat de test-harness de boom kan uitvouwen. Alle hooks zitten in state/store.js.
 import React from "react";
-import { createSharedViews } from "./components.jsx";
+import { createSharedViews, makeInfoBtn } from "./components.jsx";
 import { matchProducts } from "../domain/catalog.js";
 import { dayShortOf, fmtDay } from "../domain/dates.js";
 import { highlightMatch } from "./components.jsx";
@@ -9,7 +9,8 @@ import { t } from "../i18n/index.js";
 
 export function createShoppingTab(ctx) {
   const { renderProductCard } = createSharedViews(ctx);
-  const { addCat, addExtraRowFn, anyScaled, catsOpen, checked, doneItems, extraItems, extraSuggest, listRows, marketChip, markets, maxShopDays, mealOk, mealWarn, moveCat, newCat, newExtra, openProdCard, processChecked, products, removeCat, scaledFactors, setCatsOpen, setChecked, setExtraItems, setExtraSuggest, setHiddenChecked, setNewCat, setNewExtra, setShopDays, setShopDone, setShopInfoOpen, setShopMarkets, setShowChecked, settings, shopCats, shopDaysEff, shopDone, shopInfoOpen, shopMarketsEff, showChecked, stock, todayLabel, totalItems, unfilteredCount, visibleRows } = ctx;
+  const { addCat, addExtraRowFn, anyScaled, catsOpen, checked, doneItems, extraItems, extraSuggest, infoOpen, listRows, marketChip, markets, maxShopDays, mealOk, mealWarn, moveCat, newCat, newExtra, openProdCard, processChecked, products, removeCat, scaledFactors, setCatsOpen, setChecked, setExtraItems, setExtraSuggest, setHiddenChecked, setInfoOpen, setNewCat, setNewExtra, setShopDays, setShopDone, setShopInfoOpen, setShopMarkets, setShowChecked, settings, shopCats, shopDaysEff, shopDone, shopInfoOpen, shopMarketsEff, showChecked, stock, todayLabel, totalItems, unfilteredCount, visibleRows } = ctx;
+  const infoBtn = makeInfoBtn(infoOpen, setInfoOpen);
 
   const renderShoppingTab = () => (
     <div>
@@ -59,9 +60,9 @@ export function createShoppingTab(ctx) {
 
       {catsOpen && (
         <div className="bg-white rounded-xl shadow-sm p-3 mb-4">
-          <div className="text-sm font-semibold mb-1">Categorieën</div>
-          <div className="text-xs text-stone-500 mb-2">
-            De volgorde is de volgorde op de boodschappenlijst. Een categorie zegt waar een artikel in de supermarkt ligt — tortilla en kroepoek horen daarom bij “(maaltijd)saus”.
+          <div className="text-sm font-semibold mb-1 flex items-center gap-1.5">
+            Categorieën
+            {infoBtn("cats", t("De volgorde is de volgorde op de boodschappenlijst. Een categorie zegt waar een artikel in de supermarkt ligt — tortilla en kroepoek horen daarom bij “(maaltijd)saus”."))}
           </div>
           <div className="divide-y divide-stone-100 border border-stone-100 rounded-xl">
             {shopCats.map((c, i) => {
@@ -90,6 +91,7 @@ export function createShoppingTab(ctx) {
               value={newCat}
               onChange={(e) => setNewCat(e.target.value)}
               placeholder="Nieuwe categorie…"
+              autoCapitalize="none"
               className="flex-1 border rounded-lg px-2 py-1.5 text-sm"
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
