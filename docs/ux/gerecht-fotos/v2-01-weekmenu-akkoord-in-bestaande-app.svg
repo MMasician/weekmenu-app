@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844">
+<style>text { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Color Emoji', sans-serif; }</style>
+<defs>
+  <linearGradient id="foto1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fbbf24"/><stop offset="1" stop-color="#d97706"/></linearGradient>
+  <linearGradient id="foto2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6ee7b7"/><stop offset="1" stop-color="#059669"/></linearGradient>
+</defs>
+<rect width="390" height="844" fill="#fafaf9"/>
+<text x="16" y="46" font-size="22" font-weight="700" fill="#292524">Weekmenu &amp; Boodschappen</text>
+<text x="374" y="46" font-size="12" fill="#a8a29e" text-anchor="end">4 eters</text>
+<rect x="16" y="64" width="358" height="40" rx="12" fill="#fff" stroke="#f0efed"/>
+<rect x="20" y="68" width="68" height="32" rx="8" fill="#292524"/>
+<text x="54" y="83" font-size="13" text-anchor="middle">📅</text><text x="54" y="95" font-size="7.5" font-weight="600" fill="#fff" text-anchor="middle">Weekmenu</text>
+<text x="123" y="83" font-size="13" text-anchor="middle">📖</text><text x="195" y="83" font-size="13" text-anchor="middle">🛦</text><text x="266" y="83" font-size="13" text-anchor="middle">🛒</text><text x="338" y="83" font-size="13" text-anchor="middle">⚙️</text>
+<rect x="16" y="118" width="358" height="64" rx="12" fill="#fff" stroke="#f0efed"/>
+<text x="32" y="138" font-size="8" font-weight="600" fill="#a8a29e">VANDAAG</text>
+<text x="32" y="158" font-size="17" font-weight="700" fill="#292524">za 28-11</text>
+<rect x="262" y="134" width="100" height="28" rx="8" fill="#fff" stroke="#d6d3d1"/><text x="312" y="152" font-size="11" fill="#57534e" text-anchor="middle">📅 Kies een datum ▾</text>
+<text x="32" y="174" font-size="10" fill="#a8a29e">Week van za 22-11 – vr 28-11 2026</text>
+<rect x="16" y="192" width="358" height="34" rx="10" fill="#059669"/><text x="195" y="214" font-size="12" font-weight="600" fill="#fff" text-anchor="middle">Genereer weekmenu</text>
+<!-- dagkaart mét foto: thumbnail 44px links in de kaart (versie A) -->
+<rect x="16" y="238" width="358" height="64" rx="12" fill="#fff" stroke="#f0efed"/>
+<rect x="26" y="248" width="44" height="44" rx="8" fill="url(#foto1)"/>
+<text x="80" y="262" font-size="12" font-weight="600" fill="#292524">za</text><text x="80" y="276" font-size="9" fill="#a8a29e">28-11 · vandaag</text>
+<rect x="118" y="248" width="176" height="26" rx="8" fill="#fff" stroke="#d6d3d1"/><text x="126" y="265" font-size="11" fill="#292524">Pasta pesto pistache</text>
+<rect x="118" y="278" width="176" height="14" fill="none"/><text x="120" y="288" font-size="8" fill="#047857">vega</text><text x="150" y="288" font-size="8" fill="#78716c">normaal</text>
+<rect x="300" y="248" width="26" height="26" rx="8" fill="#f5f5f4"/><text x="313" y="265" font-size="11" text-anchor="middle">👥</text>
+<rect x="330" y="248" width="26" height="26" rx="8" fill="#fef3c7"/><text x="343" y="265" font-size="11" text-anchor="middle">🔒</text>
+<!-- dagkaart zónder foto: placeholder met camera-icoon -->
+<rect x="16" y="310" width="358" height="64" rx="12" fill="#fff" stroke="#f0efed"/>
+<rect x="26" y="320" width="44" height="44" rx="8" fill="#f5f5f4" stroke="#d6d3d1" stroke-dasharray="3 2"/><text x="48" y="346" font-size="16" text-anchor="middle">📷</text>
+<text x="80" y="334" font-size="12" font-weight="600" fill="#292524">zo</text><text x="80" y="348" font-size="9" fill="#a8a29e">29-11</text>
+<rect x="118" y="320" width="176" height="26" rx="8" fill="#fff" stroke="#d6d3d1"/><text x="126" y="337" font-size="11" fill="#292524">Hutspot</text>
+<rect x="118" y="350" width="176" height="14" fill="none"/><text x="120" y="360" font-size="8" fill="#b45309">vlees</text><text x="150" y="360" font-size="8" fill="#78716c">lang</text>
+<rect x="300" y="320" width="26" height="26" rx="8" fill="#f5f5f4"/><text x="313" y="337" font-size="11" text-anchor="middle">👥</text>
+<rect x="330" y="320" width="26" height="26" rx="8" fill="#f5f5f4"/><text x="343" y="337" font-size="11" text-anchor="middle">🔓</text>
+<!-- dagkaart mét foto -->
+<rect x="16" y="382" width="358" height="64" rx="12" fill="#fff" stroke="#f0efed"/>
+<rect x="26" y="392" width="44" height="44" rx="8" fill="url(#foto2)"/>
+<text x="80" y="406" font-size="12" font-weight="600" fill="#292524">ma</text><text x="80" y="420" font-size="9" fill="#a8a29e">30-11</text>
+<rect x="118" y="392" width="176" height="26" rx="8" fill="#fff" stroke="#d6d3d1"/><text x="126" y="409" font-size="11" fill="#292524">Thaise viscurry</text>
+<rect x="118" y="422" width="176" height="14" fill="none"/><text x="120" y="432" font-size="8" fill="#1e40af">vis</text><text x="140" y="432" font-size="8" fill="#78716c">normaal</text>
+<rect x="300" y="392" width="26" height="26" rx="8" fill="#f5f5f4"/><text x="313" y="409" font-size="11" text-anchor="middle">👥</text>
+<rect x="330" y="392" width="26" height="26" rx="8" fill="#fef3c7"/><text x="343" y="409" font-size="11" text-anchor="middle">🔒</text>
+<rect x="16" y="456" width="358" height="40" rx="12" fill="#fff" stroke="#e7e5e4"/><text x="195" y="480" font-size="12" fill="#57534e" text-anchor="middle">⚙️ Regels voor het weekmenu</text>
+<text x="195" y="824" font-size="9" fill="#d6d3d1" text-anchor="middle">❯ v2 weekmenu versie A (akkoord) in bestaande app: 44px thumbnail per gerecht op de dagkaart; zonder foto placeholder 📷</text>
+</svg>

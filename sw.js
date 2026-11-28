@@ -1,6 +1,6 @@
 /* Service worker: cache-first app shell zodat de geinstalleerde app volledig offline werkt.
    Bij een nieuwe release CACHE_VERSION ophogen. */
-const CACHE_VERSION = "weekmenu-app-v25"; // #48: Open Food Facts-module (src/openFoodFacts.js) in de app shell
+const CACHE_VERSION = "weekmenu-app-v26"; // #60 v2 foto-weergave + #48: Open Food Facts-module (src/openFoodFacts.js) in de app shell
 const sw = /** @type {ServiceWorkerGlobalScope} */ (/** @type {unknown} */ (self));
 const APP_SHELL = [
   "./",

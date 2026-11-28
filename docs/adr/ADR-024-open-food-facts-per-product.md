@@ -46,8 +46,8 @@ wordt genuanceerd: publieke, keyless data ophalen is toegestaan; privé-data bli
 5. **Foutafhandeling**: ongeldige EAN, onbekend product (status 0), lege zoekresultaten,
    netwerkfout/rate-limit (HTTP-fout) → duidelijke melding in de sheet met mogelijkheid tot
    handmatige invoer/andere zoekterm; offline zonder cache → melding, geen crash.
-6. **Cache-bumps**: `CACHE_VERSION` → `weekmenu-app-v25` in `sw.js` (incl. `src/openFoodFacts.js`
-   in APP_SHELL) en `?v=24` in `index.html`.
+6. **Cache-bumps**: `CACHE_VERSION` → `weekmenu-app-v26` in `sw.js` (incl. `src/openFoodFacts.js`
+   in APP_SHELL) en `?v=26` in `index.html`.
 
 ## Gevolgen
 + Per productkoppeling is éénmalig een publieke lookup nodig; daarna lokaal (localStorage +
