@@ -1,6 +1,24 @@
 // Gedeelde render-helpers (product-kaart, ingrediënt-rijen) + highlightMatch.
 import React from "react";
 import { UNITS, UNIT_GROUP, ingUnit, matchProducts } from "../domain/catalog.js";
+import { t } from "../i18n/index.js";
+
+// Klein informatieknopje (ℹ️) direct achter het onderwerp; popover met de uitleg verschijnt op aanvraag.
+export function makeInfoBtn(infoOpen, setInfoOpen) {
+  return (id, content) => (
+    <span className="relative inline-flex align-middle">
+      <button
+        type="button"
+        className={`iconbtn sm${infoOpen === id ? " on" : ""}`}
+        title="Uitleg"
+        onClick={(e) => { e.stopPropagation(); setInfoOpen(infoOpen === id ? null : id); }}
+      >
+        ℹ️
+      </button>
+      {infoOpen === id && <div className="pop">{content}</div>}
+    </span>
+  );
+}
 
 export function highlightMatch(name, q) {
   const i = name.toLowerCase().indexOf(q);
@@ -19,7 +37,8 @@ export function highlightMatch(name, q) {
 // vaste verpakkingen (blik/pak/zak/...) en tekst zonder getal blijven gelijk.
 
 export function createSharedViews(ctx) {
-  const { activeIngSuggest, addProdTag, allProductTags, commitIngAmount, commitNewIngAmount, deleteProductCatalog, ingDrafts, ingSuggest, marketChip, markets, openProd, prodById, prodEdit, products, removeProdTag, resolveIng, resolveNewIng, saveProductEdit, selectIngProduct, selectNewIngProduct, setActiveIngSuggest, setIngAmount, setIngDrafts, setIngSuggest, setIngTags, setIngUnit, setNewIngAmount, setNewIngUnit, setNewRecipe, setProdEdit, setRecipes, shopCats , usageCount } = ctx;
+  const { activeIngSuggest, addProdTag, allProductTags, commitIngAmount, commitNewIngAmount, deleteProductCatalog, infoOpen, ingDrafts, ingSuggest, marketChip, markets, openProd, prodById, prodEdit, products, removeProdTag, resolveIng, resolveNewIng, saveProductEdit, selectIngProduct, selectNewIngProduct, setActiveIngSuggest, setIngAmount, setIngDrafts, setIngSuggest, setIngTags, setIngUnit, setInfoOpen, setNewIngAmount, setNewIngUnit, setNewRecipe, setProdEdit, setRecipes, shopCats , usageCount } = ctx;
+  const infoBtn = makeInfoBtn(infoOpen, setInfoOpen);
 
   const renderProductCard = (rowKey) => {
     if (openProd !== rowKey || !prodEdit) return null;
@@ -60,8 +79,9 @@ export function createSharedViews(ctx) {
           </div>
         </div>
         <div className="grid grid-cols-2 gap-2 mt-2">
-          <label className="text-xs">
+          <label className="text-xs relative">
             <span className="text-stone-500">Inhoud per verpakking</span>
+            {infoBtn("pack", t("Per 1 {eenheid} = {inhoud} — de boodschappenlijst toont alleen hele verpakkingen.", { eenheid: prodEdit.unit || "verpakking", inhoud: `${prodEdit.packAmount || "…"} ${prodEdit.packUnit || "…"}` }))}
             <input className="w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm" type="number" min="0" step="any" placeholder="bijv. 500" value={prodEdit.packAmount || ""} onChange={(e) => setProdEdit({ ...prodEdit, packAmount: e.target.value })} />
           </label>
           <label className="text-xs">
@@ -72,9 +92,8 @@ export function createSharedViews(ctx) {
             </select>
           </label>
         </div>
-        <div className="text-[10px] text-stone-400 mt-0.5">#35: per 1 {prodEdit.unit || "verpakking"} = {prodEdit.packAmount || "…"} {prodEdit.packUnit || "…"} — boodschappenlijst toont alleen hele verpakkingen</div>
         <div className="mt-2 text-xs">
-          <span className="text-stone-500">Timetag (optioneel, #58)</span>
+          <span className="text-stone-500">Timetag</span>
           <div className="flex items-center gap-1 mt-0.5">
             <input
               className="w-20 border rounded-lg px-2 py-1.5 text-sm"
@@ -89,16 +108,14 @@ export function createSharedViews(ctx) {
         <div className="mt-2 text-xs">
           <span className="text-stone-500">Tags</span>
           <div className="flex flex-wrap gap-1 mt-0.5">
-            {(prodEdit.tags || []).map((t) => (
-              <span key={t} className="tag">
-                {t} <button className="tagx" onClick={() => removeProdTag(t)}>\u00d7</button>
-              </span>
+            {(prodEdit.tags || []).map((tg) => (
+              <button key={tg} type="button" className="tag" title="Tag verwijderen" onClick={() => removeProdTag(tg)}>{tg}</button>
             ))}
           </div>
           <div className="tagadd">
             <input
               value={prodEdit.tagDraft || ""}
-              placeholder="\uff0b tag toevoegen\u2026"
+              autoCapitalize="none"
               list="product-tags-list"
               onChange={(e) => setProdEdit({ ...prodEdit, tagDraft: e.target.value })}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addProdTag(); } }}
@@ -194,11 +211,8 @@ export function createSharedViews(ctx) {
         </span>
         {typeof ing === "object" && ing && Array.isArray(ing.tags) && ing.tags.length > 0 && (
           <span className="shrink-0 flex gap-1">
-            {ing.tags.map((t) => (
-              <span key={t} className="tag" title="Per-recept tag (geldt alleen in dit recept, #59)">
-                {t}
-                <button type="button" className="tagx" title="Tag verwijderen" onClick={() => setIngTags(rid, idx, ing.tags.filter((x) => x !== t))}>\u00d7</button>
-              </span>
+            {ing.tags.map((tg) => (
+              <button key={tg} type="button" className="tag" title="Per-recept tag (geldt alleen in dit recept) — klik om te verwijderen" onClick={() => setIngTags(rid, idx, ing.tags.filter((x) => x !== tg))}>{tg}</button>
             ))}
           </span>
         )}

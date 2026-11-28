@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844">
+<style>text { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Color Emoji', sans-serif; }</style>
+<rect width="390" height="844" fill="#fafaf9"/>
+<text x="16" y="46" font-size="22" fill="#292524" font-weight="700">Weekmenu &amp; Boodschappen</text>
+<rect x="16" y="64" width="358" height="40" rx="12" fill="#fff" stroke="#f0efed"/>
+<text x="52" y="89" font-size="9" fill="#78716c" text-anchor="middle">Weekmenu</text>
+<text x="123" y="89" font-size="9" fill="#78716c" text-anchor="middle">Recepten</text>
+<text x="195" y="89" font-size="9" fill="#78716c" text-anchor="middle">Voorraad</text>
+<rect x="231" y="68" width="68" height="32" rx="8" fill="#292524"/>
+<text x="265" y="89" font-size="9" fill="#fff" font-weight="600" text-anchor="middle">Boodschappen</text>
+<text x="338" y="89" font-size="8" fill="#78716c" text-anchor="middle">Instellingen</text>
+<text x="16" y="134" font-size="14" font-weight="600" fill="#44403c">Boodschappenlijst · za 22-11</text>
+<rect x="16" y="150" width="358" height="190" rx="12" fill="#fff" stroke="#f0efed"/>
+<text x="32" y="174" font-size="13" font-weight="600" fill="#292524">Categorieën</text><rect x="94" y="163" width="16" height="16" rx="4" fill="#fff" stroke="#d6d3d1"/><text x="102" y="175" font-size="9" text-anchor="middle">ℹ️</text>
+<text x="48" y="200" font-size="12" fill="#292524">▲</text><text x="48" y="212" font-size="12" fill="#a8a29e">▼</text><text x="64" y="208" font-size="12" fill="#292524">fruit</text>
+<text x="48" y="232" font-size="12" fill="#a8a29e">▲</text><text x="48" y="244" font-size="12" fill="#a8a29e">▼</text><text x="64" y="240" font-size="12" fill="#292524">groente</text>
+<text x="48" y="264" font-size="12" fill="#a8a29e">▲</text><text x="48" y="276" font-size="12" fill="#a8a29e">▼</text><text x="64" y="272" font-size="12" fill="#292524">zuivel</text>
+<text x="48" y="296" font-size="12" fill="#a8a29e">▲</text><text x="48" y="308" font-size="12" fill="#a8a29e">▼</text><text x="64" y="304" font-size="12" fill="#292524">snacks</text><text x="350" y="304" font-size="12" fill="#a8a29e">✕</text>
+<rect x="32" y="318" width="286" height="26" rx="8" fill="#fff" stroke="#d6d3d1"/><text x="40" y="335" font-size="11" fill="#292524">Limonade</text>
+<rect x="324" y="318" width="34" height="26" rx="8" fill="#fff" stroke="#d6d3d1"/><text x="341" y="335" font-size="13" fill="#78716c" text-anchor="middle">+</text>
+<rect x="16" y="356" width="358" height="150" rx="12" fill="#fff" stroke="#f0efed"/>
+<text x="32" y="380" font-size="11" fill="#78716c">Tags</text>
+<rect x="32" y="388" width="70" height="22" rx="4" fill="#f5f5f4"/><text x="44" y="403" font-size="11" fill="#57534e">vega</text>
+<rect x="108" y="388" width="96" height="22" rx="4" fill="#f5f5f4"/><text x="120" y="403" font-size="11" fill="#57534e">gehakt</text>
+<rect x="32" y="420" width="286" height="28" rx="8" fill="#fff" stroke="#d6d3d1"/><text x="40" y="439" font-size="11" fill="#292524">t</text><rect x="46" y="424" width="1.5" height="18" fill="#292524"/>
+<rect x="324" y="420" width="34" height="28" rx="8" fill="#fff" stroke="#d6d3d1"/><text x="341" y="439" font-size="13" fill="#78716c" text-anchor="middle">+</text>
+<text x="32" y="478" font-size="10" fill="#a8a29e">nieuwe tag begint met een kleine letter ("t"), categorie "Limonade" → "limonade"</text>
+<text x="195" y="824" font-size="9" fill="#d6d3d1" text-anchor="middle">❯ Tags en categorieën altijd kleine letters; invulveld zonder Caps Lock (autoCapitalize=none)</text>
+</svg>

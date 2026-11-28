@@ -188,13 +188,12 @@ const SEED59 = {
   const editBtn = t.btnByTitle("Recept bewerken");
   check("#59 UI: ✏️ 'Recept bewerken' aanwezig in receptenlijst", !!editBtn);
   editBtn.props.onClick();
-  const chip = t.findNode((n) => n.type === "span" && String(n.props.className || "").indexOf("tag") !== -1 && String(n.props.title || "").indexOf("Per-recept tag") !== -1);
-  check("#59 UI: tag-chip 'vol' op ingrediënt in bewerkmodus", !!chip && JSON.stringify(chip.children || []).indexOf("vol") !== -1);
-  const tagx = t.findNode((n) => n.type === "button" && n.props.className === "tagx" && n.props.title === "Tag verwijderen");
-  check("#59 UI: ×-knop (Tag verwijderen) op de ingrediënt-tag", !!tagx);
-  tagx.props.onClick();
+  const chip = t.findNode((n) => n.type === "button" && String(n.props.className || "") === "tag" && String(n.props.title || "").indexOf("Per-recept tag") !== -1);
+  check("#59 UI: tag-chip 'vol' op ingrediënt in bewerkmodus (knop, zonder ×)", !!chip && JSON.stringify(chip.children || []).indexOf("vol") !== -1);
+  check("#59 UI: geen aparte ×-knop (tagx) meer", !t.findNode((n) => n.props && n.props.className === "tagx"));
+  chip.props.onClick();
   const r = t.recipesState().find((x) => x.id === "r-pasta");
-  check("#59 UI: tag 'vol' verwijderd uit ingrediënt via × (setIngTags)", (r.ingredients[0].tags || []).length === 0);
+  check("#59 UI: tag 'vol' verwijderd uit ingrediënt via klik op de chip (setIngTags)", (r.ingredients[0].tags || []).length === 0);
   check("#59 UI: tag-chip uit de UI verdwenen", t.html().indexOf("Per-recept tag") === -1);
 }
 

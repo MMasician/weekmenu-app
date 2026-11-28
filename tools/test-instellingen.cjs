@@ -279,5 +279,38 @@ function make(seed) {
   check("#40: ongeldige theme wordt genormaliseerd naar 'standaard'", t3.settingsState().theme === "standaard");
 }
 
+// ---------- Tekstminimalisatie: geen issue/ADR-refs in beeld; uitleg achter ℹ️-knopje; kleine letters ----------
+{
+  const t = make({});
+  t.findTab("Instellingen").props.onClick();
+  const h = t.html();
+  const texts = [];
+  t.walk(t.render(), (n) => {
+    if (typeof n === "string") texts.push(n);
+    if (n && n.props) ["title", "placeholder", "aria-label"].forEach((k) => { if (typeof n.props[k] === "string") texts.push(n.props[k]); });
+  });
+  check("geen issue-/ADR-verwijzingen in beeld op Instellingen", !/#\d+|ADR-\d+/.test(texts.join("\n")));
+  check("geen lange uitlegteksten meer onder de kopjes", h.indexOf("localStorage) en gelden") === -1 && h.indexOf("lokaal opgeslagen per huishouden") === -1);
+  const infoBtns = [];
+  t.walk(t.render(), (n) => { if (n && n.type === "button" && String(n.props.className || "").indexOf("iconbtn sm") !== -1) infoBtns.push(n); });
+  check("kleine ℹ️-knopjes achter de onderwerpen aanwezig", infoBtns.length >= 4);
+  check("uitleg niet standaard in beeld", h.indexOf("Ze worden alleen lokaal op dit toestel bewaard") === -1);
+  infoBtns[0].props.onClick({ stopPropagation() {} });
+  check("uitleg opvraagbaar via ℹ️-popover", t.html().indexOf("Ze worden alleen lokaal op dit toestel bewaard") !== -1);
+}
+{
+  const t = make({ settings: { shopCats: ["Fruit", "ZUIVEL"] } });
+  t.render();
+  check("bestaande categorieën worden kleine letters bij laden", JSON.stringify(t.settingsState().shopCats) === JSON.stringify(["fruit", "zuivel"]));
+}
+{
+  const t = make({ recipes: [{ id: "x1", name: "Testgerecht", cat: "vega", tags: ["Pasta", "VEGA"], ingredients: [{ pid: null, name: "kaas", amount: 1, unit: null, tags: ["Oud"] }], bereiding: "" }] });
+  t.render();
+  const recs = t.m.hooks.state.find((x) => Array.isArray(x) && x.some((z) => z && z.id === "x1"));
+  const r = recs && recs.find((z) => z.id === "x1");
+  check("bestaande recept-tags worden kleine letters bij laden", !!r && JSON.stringify(r.tags) === JSON.stringify(["pasta", "vega"]));
+  check("bestaande per-ingrediënt-tags worden kleine letters bij laden", !!r && JSON.stringify(r.ingredients[0].tags) === JSON.stringify(["oud"]));
+}
+
 console.log(fails === 0 ? "ALLE TESTS GESLAAGD" : fails + " TEST(S) GEFAALD");
 process.exit(fails === 0 ? 0 : 1);

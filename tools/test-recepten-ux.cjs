@@ -253,12 +253,14 @@ function make(seed) {
   t.seglButton("Lang").props.onClick();
   check("tijd van r17 gewijzigd naar lang", t.recipesState().find((r) => r.id === "r17").timeCat === "lang");
   const tagInp = t.nodesWithClass("tagadd")[0].children.find((c) => c && c.type === "input");
+  check("leeg tagveld toont geen placeholder + autoCapitalize=none", !tagInp.props.placeholder && tagInp.props.autoCapitalize === "none");
   tagInp.props.onChange({ target: { value: "vers" } });
   t.nodesWithClass("tagadd")[0].children.find((c) => c && c.type === "button").props.onClick();
   check("tag 'vers' toegevoegd aan r17", t.recipesState().find((r) => r.id === "r17").tags.includes("vers"));
-  check("tag-chip met × in het formulier", !!t.nodesWithClass("tagx")[0]);
-  t.nodesWithClass("tagx")[0].props.onClick();
-  check("tag 'vers' weer verwijderd via ×", !t.recipesState().find((r) => r.id === "r17").tags.includes("vers"));
+  const chipBtn = t.nodesWithClass("tag").find((n) => n.type === "button" && String(n.props.className || "") === "tag" && JSON.stringify(n.children || []).indexOf("vers") !== -1);
+  check("tag-chip in het formulier is een knop zonder × (title 'Tag verwijderen')", !!chipBtn && chipBtn.props.title === "Tag verwijderen" && t.nodesWithClass("tagx").length === 0);
+  chipBtn.props.onClick();
+  check("tag 'vers' weer verwijderd via klik op de chip", !t.recipesState().find((r) => r.id === "r17").tags.includes("vers"));
 }
 
 // 9. Weekmenu-dagregel: tijd-badge ipv minuten, geen kok.

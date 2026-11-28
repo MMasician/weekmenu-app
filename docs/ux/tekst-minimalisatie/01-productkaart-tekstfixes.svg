@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844">
+<style>text { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Color Emoji', sans-serif; }</style>
+<rect width="390" height="844" fill="#fafaf9"/>
+<text x="16" y="46" font-size="22" fill="#292524" font-weight="700">Weekmenu &amp; Boodschappen</text>
+<text x="374" y="46" font-size="12" fill="#a8a29e" text-anchor="end">4 eters</text>
+<rect x="16" y="64" width="358" height="40" rx="12" fill="#fff" stroke="#f0efed"/>
+<text x="52" y="89" font-size="9" fill="#78716c" text-anchor="middle">Weekmenu</text>
+<text x="123" y="89" font-size="9" fill="#78716c" text-anchor="middle">Recepten</text>
+<text x="195" y="89" font-size="9" fill="#78716c" text-anchor="middle">Voorraad</text>
+<text x="265" y="89" font-size="9" fill="#78716c" text-anchor="middle">Boodschappen</text>
+<rect x="299" y="68" width="75" height="32" rx="8" fill="#292524"/>
+<text x="336" y="89" font-size="9" fill="#fff" font-weight="600" text-anchor="middle">Instellingen</text>
+<text x="16" y="134" font-size="14" font-weight="600" fill="#44403c">Instellingen</text>
+<rect x="16" y="152" width="358" height="470" rx="12" fill="#fff" stroke="#f0efed"/>
+<text x="32" y="176" font-size="11" fill="#78716c">Naam</text>
+<rect x="32" y="182" width="153" height="26" rx="8" fill="#fff" stroke="#d6d3d1"/><text x="40" y="199" font-size="12" fill="#292524">Kipgehakt</text>
+<text x="197" y="176" font-size="11" fill="#78716c">Categorie</text>
+<rect x="197" y="182" width="153" height="26" rx="8" fill="#fff" stroke="#d6d3d1"/><text x="205" y="199" font-size="12" fill="#57534e">vlees/vis</text><text x="340" y="199" font-size="10" fill="#a8a29e">▾</text>
+<text x="32" y="230" font-size="11" fill="#78716c">Inhoud per verpakking</text><rect x="158" y="220" width="16" height="16" rx="4" fill="#fff" stroke="#d6d3d1"/><text x="166" y="232" font-size="9" text-anchor="middle">ℹ️</text>
+<rect x="32" y="236" width="153" height="26" rx="8" fill="#fff" stroke="#d6d3d1"/><text x="40" y="253" font-size="12" fill="#57534e">bijv. 500</text>
+<text x="197" y="230" font-size="11" fill="#78716c">Eenheid van de inhoud</text>
+<rect x="197" y="236" width="153" height="26" rx="8" fill="#fff" stroke="#d6d3d1"/><text x="205" y="253" font-size="12" fill="#57534e">–</text><text x="340" y="253" font-size="10" fill="#a8a29e">▾</text>
+<text x="32" y="292" font-size="11" fill="#78716c">Timetag</text>
+<rect x="32" y="298" width="52" height="26" rx="8" fill="#fff" stroke="#d6d3d1"/><text x="58" y="315" font-size="12" fill="#292524" text-anchor="middle">3</text>
+<text x="92" y="315" font-size="11" fill="#78716c">dagen</text>
+<text x="32" y="352" font-size="11" fill="#78716c">Tags</text>
+<rect x="32" y="360" width="74" height="22" rx="4" fill="#f5f5f4"/><text x="44" y="375" font-size="11" fill="#57534e">gehakt</text>
+<rect x="112" y="360" width="86" height="22" rx="4" fill="#f5f5f4"/><text x="124" y="375" font-size="11" fill="#57534e"> tapas</text>
+<rect x="32" y="392" width="238" height="28" rx="8" fill="#fff" stroke="#d6d3d1"/>
+<rect x="276" y="392" width="34" height="28" rx="8" fill="#fff" stroke="#d6d3d1"/><text x="293" y="411" font-size="13" fill="#78716c" text-anchor="middle">+</text>
+<text x="32" y="446" font-size="10" fill="#a8a29e">4× gebruikt (recepten, voorraad, extra)</text>
+<rect x="32" y="460" width="200" height="30" rx="10" fill="#059669"/><text x="132" y="480" font-size="12" font-weight="600" fill="#fff" text-anchor="middle">Opslaan</text>
+<text x="252" y="480" font-size="11" fill="#ef4444">Verwijderen</text>
+<text x="195" y="824" font-size="9" fill="#d6d3d1" text-anchor="middle">❯ Product-kaart: geen "+ tag toevoegen…", geen × achter tags, label "Timetag"</text>
+</svg>

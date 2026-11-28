@@ -202,7 +202,9 @@ input, select, textarea { font: inherit; }
 .count { font-size: .75rem; color: var(--stone-500); margin-left: auto; }
 .tag { display: inline-flex; align-items: center; gap: .25rem; font-size: 10px; padding: .125rem .375rem;
   border-radius: .25rem; background: var(--stone-100); color: var(--stone-600); font-weight: 500; }
-.tagx { background: none; border: none; color: var(--stone-400); font-weight: 700; padding: 0; font-size: 10px; }
+button.tag { border: none; cursor: pointer; }
+button.tag:hover { background: var(--stone-300); color: var(--stone-700); }
+.iconbtn.sm { width: 1.05rem; height: 1.05rem; font-size: .6rem; border-radius: .35rem; }
 .tb { font-size: 10px; padding: .125rem .375rem; border-radius: .25rem; font-weight: 600; white-space: nowrap; }
 .tb-kort { background: var(--emerald-100); color: var(--emerald-700); }
 .tb-normaal { background: var(--stone-100); color: var(--stone-500); }

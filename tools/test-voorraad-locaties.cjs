@@ -181,9 +181,12 @@ function make(seed) {
   t.btnByTitle("Categorieën beheren").props.onClick();
   h2 = t.html();
   check("categorieënpaneel opent met alle categorieën", h2.indexOf("Categorieën") !== -1 && h2.indexOf("(maaltijd)saus") !== -1);
-  t.inputByPlaceholder("Nieuwe categorie").props.onChange({ target: { value: "snacks" } });
+  check("uitleg staat achter ℹ️-knopje, niet als vaste tekst", h2.indexOf("De volgorde is de volgorde") === -1 && !!t.findBtn((n) => n.props && String(n.props.className || "").indexOf("iconbtn sm") !== -1));
+  const catInp = t.inputByPlaceholder("Nieuwe categorie");
+  check("categorieveld begint met een kleine letter (autoCapitalize=\"none\")", catInp.props.autoCapitalize === "none");
+  catInp.props.onChange({ target: { value: "Snacks" } });
   t.btnByText("＋").props.onClick();
-  check("categorie 'snacks' toegevoegd aan settings.shopCats", t.settingsState().shopCats.includes("snacks"));
+  check("nieuwe categorie wordt in kleine letters opgeslagen ('snacks')", t.settingsState().shopCats.includes("snacks") && !t.settingsState().shopCats.includes("Snacks"));
   const firstDown = t.findBtn((n) => n.children && n.children[0] === "▼" && !n.props.disabled);
   firstDown.props.onClick();
   check("volgorde aanpasbaar (eerste categorie schuift omlaag)", t.settingsState().shopCats[0] === "groente" && t.settingsState().shopCats[1] === "fruit");

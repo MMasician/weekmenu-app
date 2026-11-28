@@ -482,6 +482,7 @@ export function createMenuTab(ctx) {
                 className="w-full min-w-0 border rounded-lg px-2 py-1.5 text-xs"
                 value={ruleDraft.tag}
                 placeholder="tag…"
+                autoCapitalize="none"
                 list="tagrules-tags"
                 onChange={(e) => setRuleDraft({ ...ruleDraft, tag: e.target.value })}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTagRule(); } }}

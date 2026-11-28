@@ -201,7 +201,7 @@ const SEED = {
   let h = t.html();
   check("Productcatalogus-kaart op Instellingen", h.indexOf("Productcatalogus") !== -1);
   check("#44: catalogus initieel ingeklapt (geen zoekveld/lijst zichtbaar)", !t.inputByPlaceholder("Zoek product…") && !t.findBtn((n) => n.props.className === "prodlink"));
-  t.btnByTitle("Productcatalogus in-/uitklappen (#44)").props.onClick();
+  t.btnByTitle("Productcatalogus in-/uitklappen").props.onClick();
   check("#44: na klik op de accordion-rij is de catalogus uitgeklapt", !!t.inputByPlaceholder("Zoek product…") && !!t.findBtn((n) => n.props.className === "prodlink"));
   const search = t.inputByPlaceholder("Zoek product…");
   check("zoekveld aanwezig", !!search);
@@ -234,6 +234,8 @@ const SEED = {
   check("#37: product-kaart heeft tagadd-veld (zelfde markup als recepten)", !!tagAdd);
   let inp = null;
   t.walk(tagAdd, (n) => { if (n && n.type === "input" && !inp) inp = n; });
+  check("leeg tagveld toont helemaal geen tekst (geen placeholder)", !inp.props.placeholder);
+  check("tagveld begint met een kleine letter (autoCapitalize=\"none\")", inp.props.autoCapitalize === "none");
   inp.props.onChange({ target: { value: "TestTag" } });
   let plus = null; // her-render + opnieuw zoeken (hooks: handler sluit over actuele state)
   tagAdd = null;
@@ -242,6 +244,12 @@ const SEED = {
   plus.props.onClick();
   let h = t.html();
   check("#37: tag-chip verschijnt in de kaart (genormaliseerd naar lowercase)", h.indexOf("testtag") !== -1);
+  let chipBtn = null, hasTagx = false;
+  t.walk(t.render(), (n) => {
+    if (n && n.props && n.type === "button" && String(n.props.className || "") === "tag" && JSON.stringify(n.children || []).indexOf("testtag") !== -1) chipBtn = n;
+    if (n && n.props && String(n.props.className || "") === "tagx") hasTagx = true;
+  });
+  check("tag-chip is een knop zonder × (title 'Tag verwijderen')", !!chipBtn && chipBtn.props.title === "Tag verwijderen" && !hasTagx);
   t.btnByText("Opslaan").props.onClick();
   const prod = t.productsState().find((p) => p.name.toLowerCase().includes("kokosmelk"));
   check("#37: tag opgeslagen op het product (tags: ['testtag'])", !!prod && (prod.tags || []).includes("testtag"));
@@ -254,11 +262,19 @@ const SEED = {
   const prods0 = t.productsState();
   check("#35: normalizeProducts vult pack: null aan bij ontbrekend pack", prods0.every((p2) => "pack" in p2) && prods0.every((p2) => p2.pack === null));
   t.findTab("Instellingen").props.onClick();
-  t.btnByTitle("Productcatalogus in-/uitklappen (#44)").props.onClick(); // catalogus uitklappen
+  t.btnByTitle("Productcatalogus in-/uitklappen").props.onClick(); // catalogus uitklappen
   const link = t.findBtn((n) => n.props.className === "prodlink" && JSON.stringify(n.children || []).indexOf("kokosmelk") !== -1);
   link.props.onClick();
   let h = t.html();
   check("#35: product-kaart heeft 'Inhoud per verpakking'-velden", h.indexOf("Inhoud per verpakking") !== -1 && h.indexOf("Eenheid van de inhoud") !== -1);
+  check("label is 'Timetag' zonder (optioneel, #58)", h.indexOf("Timetag") !== -1 && h.indexOf("optioneel, #58") === -1);
+  check("geen zichtbare #35-uitlegregel meer in de kaart", h.indexOf("#35: per 1") === -1);
+  let packLbl = null;
+  t.walk(t.render(), (n) => { if (!packLbl && n && n.props && n.type === "label" && JSON.stringify(serialize(n)).indexOf("Inhoud per verpakking") !== -1) packLbl = n; });
+  const packInfo = packLbl && t.childIn(packLbl, (n) => n && n.type === "button" && String(n.props.className || "").indexOf("iconbtn sm") !== -1 && n.props.title === "Uitleg");
+  check("klein ℹ️-knopje direct achter 'Inhoud per verpakking'", !!packInfo);
+  packInfo.props.onClick({ stopPropagation() {} });
+  check("uitleg over hele verpakkingen opvraagbaar via ℹ️-popover", t.html().indexOf("alleen hele verpakkingen") !== -1);
   const packInput = t.inputByPlaceholder("bijv. 500");
   check("#35: getalveld voor inhoud aanwezig", !!packInput);
   packInput.props.onChange({ target: { value: "500" } });
@@ -286,6 +302,30 @@ const SEED = {
   const t1 = t.recipesState().find((r) => r.id === "t1");
   const komijn = t1.ingredients.find((x) => typeof x === "object" && x.name && x.name.toLowerCase().indexOf("komijn") !== -1);
   check("#35: 0,5 tl -> ml converteert amount mee (0,5 tl = 2,5 ml)", !!komijn && komijn.unit === "ml" && Math.abs(komijn.amount - 2.5) < 1e-9);
+}
+
+// ---------- 9. Tags en categorieën altijd in kleine letters (bestaande data wordt bij laden aangepast) ----------
+{
+  const t = make({
+    settings: { shopCats: ["Fruit", "ZUIVEL", "groente"] },
+    products: [{ id: "p1", name: "Kokosmelk", cat: "Conserven", tags: ["Vloeibaar", "Kokos"] }],
+    stock: [{ name: "Melk", loc: "loc-koel", cat: "Zuivel", want: 1, have: 1 }],
+    extraItems: [{ name: "Chips", cat: "Lekkers", amount: 1, unit: null }],
+    recipes: [{ id: "x1", name: "Testgerecht", cat: "vega", tags: ["Pasta", "VEGA"], ingredients: [{ pid: null, name: "kaas", amount: 1, unit: null, tags: ["Oud"] }], bereiding: "" }],
+  });
+  const st = t.m.hooks.state.find((x) => x && !Array.isArray(x) && typeof x === "object" && "householdSize" in x);
+  check("shopCats in kleine letters na laden", JSON.stringify(st.shopCats) === JSON.stringify(["fruit", "zuivel", "groente"]));
+  const prod = t.productsState().find((p) => p.id === "p1");
+  check("product-categorie in kleine letters na laden", !!prod && prod.cat === "conserven");
+  check("product-tags in kleine letters na laden", !!prod && JSON.stringify(prod.tags) === JSON.stringify(["vloeibaar", "kokos"]));
+  const stock = t.m.hooks.state.find((x) => Array.isArray(x) && x.length && x[0] && "have" in x[0]);
+  check("voorraad-categorie in kleine letters na laden", !!stock && stock[0].cat === "zuivel");
+  const extra = t.m.hooks.state.find((x) => Array.isArray(x) && x.length && x[0] && "amount" in x[0] && "name" in x[0]);
+  check("extra-artikel-categorie in kleine letters na laden", !!extra && extra[0].cat === "lekkers");
+  const recs = t.m.hooks.state.find((x) => Array.isArray(x) && x.some((z) => z && z.id === "x1"));
+  const r = recs && recs.find((z) => z.id === "x1");
+  check("recept-tags in kleine letters na laden", !!r && JSON.stringify(r.tags) === JSON.stringify(["pasta", "vega"]));
+  check("per-ingrediënt-tags in kleine letters na laden", !!r && JSON.stringify(r.ingredients[0].tags) === JSON.stringify(["oud"]));
 }
 
 console.log(fails === 0 ? "\nALLE PRODUCTCATALOGUS-TESTS GESLAAGD" : `\n${fails} TEST(S) GEFAALD`);

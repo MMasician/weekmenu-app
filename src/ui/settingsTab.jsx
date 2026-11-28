@@ -1,13 +1,14 @@
 // Gegenereerd uit de tab-renderfuncties; plain-functie-aanroepen (geen <Component/>),
 // zodat de test-harness de boom kan uitvouwen. Alle hooks zitten in state/store.js.
 import React from "react";
-import { createSharedViews } from "./components.jsx";
+import { createSharedViews, makeInfoBtn } from "./components.jsx";
 import { LANGUAGES, dayNames, t } from "../i18n/index.js";
 import { THEMES } from "../domain/settings.js";
 
 export function createSettingsTab(ctx) {
   const { renderProductCard } = createSharedViews(ctx);
-  const { applyImportReview, catFilters, catOpen, days, deelChips, deelRapportLines, delenOpen, deleteProductCatalog, doMerge, exportShare, filteredProducts, fishDays, importReview, importShareFile, marketChip, markets, menuByDate, mergeGroup, mergeKanjerId, openMergeGroup, openProdCard, pnBadgeMap, pnDupGroups, prodQuery, products, recipes, setCatFilters, setCatOpen, setDeelChips, setDelenOpen, setImportReview, setMergeGroup, setMergeKanjerId, setProdQuery, setShareToast, settings, shareToast, shopCats, stock, updateMarket, updateSettings, updateTakeawayLink, usageCount } = ctx;
+  const { applyImportReview, catFilters, catOpen, days, deelChips, deelRapportLines, delenOpen, deleteProductCatalog, doMerge, exportShare, filteredProducts, fishDays, importReview, importShareFile, infoOpen, marketChip, markets, menuByDate, mergeGroup, mergeKanjerId, openMergeGroup, openProdCard, pnBadgeMap, pnDupGroups, prodQuery, products, recipes, setCatFilters, setCatOpen, setDeelChips, setDelenOpen, setImportReview, setInfoOpen, setMergeGroup, setMergeKanjerId, setProdQuery, setShareToast, settings, shareToast, shopCats, stock, updateMarket, updateSettings, updateTakeawayLink, usageCount } = ctx;
+  const infoBtn = makeInfoBtn(infoOpen, setInfoOpen);
 
   const renderDelenSheets = () => {
     const chipDefs = [
@@ -104,13 +105,13 @@ export function createSettingsTab(ctx) {
 
   const renderSettingsTab = () => (
     <div>
-      <div className="mb-2 text-xs text-stone-500">
-        Instellingen per huishouden. Ze worden alleen lokaal op dit toestel bewaard (localStorage) en gelden direct voor het weekmenu en de boodschappenlijst. Dagindex 0 is de weekstart ({days[0]}).
+      <div className="mb-2 text-xs text-stone-500 flex items-center gap-1.5">
+        <span>Instellingen per huishouden</span>
+        {infoBtn("algemeen", t("Ze worden alleen lokaal op dit toestel bewaard (localStorage) en gelden direct voor het weekmenu en de boodschappenlijst. Dagindex 0 is de weekstart ({dag}).", { dag: days[0] }))}
       </div>
 
       <div className="bg-white rounded-xl shadow-sm p-4 mb-4">
-        <div className="text-sm font-medium mb-1">Weergave</div>
-        <div className="text-xs text-stone-500 mb-2">Thema van de app — lokaal opgeslagen per huishouden (#40).</div>
+        <div className="text-sm font-medium mb-1 flex items-center gap-1.5">Weergave{infoBtn("thema", t("Thema van de app — lokaal opgeslagen per huishouden."))}</div>
         {THEMES.map((th) => (
           <label key={th.key} className="flex items-center gap-2 py-1.5 cursor-pointer text-sm" title={t("Thema {thema}", { thema: t(th.label) })}>
             <input
@@ -131,8 +132,7 @@ export function createSettingsTab(ctx) {
       </div>
 
       <div className="bg-white rounded-xl shadow-sm p-4 mb-4">
-        <div className="text-sm font-medium mb-1">Taal</div>
-        <div className="text-xs text-stone-500 mb-2">Taal van de app (GUI) — lokaal opgeslagen per huishouden (ADR-023).</div>
+        <div className="text-sm font-medium mb-1 flex items-center gap-1.5">Taal{infoBtn("taal", t("Taal van de app (GUI) — lokaal opgeslagen per huishouden."))}</div>
         {LANGUAGES.map((ln) => (
           <label key={ln.code} className="flex items-center gap-2 py-1.5 cursor-pointer text-sm" title={t("Taal {taal}", { taal: ln.label })}>
             <input
@@ -266,8 +266,7 @@ export function createSettingsTab(ctx) {
       </div>
 
       <div className="bg-white rounded-xl shadow-sm p-4 mb-4">
-        <div className="text-sm font-medium mb-1">🛵 Afhaalmaaltijden (bestelsites)</div>
-        <div className="text-xs text-stone-500 mb-2">Deze linkjes verschijnen bij “Afwijking van het weekplan” → afhaalmaaltijd (#42). Alleen lokaal opgeslagen (ADR-010).</div>
+        <div className="text-sm font-medium mb-1 flex items-center gap-1.5">🛵 Afhaalmaaltijden (bestelsites){infoBtn("afhaal", t("Deze linkjes verschijnen bij “Afwijking van het weekplan” → afhaalmaaltijd. Alleen lokaal opgeslagen."))}</div>
         {(settings.takeawayLinks || []).map((l, i) => (
           <div key={l.id} className="flex gap-2 mb-2">
             <input
@@ -300,14 +299,16 @@ export function createSettingsTab(ctx) {
       </div>
 
       <div className="bg-white rounded-xl shadow-sm p-4 mb-4">
-        <button type="button" className="w-full flex items-center gap-2 text-left" onClick={() => setCatOpen((o) => !o)} title="Productcatalogus in-/uitklappen (#44)">
-          <span className="text-sm font-medium">📦 Productcatalogus</span>
-          <span className="text-xs text-stone-400">{products.length}</span>
-          <span className="ml-auto text-xs text-stone-400">{catOpen ? "▾" : "▸"}</span>
-        </button>
+        <div className="flex items-center gap-1">
+          <button type="button" className="flex-1 flex items-center gap-2 text-left" onClick={() => setCatOpen((o) => !o)} title="Productcatalogus in-/uitklappen">
+            <span className="text-sm font-medium">📦 Productcatalogus</span>
+            <span className="text-xs text-stone-400">{products.length}</span>
+            <span className="ml-auto text-xs text-stone-400">{catOpen ? "▾" : "▸"}</span>
+          </button>
+          {infoBtn("catalogus", t("Elk ingrediënt, voorraadproduct en extra artikel is hier een product met categorie, eenheid en optionele winkelvoorkeur. Klik op een naam om te wijzigen; ✕ verwijdert het product uit de catalogus (koppelingen vallen terug op vrije tekst — handig bij typefouten)."))}
+        </div>
         {catOpen && (
         <div>
-        <div className="text-xs text-stone-500 mb-2">{`Elk ingrediënt, voorraadproduct en extra artikel is hier een product met categorie, eenheid en optionele winkelvoorkeur. Klik op een naam om te wijzigen; ✕ verwijdert het product uit de catalogus (koppelingen vallen terug op vrije tekst — handig bij typefouten).`}</div>
         {pnDupGroups.length > 0 && (
           <div className="border border-amber-200 bg-amber-50 rounded-xl px-3 py-2 mb-2 text-xs">
             <div className="font-semibold mb-1">{pnDupGroups.length} duplicaatgroep(en) gevonden</div>
@@ -374,10 +375,12 @@ export function createSettingsTab(ctx) {
         <div className="handle" />
         <div className="px-4 pb-4">
           <div className="flex items-center justify-between mb-2">
-            <div className="text-sm font-semibold">Producten samenvoegen (#59)</div>
+            <div className="flex items-center gap-1.5">
+              <div className="text-sm font-semibold">Producten samenvoegen</div>
+              {infoBtn("merge", t("Kies de kanjer (het product dat behouden blijft). Recept-koppelingen gaan over naar de kanjer; varianten uit de benaming worden als per-recept tag voorgesteld."))}
+            </div>
             <button onClick={() => setMergeGroup(null)} className="text-stone-400 px-1 text-lg leading-none">\u2715</button>
           </div>
-          <div className="text-xs text-stone-500 mb-2">Kies de kanjer (het product dat behouden blijft). Recept-koppelingen gaan over naar de kanjer; varianten uit de benaming worden als per-recept tag voorgesteld.</div>
           {mergeGroup && mergeGroup.map((p) => (
             <label key={p.id} className="flex items-center gap-2 py-1 text-sm">
               <input type="radio" name="kanjer" checked={mergeKanjerId === p.id} onChange={() => setMergeKanjerId(p.id)} />
