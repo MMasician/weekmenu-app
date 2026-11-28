@@ -12,8 +12,9 @@
   'use strict';
 
   const DB_NAME = 'weekmenu-app';
-  const DB_VERSION = 1;
+  const DB_VERSION = 2; // v2: extra store 'product-images' (#48); bestaande dish-images blijven behouden
   const IMAGE_STORE = 'dish-images'; // keyPath 'dishId' (recept-id)
+  const PRODUCT_IMAGE_STORE = 'product-images'; // keyPath 'ean' (#48: OFF-productfoto's, gedeelde image-store)
   const MAX_IMAGE_DIM = 1024; // max breedte/hoogte in px
   const JPEG_QUALITY = 0.8;
   const MAX_IMAGE_BYTES = 2 * 1024 * 1024; // 2 MB
@@ -24,6 +25,7 @@
       req.onupgradeneeded = () => {
         const db = req.result;
         if (!db.objectStoreNames.contains(IMAGE_STORE)) db.createObjectStore(IMAGE_STORE, { keyPath: 'dishId' });
+        if (!db.objectStoreNames.contains(PRODUCT_IMAGE_STORE)) db.createObjectStore(PRODUCT_IMAGE_STORE, { keyPath: 'ean' });
       };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
@@ -74,6 +76,41 @@
     }
   }
 
+  // ---- #48: productfoto's (OFF) in dezelfde image-store, keyed per EAN ----
+  async function saveProductImage(ean, blob) {
+    const db = await openImageDb();
+    try {
+      const tx = db.transaction(PRODUCT_IMAGE_STORE, 'readwrite');
+      tx.objectStore(PRODUCT_IMAGE_STORE).put({ ean, blob, mime: (blob && blob.type) || 'image/jpeg', updatedAt: Date.now() });
+      await txDone(tx);
+    } finally {
+      db.close();
+    }
+  }
+  async function getProductImage(ean) {
+    const db = await openImageDb();
+    try {
+      const tx = db.transaction(PRODUCT_IMAGE_STORE, 'readonly');
+      return await new Promise((resolve, reject) => {
+        const r = tx.objectStore(PRODUCT_IMAGE_STORE).get(ean);
+        r.onsuccess = () => resolve(r.result || null);
+        r.onerror = () => reject(r.error);
+      });
+    } finally {
+      db.close();
+    }
+  }
+  async function deleteProductImage(ean) {
+    const db = await openImageDb();
+    try {
+      const tx = db.transaction(PRODUCT_IMAGE_STORE, 'readwrite');
+      tx.objectStore(PRODUCT_IMAGE_STORE).delete(ean);
+      await txDone(tx);
+    } finally {
+      db.close();
+    }
+  }
+
   // Verklein een foto naar max 1024px, JPEG q=0.8, en verlaag kwaliteit tot <= 2MB.
   async function resizeImageBlob(file) {
     const bitmap = await createImageBitmap(file);
@@ -98,7 +135,8 @@
   }
 
   return {
-    DB_NAME, DB_VERSION, IMAGE_STORE, MAX_IMAGE_DIM, JPEG_QUALITY, MAX_IMAGE_BYTES,
+    DB_NAME, DB_VERSION, IMAGE_STORE, PRODUCT_IMAGE_STORE, MAX_IMAGE_DIM, JPEG_QUALITY, MAX_IMAGE_BYTES,
     openImageDb, saveDishImage, getDishImage, deleteDishImage, resizeImageBlob,
+    saveProductImage, getProductImage, deleteProductImage,
   };
 });

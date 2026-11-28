@@ -29,3 +29,19 @@ Rationale:
 - Prijzen blijven buiten scope (ADR-008/ADR-010 aanpassen: geen betrouwbare publieke prijs-API; publieke data zoals voedingswaarden/foto's mogen wel opgehaald worden).
 
 Zie issue #48 voor de volledige DoR (acceptatiecriteria, scope, randgevallen, open vragen, verificatie, afhankelijkheden).
+
+## v2 — mocks in de bestaande app (ter review, issue #48 heropend)
+
+Owner-feedback: de v1-mocks hielden geen rekening met de huidige app. Daarom nu per **goedgekeurd scherm 1 mock** (versie C was overal akkoord) die laat zien hoe het eruitziet **in de bestaande app** (huidige product-kaart inline vanuit de catalogus, huidige bottom-sheet-stijl):
+
+- `v2-01-product-kaart-akkoord-in-bestaande-app.svg` — product-kaart versie C: badge "geen EAN gekoppeld" + knop "EAN koppelen / zoeken" in de bestaande product-kaart; merkloze basisproducten krijgen "NEVO-fallback zoeken".
+- `v2-02-koppelen-zoeken-akkoord-in-bestaande-app.svg` — koppelen/zoeken versie C: bottom sheet met EAN-invoer/scan + zoeken op naam, resultaten met foto + "Kies", EAN-8-waarschuwing en bronvermelding "Bron: Open Food Facts · data & foto's CC BY-SA 3.0" onderaan.
+- `v2-03-product-detail-gekoppeld-akkoord-in-bestaande-app.svg` — product-detail gekoppeld versie C: gecachete OFF-frontfoto met "● gecachet · offline" badge, volledige naam + EAN, voedingswaarden per 100 g én per portie, "● uit lokale cache · offline beschikbaar", knop "Waarden opnieuw ophalen" en bronvermelding "Gegevens & foto's: Open Food Facts (CC BY-SA 3.0) · foto lokaal gecachet".
+
+Security-richtlijnen uit de issue-comments blijven van kracht (HTTPS host-allowlist world/images.openfoodfacts.org, JSON.parse-only, escaped rendering, img-URL-allowlist, numerieke validatie, User-Agent, Cache API). Na owner-akkoord op deze v2-mocks volgt implementatie in een aparte PR (na #60; gedeelde image-store).
+
+## Implementatie — na owner-akkoord op de v2-mocks (issue #48)
+
+Geïmplementeerd volgens ADR-024: productmodel + `ean`/`fullName`/`nutrition`/`offImageUrl` (gevalideerd in `normalizeProducts`); `src/openFoodFacts.js` (host-allowlist world/images.openfoodfacts.org, JSON.parse-only, img-URL-allowlist, numerieke validatie vóór opslag, beschrijvende User-Agent, restricted EAN-8 20–29 multi-match); OFF-foto's gecachet in de gedeelde image-store `product-images` (#60, DB v2); UI volgens de goedgekeurde v2-mocks (versie C per scherm) in de bestaande product-kaart + bottom sheets; tests in `tools/test-open-food-facts.cjs`; `CACHE_VERSION` → `weekmenu-app-v26`, `?v=26`.
+
+Afwijking t.o.v. mock v2-01: de tweede info-regel belooft geen NEVO-fallback (NEVO/RIVM zit niet in de host-allowlist); merkloze basisproducten (bv. bloemkool) gebruiken de generieke OFF-zoekopdracht op productnaam — dat is de fallback.

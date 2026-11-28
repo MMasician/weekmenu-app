@@ -4,20 +4,22 @@ var __modules = {
 "src/App.jsx": function (module, exports, require) {
 const __imp0 = require("./state/store.js");
 const { useAppStore } = __imp0;
-const __imp1 = require("./ui/menuTab.jsx");
-const { createMenuTab } = __imp1;
-const __imp2 = require("./ui/recipesTab.jsx");
-const { createRecipesTab } = __imp2;
-const __imp3 = require("./ui/stockTab.jsx");
-const { createStockTab } = __imp3;
-const __imp4 = require("./ui/shoppingTab.jsx");
-const { createShoppingTab } = __imp4;
-const __imp5 = require("./ui/settingsTab.jsx");
-const { createSettingsTab } = __imp5;
-const __imp6 = require("./domain/settings.js");
-const { THEME_TAB_ICONS } = __imp6;
-const __imp7 = require("./i18n/index.js");
-const { t } = __imp7;
+const __imp1 = require("./ui/components.jsx");
+const { createOffSheets } = __imp1;
+const __imp2 = require("./ui/menuTab.jsx");
+const { createMenuTab } = __imp2;
+const __imp3 = require("./ui/recipesTab.jsx");
+const { createRecipesTab } = __imp3;
+const __imp4 = require("./ui/stockTab.jsx");
+const { createStockTab } = __imp4;
+const __imp5 = require("./ui/shoppingTab.jsx");
+const { createShoppingTab } = __imp5;
+const __imp6 = require("./ui/settingsTab.jsx");
+const { createSettingsTab } = __imp6;
+const __imp7 = require("./domain/settings.js");
+const { THEME_TAB_ICONS } = __imp7;
+const __imp8 = require("./i18n/index.js");
+const { t } = __imp8;
 
 // Compositieroot: state uit useAppStore(), tabbalk en aanroep van de tab-views.
 // Tab-views zijn plain-functie-aanroepen (geen <Component/>), zodat de test-harness
@@ -39,13 +41,14 @@ module.exports.default = function App() {
   const stockViews = createStockTab(ctx);
   const shoppingViews = createShoppingTab(ctx);
   const settingsViews = createSettingsTab(ctx);
+  const offViews = createOffSheets(ctx); // #48: Open Food Facts-sheets (koppelen/zoeken + productdetail)
 
   return (
     /*#__PURE__*/React.createElement("div", { "className": "min-h-screen bg-stone-50 text-stone-800", "data-theme": settings.theme }, /*#__PURE__*/React.createElement("div", { "className": "mx-auto max-w-2xl px-4 pb-16" }, /*#__PURE__*/React.createElement("header", { "className": "pt-6 pb-3 flex items-center justify-between" }, /*#__PURE__*/React.createElement("h1", { "className": "text-2xl font-bold" }, __t("Weekmenu & Boodschappen")), /*#__PURE__*/React.createElement("span", { "className": "text-xs text-stone-400" }, t("{n} eters", { n: settings.householdSize }))), /*#__PURE__*/React.createElement("nav", { "className": "flex gap-1 bg-white rounded-xl p-1 shadow-sm mb-4 sticky top-2 z-10" }, tabs.map((tb) => (
             /*#__PURE__*/React.createElement("button", { "key": tb.key, "onClick": () => goTab(tb.key), "title": tb.label, "aria-label": tb.label, "className": `tabbtn ${tab === tb.key ? "bg-stone-800 text-white" : "text-stone-500 hover:bg-stone-100"}` }, /*#__PURE__*/React.createElement("span", { "className": "tabicon" }, tb.icon), tab === tb.key && /*#__PURE__*/React.createElement("span", { "className": "tablabel" }, tb.label), tb.key === "shopping" && totalItems > 0 && (
                 /*#__PURE__*/React.createElement("span", { "className": "tabbadge", "title": t("{done} van {total} afgevinkt", { done: doneItems, total: totalItems }) }, `${doneItems}/${totalItems}`)
               ))
-          ))), /*#__PURE__*/React.createElement("input", { "id": "dish-foto-input", "type": "file", "accept": "image/*", "style": { display: "none" }, "onChange": onDishFotoFile }), mergeGroup && settingsViews.renderMergeSheet(), pnToast && (
+          ))), /*#__PURE__*/React.createElement("input", { "id": "dish-foto-input", "type": "file", "accept": "image/*", "style": { display: "none" }, "onChange": onDishFotoFile }), mergeGroup && settingsViews.renderMergeSheet(), offViews.renderOffSheets(), pnToast && (
           /*#__PURE__*/React.createElement("div", { "style": { position: "fixed", bottom: "1rem", left: "50%", transform: "translateX(-50%)", zIndex: 60, background: "#292524", color: "#fff", borderRadius: "0.75rem", padding: "0.5rem 0.9rem", display: "flex", gap: "0.6rem", alignItems: "center", fontSize: "0.85rem" } }, /*#__PURE__*/React.createElement("span", null, pnToast.msg), pnToast.canUndo && /*#__PURE__*/React.createElement("button", { "onClick": undoMerge, "style": { color: "#fbbf24" } }, __t("\\u27f2 Ongedaan maken")), /*#__PURE__*/React.createElement("button", { "onClick": () => setPnToast(null), "style": { color: "#d6d3d1" } }, __t("\\u2715")))
         ), tab === "menu" && menuViews.renderMenuTab(), tab === "recipes" && recipesViews.renderRecipesTab(), tab === "stock" && stockViews.renderStockTab(), tab === "shopping" && shoppingViews.renderShoppingTab(), tab === "settings" && settingsViews.renderSettingsTab(), tab === "settings" && settingsViews.renderDelenSheets(), tab === "menu" && dateSheetOpen && menuViews.renderDateSheet(), tab === "menu" && rulesSheetOpen && menuViews.renderRulesSheet(), tab === "menu" && deviationKey && menuViews.renderDeviationSheet()))
   );
@@ -75,7 +78,7 @@ const { defaultStock, normalizeExtras, normalizeLocations, normalizeStock } = __
 const __imp8 = require("../domain/storage.js");
 const { loadState, migrateStored, newId, saveState } = __imp8;
 const __imp9 = require("../lib/externals.js");
-const { GF, PN, TT } = __imp9;
+const { GF, OFF, PN, TT } = __imp9;
 
 function useAppStore() {
   const stored = useMemo(() => migrateStored(loadState()), []);
@@ -168,6 +171,12 @@ function useAppStore() {
   const [dishImgs, setDishImgs] = useState({});
   const [fotoFor, setFotoFor] = useState(null); // recept-id waarvoor de file-picker open is
   const [openDay, setOpenDay] = useState(null); // weekmenu: gelockte dag met open ingrediënt/bereiding-blok
+  // ---- issue #48: Open Food Facts-koppeling per product (EAN, fullName, voedingswaarden, foto) ----
+  const [prodImgs, setProdImgs] = useState({}); // ean -> objectURL (OFF-foto uit de gedeelde image-store, #60)
+  const [offLinkFor, setOffLinkFor] = useState(null); // product-id met open koppelen/zoeken-sheet
+  const [offDetailFor, setOffDetailFor] = useState(null); // product-id met open product-detail-sheet (EAN gekoppeld)
+  const [offDraft, setOffDraft] = useState({ ean: "", q: "", results: [], loading: false, error: null, restricted: false }); // werkstate koppelen/zoeken-sheet
+  const [offScanning, setOffScanning] = useState(false); // barcode-scanner actief (indien ondersteund)
 
   // ---- Delen via bestand (ADR-019): extra state ----
   // verwijderingsmarkeringen ("recipe:<id>" -> timestamp) zodat verwijderingen deelbaar zijn
@@ -440,6 +449,156 @@ function useAppStore() {
     setFotoFor(null);
     if (e && e.target) e.target.value = "";
   }
+  // ---- issue #48: OFF-productgegevens (EAN lookup/zoek, voedingswaarden, foto-cache) ----
+  async function ensureProdFoto(ean) {
+    if (!GF || !ean || prodImgs[ean]) return;
+    try {
+      const rec = await GF.getProductImage(ean);
+      if (rec && rec.blob) setProdImgs((m) => ({ ...m, [ean]: URL.createObjectURL(rec.blob) }));
+    } catch (e) { /* IndexedDB niet beschikbaar -> geen foto's */ }
+  }
+  function openOffLink(pid) {
+    const p = pid && prodById[pid];
+    if (!p) return;
+    setOffDetailFor(null);
+    setOffLinkFor(pid);
+    setOffDraft({ ean: "", q: p.name || "", results: [], loading: false, error: null, restricted: false });
+  }
+  function openOffDetail(pid) {
+    const p = pid && prodById[pid];
+    if (!p || !p.ean) return;
+    setOffLinkFor(null);
+    setOffDetailFor(pid);
+    void ensureProdFoto(p.ean);
+  }
+  async function offLookup(ean) {
+    if (!OFF) return;
+    const code = OFF.cleanEan(ean);
+    if (!OFF.isEan(code)) {
+      setOffDraft((d) => ({ ...d, ean: code, results: [], error: t("Geen geldige EAN (8, 12 of 13 cijfers).") }));
+      return;
+    }
+    setOffDraft((d) => ({ ...d, ean: code, loading: true, error: null }));
+    try {
+      if (OFF.isRestrictedEan8(code)) {
+        // EAN-8 20-29 (restricted circulation, o.a. Lidl) is niet uniek: alle matches tonen ter desambiguatie
+        const results = await OFF.searchProducts(code);
+        setOffDraft((d) => ({ ...d, loading: false, results, restricted: true, error: results.length ? null : t("EAN {ean} niet gevonden bij Open Food Facts.", { ean: code }) }));
+      } else {
+        const prod = await OFF.lookupEan(code);
+        setOffDraft((d) => ({ ...d, loading: false, results: prod ? [prod] : [], restricted: false, error: prod ? null : t("EAN {ean} niet gevonden bij Open Food Facts.", { ean: code }) }));
+      }
+    } catch (err) {
+      setOffDraft((d) => ({ ...d, loading: false, error: t("Ophalen mislukt (offline of rate limit): {fout}", { fout: err && err.message ? err.message : String(err) }) }));
+    }
+  }
+  async function offSearch(q) {
+    if (!OFF) return;
+    const query = String(q || "").trim();
+    setOffDraft((d) => ({ ...d, q: query }));
+    if (query.length < 2) {
+      setOffDraft((d) => ({ ...d, results: [], error: null, loading: false }));
+      return;
+    }
+    setOffDraft((d) => ({ ...d, loading: true, error: null }));
+    try {
+      const results = await OFF.searchProducts(query);
+      setOffDraft((d) => ({ ...d, loading: false, results, error: results.length ? null : t("Geen resultaten — probeer een andere term of voer de EAN in.") }));
+    } catch (err) {
+      setOffDraft((d) => ({ ...d, loading: false, error: t("Ophalen mislukt (offline of rate limit): {fout}", { fout: err && err.message ? err.message : String(err) }) }));
+    }
+  }
+  async function offScan() {
+    // Barcode-scannen alleen als de browser BarcodeDetector + camera ondersteunt; anders handmatige EAN-invoer
+    const BD = typeof globalThis !== "undefined" ? globalThis.BarcodeDetector : null;
+    const media = typeof navigator !== "undefined" && navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === "function" ? navigator.mediaDevices : null;
+    if (!BD || !media || typeof document === "undefined" || !document.createElement) {
+      setOffDraft((d) => ({ ...d, error: t("Scannen wordt niet ondersteund op dit apparaat — voer de EAN handmatig in.") }));
+      return;
+    }
+    setOffScanning(true);
+    let stream = null;
+    try {
+      stream = await media.getUserMedia({ video: { facingMode: "environment" } });
+      const video = document.createElement("video");
+      video.srcObject = stream;
+      if (video.play) await video.play();
+      const det = new BD({ formats: ["ean_13", "ean_8", "code_128"] });
+      for (let i = 0; i < 200; i++) {
+        const codes = await det.detect(video);
+        const raw = codes && codes[0] && codes[0].rawValue;
+        if (raw) {
+          setOffScanning(false);
+          if (stream) stream.getTracks().forEach((tr) => tr.stop());
+          void offLookup(raw);
+          return;
+        }
+        await new Promise((r) => setTimeout(r, 250));
+      }
+      setOffDraft((d) => ({ ...d, error: t("Geen barcode herkend — voer de EAN handmatig in.") }));
+    } catch (err) {
+      setOffDraft((d) => ({ ...d, error: t("Scannen mislukt — voer de EAN handmatig in.") }));
+    } finally {
+      setOffScanning(false);
+      if (stream) stream.getTracks().forEach((tr) => tr.stop());
+    }
+  }
+  async function saveOffImage(ean, imageUrl) {
+    // OFF-foto ophalen (alleen images.openfoodfacts.org) en lokaal cachen in de gedeelde image-store (#60)
+    if (!imageUrl || !GF || !OFF) return;
+    try {
+      const blob = await OFF.downloadImage(imageUrl, null, 400);
+      if (!blob) return;
+      await GF.saveProductImage(ean, blob);
+      setProdImgs((m) => {
+        if (m[ean]) URL.revokeObjectURL(m[ean]);
+        return { ...m, [ean]: URL.createObjectURL(blob) };
+      });
+    } catch (e) { /* foto niet beschikbaar -> alleen de URL bewaren */ }
+  }
+  async function offPick(prod) {
+    const pid = offLinkFor;
+    const p = pid && prodById[pid];
+    if (!p || !prod || !prod.ean || !OFF) return;
+    const imageUrl = prod.imageUrl || p.offImageUrl || null;
+    await saveOffImage(prod.ean, imageUrl);
+    setProducts((ps) => ps.map((x) => (x.id === pid ? { ...x, ean: prod.ean, fullName: prod.fullName || x.fullName || null, nutrition: prod.nutrition || x.nutrition || null, offImageUrl: imageUrl } : x)));
+    setOffLinkFor(null);
+    setOffDraft({ ean: "", q: "", results: [], loading: false, error: null, restricted: false });
+    setPnToast({ msg: t("Product gekoppeld aan Open Food Facts: {naam}", { naam: prod.fullName || p.name }), canUndo: false });
+  }
+  async function offRefresh(pid) {
+    const p = pid && prodById[pid];
+    if (!p || !p.ean || !OFF) return;
+    setPnToast({ msg: t("Waarden opnieuw ophalen…"), canUndo: false });
+    try {
+      const prod = await OFF.lookupEan(p.ean);
+      if (!prod) {
+        setPnToast({ msg: t("EAN {ean} niet gevonden bij Open Food Facts.", { ean: p.ean }), canUndo: false });
+        return;
+      }
+      const imageUrl = prod.imageUrl || p.offImageUrl || null;
+      await saveOffImage(p.ean, imageUrl);
+      setProducts((ps) => ps.map((x) => (x.id === pid ? { ...x, fullName: prod.fullName || x.fullName || null, nutrition: prod.nutrition || x.nutrition || null, offImageUrl: imageUrl } : x)));
+      setPnToast({ msg: t("Waarden opgehaald en lokaal opgeslagen."), canUndo: false });
+    } catch (err) {
+      setPnToast({ msg: t("Ophalen mislukt (offline of rate limit): {fout}", { fout: err && err.message ? err.message : String(err) }), canUndo: false });
+    }
+  }
+  async function offUnlink(pid) {
+    const p = pid && prodById[pid];
+    if (!p) return;
+    if (p.ean && GF) { try { await GF.deleteProductImage(p.ean); } catch (e) { /* ignore */ } }
+    setProdImgs((m) => {
+      if (p.ean && m[p.ean]) URL.revokeObjectURL(m[p.ean]);
+      const n = { ...m };
+      if (p.ean) delete n[p.ean];
+      return n;
+    });
+    setProducts((ps) => ps.map((x) => (x.id === pid ? { ...x, ean: null, fullName: null, nutrition: null, offImageUrl: null } : x)));
+    setOffDetailFor(null);
+    setPnToast({ msg: t("Koppeling met Open Food Facts verwijderd."), canUndo: false });
+  }
   async function removeDishFoto(rid) {
     if (GF) { try { await GF.deleteDishImage(rid); } catch (e) { /* ignore */ } }
     setDishImgs((m) => {
@@ -452,6 +611,7 @@ function useAppStore() {
   function openProdCard(rowKey, pid) {
     const p = prodById[pid];
     if (!p) return;
+    if (p.ean) void ensureProdFoto(p.ean); // #48: OFF-foto uit de lokale cache laden
     setOpenProd(openProd === rowKey ? null : rowKey);
     setProdEdit({ id: p.id, name: p.name, cat: p.cat, market: p.market, unit: p.unit, tags: p.tags || [], tagDraft: "", packAmount: p.pack ? String(p.pack.amount).replace(".", ",") : "", packUnit: p.pack ? p.pack.unit : "", timetagDraft: p.timetag && p.timetag.days ? String(p.timetag.days) : "0" }); // #37/#35/#58
   }
@@ -1483,7 +1643,7 @@ function useAppStore() {
 
 
   return {
-    activeIngSuggest, activeMenuIds, activeSuggest, addCat, addExtraRowFn, addLocOpen, addLocation, addNewTag, addProdRow, addProdTag, addProductRow, addRecipe, addRecipeTag, addRecipeToWeek, addSheetOpen, addTagRule, allProductTags, allRuleTags, allTags, anyScaled, applyDeviation, applyImportReview, blockedByRules, buildShareName, bumpDeleted, bumpHave, bumpWant, byId, byLastEaten, calAnchor, calWeeks, catFilters, catMap, catOf, catOpen, catRank, catalog0, catsOpen, checked, checkedAt, clearRecipeFilters, commitDay, commitIngAmount, commitNewIngAmount, curWeekEnd, curWeekKeys, curWeekLabel, curWeekStart, dateSheetOpen, daySheetRecipe, dayTimetagMarks, days, deelChips, deelRapportLines, delenOpen, deleteLocation, deleteProduct, deleteProductCatalog, deleteRecipe, deleted, devPick, devTab, deviationKey, dishImgs, doMerge, doneItems, drafts, eatersOpen, editLoc, editRecipe, ensureDishFoto, ensureProduct, exportRecipes, exportShare, extraItems, extraSuggest, filterSheetOpen, filteredProducts, filteredRecipes, fishDays, fotoFor, generateMenu, goTab, hasRecipeFilters, haveOfProd, hiddenChecked, importRecipes, importReview, importShareFile, ingDrafts, ingFilter, ingQ, ingSuggest, infoOpen, instantProducts, isRowChecked, lastEaten, listRows, marketChip, marketOf, markets, maxShopDays, mealOk, mealStatus, mealWarn, menuByDate, mergeGroup, mergeKanjerId, moveCat, newCat, newExtra, newLocName, newProdRow, newRecipe, onDishFotoFile, openDay, openLocs, openMergeGroup, openProd, openProdCard, openRecipe, openSuggest, otherDays, pickDishFoto, pnBadgeMap, pnDupGroups, pnRecipesToMain, pnToast, pq, prepareImport, processChecked, prodById, prodByKey, prodEdit, prodOfLabel, prodQuery, prodRowSuggest, products, productsOf, recipeInfoOpen, recipeQuery, recipeSort, recipes, removeCat, removeDishFoto, removeProdTag, removeRecipeTag, removeTagRule, resetRecipes, resolveIng, resolveNewIng, reviewImport, rowVisible, rq, ruleDraft, rulesSheetOpen, safeExternalUrl, saveProductEdit, scaledFactors, scopeKeys, selectIngProduct, selectNewIngProduct, selectRecipe, setActiveIngSuggest, setActiveSuggest, setAddLocOpen, setAddProdRow, setAddSheetOpen, setCatFilters, setCatOpen, setCatsOpen, setChecked, setCheckedAtRaw, setCheckedRaw, setDateSheetOpen, setDay, setDaySheetRecipe, setDeelChips, setDelenOpen, setDeletedRaw, setDevPick, setDevTab, setDeviationKey, setDishImgs, setDrafts, setEaters, setEatersOpen, setEditLoc, setEditRecipe, setExtraItems, setExtraItemsRaw, setExtraSuggest, setFilterSheetOpen, setFotoFor, setHiddenChecked, setImportReview, setIngAmount, setIngDrafts, setIngFilter, setIngSuggest, setIngTags, setIngUnit, setInfoOpen, setMenuByDate, setMenuByDateRaw, setMergeGroup, setMergeKanjerId, setNewCat, setNewExtra, setNewIngAmount, setNewIngUnit, setNewLocName, setNewProdRow, setNewRecipe, setOpenDay, setOpenLocs, setOpenProd, setOpenRecipe, setOpenSuggest, setPnToast, setProdEdit, setProdQuery, setProdRowSuggest, setProducts, setProductsRaw, setRecipeInfoOpen, setRecipeQuery, setRecipeSort, setRecipes, setRecipesRaw, setRuleDraft, setRulesSheetOpen, setSettings, setSettingsRaw, setShareToast, setShopDays, setShopDone, setShopInfoOpen, setShopMarkets, setShowChecked, setSortMenuOpen, setStock, setStockInfoOpen, setStockLocations, setStockLocationsRaw, setStockRaw, setTab, setTagDraft, setTagFilters, setTagRuleDays, setTimeFilter, setUndoStack, setWeekOffset, setWeekToast, settings, shareToast, shopCats, shopDays, shopDaysEff, shopDone, shopInfoOpen, shopMarkets, shopMarketsEff, shoppingRows, showChecked, showFlatList, sortLast, sortMenuOpen, sortRowsByCat, stock, stockInfoOpen, stockLocations, stockShort, stored, tab, tagCounts, tagDraft, tagFilters, timeFilter, todayDayIdx, todayKey, todayLabel, toggleLoc, toggleTagFilter, topTags, totalItems, ttCtx, undoMerge, undoStack, unfilteredCount, updateMarket, updateRecipe, updateSettings, updateTakeawayLink, usageCount, vegaCount, visibleRows, weekEnd, weekEntries, weekKeys, weekLabel, weekOffset, weekStart, weekToast
+    activeIngSuggest, activeMenuIds, activeSuggest, addCat, addExtraRowFn, addLocOpen, addLocation, addNewTag, addProdRow, addProdTag, addProductRow, addRecipe, addRecipeTag, addRecipeToWeek, addSheetOpen, addTagRule, allProductTags, allRuleTags, allTags, anyScaled, applyDeviation, applyImportReview, blockedByRules, buildShareName, bumpDeleted, bumpHave, bumpWant, byId, byLastEaten, calAnchor, calWeeks, catFilters, catMap, catOf, catOpen, catRank, catalog0, catsOpen, checked, checkedAt, clearRecipeFilters, commitDay, commitIngAmount, commitNewIngAmount, curWeekEnd, curWeekKeys, curWeekLabel, curWeekStart, dateSheetOpen, daySheetRecipe, dayTimetagMarks, days, deelChips, deelRapportLines, delenOpen, deleteLocation, deleteProduct, deleteProductCatalog, deleteRecipe, deleted, devPick, devTab, deviationKey, dishImgs, doMerge, doneItems, drafts, eatersOpen, editLoc, editRecipe, ensureDishFoto, ensureProdFoto, ensureProduct, exportRecipes, exportShare, extraItems, extraSuggest, filterSheetOpen, filteredProducts, filteredRecipes, fishDays, fotoFor, generateMenu, goTab, hasRecipeFilters, haveOfProd, hiddenChecked, importRecipes, importReview, importShareFile, ingDrafts, ingFilter, ingQ, ingSuggest, infoOpen, instantProducts, isRowChecked, lastEaten, listRows, marketChip, marketOf, markets, maxShopDays, mealOk, mealStatus, mealWarn, menuByDate, mergeGroup, mergeKanjerId, moveCat, newCat, newExtra, newLocName, newProdRow, newRecipe, offDetailFor, offDraft, offLinkFor, offLookup, offPick, offRefresh, offScan, offScanning, offSearch, offUnlink, onDishFotoFile, openDay, openLocs, openMergeGroup, openOffDetail, openOffLink, openProd, openProdCard, openRecipe, openSuggest, otherDays, pickDishFoto, pnBadgeMap, pnDupGroups, pnRecipesToMain, pnToast, pq, prepareImport, processChecked, prodById, prodByKey, prodEdit, prodImgs, prodOfLabel, prodQuery, prodRowSuggest, products, productsOf, recipeInfoOpen, recipeQuery, recipeSort, recipes, removeCat, removeDishFoto, removeProdTag, removeRecipeTag, removeTagRule, resetRecipes, resolveIng, resolveNewIng, reviewImport, rowVisible, rq, ruleDraft, rulesSheetOpen, safeExternalUrl, saveProductEdit, scaledFactors, scopeKeys, selectIngProduct, selectNewIngProduct, selectRecipe, setActiveIngSuggest, setActiveSuggest, setAddLocOpen, setAddProdRow, setAddSheetOpen, setCatFilters, setCatOpen, setCatsOpen, setChecked, setCheckedAtRaw, setCheckedRaw, setDateSheetOpen, setDay, setDaySheetRecipe, setDeelChips, setDelenOpen, setDeletedRaw, setDevPick, setDevTab, setDeviationKey, setDishImgs, setDrafts, setEaters, setEatersOpen, setEditLoc, setEditRecipe, setExtraItems, setExtraItemsRaw, setExtraSuggest, setFilterSheetOpen, setFotoFor, setHiddenChecked, setImportReview, setIngAmount, setIngDrafts, setIngFilter, setIngSuggest, setIngTags, setIngUnit, setInfoOpen, setMenuByDate, setMenuByDateRaw, setMergeGroup, setMergeKanjerId, setNewCat, setNewExtra, setNewIngAmount, setNewIngUnit, setNewLocName, setNewProdRow, setNewRecipe, setOffDetailFor, setOffDraft, setOffLinkFor, setOffScanning, setOpenDay, setOpenLocs, setOpenProd, setOpenRecipe, setOpenSuggest, setPnToast, setProdEdit, setProdQuery, setProdRowSuggest, setProducts, setProductsRaw, setRecipeInfoOpen, setRecipeQuery, setRecipeSort, setRecipes, setRecipesRaw, setRuleDraft, setRulesSheetOpen, setSettings, setSettingsRaw, setShareToast, setShopDays, setShopDone, setShopInfoOpen, setShopMarkets, setShowChecked, setSortMenuOpen, setStock, setStockInfoOpen, setStockLocations, setStockLocationsRaw, setStockRaw, setTab, setTagDraft, setTagFilters, setTagRuleDays, setTimeFilter, setUndoStack, setWeekOffset, setWeekToast, settings, shareToast, shopCats, shopDays, shopDaysEff, shopDone, shopInfoOpen, shopMarkets, shopMarketsEff, shoppingRows, showChecked, showFlatList, sortLast, sortMenuOpen, sortRowsByCat, stock, stockInfoOpen, stockLocations, stockShort, stored, tab, tagCounts, tagDraft, tagFilters, timeFilter, todayDayIdx, todayKey, todayLabel, toggleLoc, toggleTagFilter, topTags, totalItems, ttCtx, undoMerge, undoStack, unfilteredCount, updateMarket, updateRecipe, updateSettings, updateTakeawayLink, usageCount, vegaCount, visibleRows, weekEnd, weekEntries, weekKeys, weekLabel, weekOffset, weekStart, weekToast
   };
 }
 
@@ -1599,6 +1759,27 @@ function shopDisplayAmount(amount, unit, product) {
   }
   return normalizeAmountUnit(a, unit);
 }
+// #48: EAN (8/12/13 cijfers), volledige OFF-naam, gecachete voedingswaarden en OFF-foto-URL valideren.
+const OFF_IMG_PREFIX = "https://images.openfoodfacts.org/images/products/";
+function normalizeEan(ean) {
+  const c = typeof ean === "string" ? ean.replace(/[\s-]/g, "") : "";
+  return /^\d{8}$|^\d{12,13}$/.test(c) ? c : null;
+}
+function normalizeNutrition(n) {
+  if (!n || typeof n !== "object") return null;
+  const num = (v) => (Number.isFinite(Number(v)) && Number(v) >= 0 && Number(v) <= 1e6 ? Math.round(Number(v) * 100) / 100 : null);
+  const pick = (obj) => {
+    if (!obj || typeof obj !== "object") return null;
+    const out = {};
+    ["energyKcal", "fat", "carbs", "protein", "salt"].forEach((k) => { const v = num(obj[k]); if (v != null) out[k] = v; });
+    return Object.keys(out).length ? out : null;
+  };
+  const per100 = pick(n.per100);
+  if (!per100) return null;
+  const perServing = pick(n.perServing);
+  const servingSize = typeof n.servingSize === "string" && n.servingSize.trim() ? n.servingSize.trim().slice(0, 40) : null;
+  return { per100, servingSize, perServing };
+}
 function normalizeProducts(arr) {
   const out = [];
   const seen = new Set();
@@ -1615,6 +1796,10 @@ function normalizeProducts(arr) {
       unit: UNITS.includes(p.unit) ? p.unit : (typeof p.unit === "string" && p.unit.trim() ? p.unit.trim().slice(0, 8) : null),
       tags: Array.isArray(p.tags) ? [...new Set(p.tags.map((t) => String(t || "").trim().toLowerCase()).filter(Boolean))] : [], // #37
       pack: normalizePack(p.pack), // #35: inhoud per verpakking (bijv. { amount: 500, unit: "g" } = 1 pot)
+      ...(normalizeEan(p.ean) ? { ean: normalizeEan(p.ean) } : {}), // #48: EAN-barcode (OFF `code`)
+      ...(typeof p.fullName === "string" && p.fullName.trim() ? { fullName: p.fullName.trim().slice(0, 160) } : {}), // #48: volledige productnaam via OFF
+      ...(normalizeNutrition(p.nutrition) ? { nutrition: normalizeNutrition(p.nutrition) } : {}), // #48: voedingswaarden-cache (per 100 g / portie)
+      ...(typeof p.offImageUrl === "string" && p.offImageUrl.startsWith(OFF_IMG_PREFIX) ? { offImageUrl: p.offImageUrl.slice(0, 300) } : {}), // #48: OFF-foto-URL (allowlist-prefix)
       ...(typeof p.updatedAt === "number" ? { updatedAt: p.updatedAt } : {}),
       ...(p.timetag != null ? { timetag: p.timetag } : {}), // #58: timetag bewaren (raw; genormaliseerd bij gebruik via TT)
     });
@@ -2388,6 +2573,48 @@ module.exports.default = {
   "＋ Product toevoegen": "＋ Product toevoegen",
   "Taal {taal}": "Taal {taal}",
   "Taal": "Taal",
+  // issue #48: Open Food Facts-koppeling per product (EAN, voedingswaarden, foto)
+  "EAN {ean}": "EAN {ean}",
+  "EAN koppelen / zoeken": "EAN koppelen / zoeken",
+  "Productgegevens": "Productgegevens",
+  "geen EAN gekoppeld": "geen EAN gekoppeld",
+  "Via Open Food Facts: EAN scannen/invoeren of op naam zoeken.": "Via Open Food Facts: EAN scannen/invoeren of op naam zoeken.",
+  "Merkloze basisproducten (bv. bloemkool): zoek op productnaam.": "Merkloze basisproducten (bv. bloemkool): zoek op productnaam.",
+  "EAN invoeren…": "EAN invoeren…",
+  "Enter = opzoeken bij Open Food Facts": "Enter = opzoeken bij Open Food Facts",
+  "scan": "scan",
+  "Scannen…": "Scannen…",
+  "of zoek op productnaam": "of zoek op productnaam",
+  "Kies": "Kies",
+  "EAN-8 (20–29) is niet uniek (restricted circulation, o.a. Lidl): alle matches worden getoond ter desambiguatie.": "EAN-8 (20–29) is niet uniek (restricted circulation, o.a. Lidl): alle matches worden getoond ter desambiguatie.",
+  "Bron: Open Food Facts · data & foto's CC BY-SA 3.0": "Bron: Open Food Facts · data & foto's CC BY-SA 3.0",
+  "Gegevens & foto's: Open Food Facts (CC BY-SA 3.0) · foto lokaal gecachet": "Gegevens & foto's: Open Food Facts (CC BY-SA 3.0) · foto lokaal gecachet",
+  "voor \"{naam}\" ({cat})": "voor \"{naam}\" ({cat})",
+  "Zoeken…": "Zoeken…",
+  "Geen resultaten — probeer een andere term of voer de EAN in.": "Geen resultaten — probeer een andere term of voer de EAN in.",
+  "Geen geldige EAN (8, 12 of 13 cijfers).": "Geen geldige EAN (8, 12 of 13 cijfers).",
+  "EAN {ean} niet gevonden bij Open Food Facts.": "EAN {ean} niet gevonden bij Open Food Facts.",
+  "Ophalen mislukt (offline of rate limit): {fout}": "Ophalen mislukt (offline of rate limit): {fout}",
+  "Scannen wordt niet ondersteund op dit apparaat — voer de EAN handmatig in.": "Scannen wordt niet ondersteund op dit apparaat — voer de EAN handmatig in.",
+  "Geen barcode herkend — voer de EAN handmatig in.": "Geen barcode herkend — voer de EAN handmatig in.",
+  "Scannen mislukt — voer de EAN handmatig in.": "Scannen mislukt — voer de EAN handmatig in.",
+  "Product gekoppeld aan Open Food Facts: {naam}": "Product gekoppeld aan Open Food Facts: {naam}",
+  "Waarden opnieuw ophalen…": "Waarden opnieuw ophalen…",
+  "Waarden opnieuw ophalen": "Waarden opnieuw ophalen",
+  "Waarden opgehaald en lokaal opgeslagen.": "Waarden opgehaald en lokaal opgeslagen.",
+  "Koppeling met Open Food Facts verwijderd.": "Koppeling met Open Food Facts verwijderd.",
+  "Ontkoppelen": "Ontkoppelen",
+  "gecachet · offline": "gecachet · offline",
+  "uit lokale cache · offline beschikbaar · geen nieuwe API-call": "uit lokale cache · offline beschikbaar · geen nieuwe API-call",
+  "Voedingswaarden": "Voedingswaarden",
+  "per 100 g": "per 100 g",
+  "portie {size}": "portie {size}",
+  "Energie": "Energie",
+  "Vet": "Vet",
+  "Koolhydraten": "Koolhydraten",
+  "Eiwitten": "Eiwitten",
+  "Zout": "Zout",
+  "Geen voedingswaarden bekend bij Open Food Facts.": "Geen voedingswaarden bekend bij Open Food Facts.",
 };
 
 },
@@ -2772,6 +2999,48 @@ module.exports.default = {
   "🛵 Afhaalmaaltijden (bestelsites)": "🛵 Takeaway (order sites)",
   "Taal {taal}": "Language {taal}",
   "Taal": "Language",
+  // issue #48: Open Food Facts link per product (EAN, nutrition facts, photo)
+  "EAN {ean}": "EAN {ean}",
+  "EAN koppelen / zoeken": "Link / search EAN",
+  "Productgegevens": "Product details",
+  "geen EAN gekoppeld": "no EAN linked",
+  "Via Open Food Facts: EAN scannen/invoeren of op naam zoeken.": "Via Open Food Facts: scan/enter an EAN or search by product name.",
+  "Merkloze basisproducten (bv. bloemkool): zoek op productnaam.": "Unbranded basic products (e.g. cauliflower): search by product name.",
+  "EAN invoeren…": "Enter EAN…",
+  "Enter = opzoeken bij Open Food Facts": "Enter = look up at Open Food Facts",
+  "scan": "scan",
+  "Scannen…": "Scanning…",
+  "of zoek op productnaam": "or search by product name",
+  "Kies": "Choose",
+  "EAN-8 (20–29) is niet uniek (restricted circulation, o.a. Lidl): alle matches worden getoond ter desambiguatie.": "EAN-8 (20–29) is not unique (restricted circulation, e.g. Lidl): all matches are shown for disambiguation.",
+  "Bron: Open Food Facts · data & foto's CC BY-SA 3.0": "Source: Open Food Facts · data & photos CC BY-SA 3.0",
+  "Gegevens & foto's: Open Food Facts (CC BY-SA 3.0) · foto lokaal gecachet": "Data & photos: Open Food Facts (CC BY-SA 3.0) · photo cached locally",
+  "voor \"{naam}\" ({cat})": "for \"{naam}\" ({cat})",
+  "Zoeken…": "Searching…",
+  "Geen resultaten — probeer een andere term of voer de EAN in.": "No results — try another term or enter the EAN.",
+  "Geen geldige EAN (8, 12 of 13 cijfers).": "Not a valid EAN (8, 12 or 13 digits).",
+  "EAN {ean} niet gevonden bij Open Food Facts.": "EAN {ean} not found at Open Food Facts.",
+  "Ophalen mislukt (offline of rate limit): {fout}": "Fetch failed (offline or rate limit): {fout}",
+  "Scannen wordt niet ondersteund op dit apparaat — voer de EAN handmatig in.": "Scanning is not supported on this device — enter the EAN manually.",
+  "Geen barcode herkend — voer de EAN handmatig in.": "No barcode detected — enter the EAN manually.",
+  "Scannen mislukt — voer de EAN handmatig in.": "Scanning failed — enter the EAN manually.",
+  "Product gekoppeld aan Open Food Facts: {naam}": "Product linked to Open Food Facts: {naam}",
+  "Waarden opnieuw ophalen…": "Fetch values again…",
+  "Waarden opnieuw ophalen": "Fetch values again",
+  "Waarden opgehaald en lokaal opgeslagen.": "Values fetched and stored locally.",
+  "Koppeling met Open Food Facts verwijderd.": "Open Food Facts link removed.",
+  "Ontkoppelen": "Unlink",
+  "gecachet · offline": "cached · offline",
+  "uit lokale cache · offline beschikbaar · geen nieuwe API-call": "from local cache · available offline · no new API call",
+  "Voedingswaarden": "Nutrition facts",
+  "per 100 g": "per 100 g",
+  "portie {size}": "serving {size}",
+  "Energie": "Energy",
+  "Vet": "Fat",
+  "Koolhydraten": "Carbohydrates",
+  "Eiwitten": "Protein",
+  "Zout": "Salt",
+  "Geen voedingswaarden bekend bij Open Food Facts.": "No nutrition facts known at Open Food Facts.",
 };
 
 },
@@ -3156,6 +3425,48 @@ module.exports.default = {
   "🛵 Afhaalmaaltijden (bestelsites)": "🛵 Plats à emporter (sites de commande)",
   "Taal {taal}": "Langue {taal}",
   "Taal": "Langue",
+  // issue #48 : couplage Open Food Facts par produit (EAN, valeurs nutritionnelles, photo)
+  "EAN {ean}": "EAN {ean}",
+  "EAN koppelen / zoeken": "Coupler / rechercher un EAN",
+  "Productgegevens": "Détails du produit",
+  "geen EAN gekoppeld": "aucun EAN couplé",
+  "Via Open Food Facts: EAN scannen/invoeren of op naam zoeken.": "Via Open Food Facts : scannez/saisissez un EAN ou recherchez par nom de produit.",
+  "Merkloze basisproducten (bv. bloemkool): zoek op productnaam.": "Produits de base sans marque (p. ex. chou-fleur) : recherchez par nom de produit.",
+  "EAN invoeren…": "Saisir l'EAN…",
+  "Enter = opzoeken bij Open Food Facts": "Entrée = rechercher sur Open Food Facts",
+  "scan": "scan",
+  "Scannen…": "Scan en cours…",
+  "of zoek op productnaam": "ou recherchez par nom de produit",
+  "Kies": "Choisir",
+  "EAN-8 (20–29) is niet uniek (restricted circulation, o.a. Lidl): alle matches worden getoond ter desambiguatie.": "L'EAN-8 (20–29) n'est pas unique (restricted circulation, p. ex. Lidl) : tous les résultats sont affichés pour lever l'ambiguïté.",
+  "Bron: Open Food Facts · data & foto's CC BY-SA 3.0": "Source : Open Food Facts · données & photos CC BY-SA 3.0",
+  "Gegevens & foto's: Open Food Facts (CC BY-SA 3.0) · foto lokaal gecachet": "Données & photos : Open Food Facts (CC BY-SA 3.0) · photo mise en cache localement",
+  "voor \"{naam}\" ({cat})": "pour « {naam} » ({cat})",
+  "Zoeken…": "Recherche…",
+  "Geen resultaten — probeer een andere term of voer de EAN in.": "Aucun résultat — essayez un autre terme ou saisissez l'EAN.",
+  "Geen geldige EAN (8, 12 of 13 cijfers).": "EAN non valide (8, 12 ou 13 chiffres).",
+  "EAN {ean} niet gevonden bij Open Food Facts.": "EAN {ean} introuvable sur Open Food Facts.",
+  "Ophalen mislukt (offline of rate limit): {fout}": "Échec de la récupération (hors ligne ou limite de débit) : {fout}",
+  "Scannen wordt niet ondersteund op dit apparaat — voer de EAN handmatig in.": "Le scan n'est pas pris en charge sur cet appareil — saisissez l'EAN manuellement.",
+  "Geen barcode herkend — voer de EAN handmatig in.": "Aucun code-barres détecté — saisissez l'EAN manuellement.",
+  "Scannen mislukt — voer de EAN handmatig in.": "Échec du scan — saisissez l'EAN manuellement.",
+  "Product gekoppeld aan Open Food Facts: {naam}": "Produit couplé à Open Food Facts : {naam}",
+  "Waarden opnieuw ophalen…": "Récupérer à nouveau les valeurs…",
+  "Waarden opnieuw ophalen": "Récupérer à nouveau les valeurs",
+  "Waarden opgehaald en lokaal opgeslagen.": "Valeurs récupérées et enregistrées localement.",
+  "Koppeling met Open Food Facts verwijderd.": "Couplage à Open Food Facts supprimé.",
+  "Ontkoppelen": "Découpler",
+  "gecachet · offline": "en cache · hors ligne",
+  "uit lokale cache · offline beschikbaar · geen nieuwe API-call": "depuis le cache local · disponible hors ligne · aucun nouvel appel API",
+  "Voedingswaarden": "Valeurs nutritionnelles",
+  "per 100 g": "pour 100 g",
+  "portie {size}": "portion {size}",
+  "Energie": "Énergie",
+  "Vet": "Matières grasses",
+  "Koolhydraten": "Glucides",
+  "Eiwitten": "Protéines",
+  "Zout": "Sel",
+  "Geen voedingswaarden bekend bij Open Food Facts.": "Aucune valeur nutritionnelle connue sur Open Food Facts.",
 };
 
 },
@@ -3540,6 +3851,48 @@ module.exports.default = {
   "🛵 Afhaalmaaltijden (bestelsites)": "🛵 Mitnahme-Seiten (Bestellseiten)",
   "Taal {taal}": "Sprache {taal}",
   "Taal": "Sprache",
+  // issue #48: Open-Food-Facts-Verknüpfung pro Produkt (EAN, Nährwerte, Foto)
+  "EAN {ean}": "EAN {ean}",
+  "EAN koppelen / zoeken": "EAN verknüpfen / suchen",
+  "Productgegevens": "Produktdetails",
+  "geen EAN gekoppeld": "kein EAN verknüpft",
+  "Via Open Food Facts: EAN scannen/invoeren of op naam zoeken.": "Über Open Food Facts: EAN scannen/eingeben oder nach Produktname suchen.",
+  "Merkloze basisproducten (bv. bloemkool): zoek op productnaam.": "Markenlose Basisprodukte (z. B. Blumenkohl): nach Produktname suchen.",
+  "EAN invoeren…": "EAN eingeben…",
+  "Enter = opzoeken bij Open Food Facts": "Eingabe = Suche bei Open Food Facts",
+  "scan": "scan",
+  "Scannen…": "Scannen…",
+  "of zoek op productnaam": "oder nach Produktname suchen",
+  "Kies": "Wählen",
+  "EAN-8 (20–29) is niet uniek (restricted circulation, o.a. Lidl): alle matches worden getoond ter desambiguatie.": "EAN-8 (20–29) ist nicht eindeutig (restricted circulation, u. a. Lidl): alle Treffer werden zur Eindeutigkeit angezeigt.",
+  "Bron: Open Food Facts · data & foto's CC BY-SA 3.0": "Quelle: Open Food Facts · Daten & Fotos CC BY-SA 3.0",
+  "Gegevens & foto's: Open Food Facts (CC BY-SA 3.0) · foto lokaal gecachet": "Daten & Fotos: Open Food Facts (CC BY-SA 3.0) · Foto lokal zwischengespeichert",
+  "voor \"{naam}\" ({cat})": "für „{naam}“ ({cat})",
+  "Zoeken…": "Suchen…",
+  "Geen resultaten — probeer een andere term of voer de EAN in.": "Keine Ergebnisse — versuchen Sie einen anderen Begriff oder geben Sie die EAN ein.",
+  "Geen geldige EAN (8, 12 of 13 cijfers).": "Keine gültige EAN (8, 12 oder 13 Ziffern).",
+  "EAN {ean} niet gevonden bij Open Food Facts.": "EAN {ean} bei Open Food Facts nicht gefunden.",
+  "Ophalen mislukt (offline of rate limit): {fout}": "Abruf fehlgeschlagen (offline oder Rate-Limit): {fout}",
+  "Scannen wordt niet ondersteund op dit apparaat — voer de EAN handmatig in.": "Scannen wird auf diesem Gerät nicht unterstützt — EAN manuell eingeben.",
+  "Geen barcode herkend — voer de EAN handmatig in.": "Kein Barcode erkannt — EAN manuell eingeben.",
+  "Scannen mislukt — voer de EAN handmatig in.": "Scannen fehlgeschlagen — EAN manuell eingeben.",
+  "Product gekoppeld aan Open Food Facts: {naam}": "Produkt mit Open Food Facts verknüpft: {naam}",
+  "Waarden opnieuw ophalen…": "Werte erneut abrufen…",
+  "Waarden opnieuw ophalen": "Werte erneut abrufen",
+  "Waarden opgehaald en lokaal opgeslagen.": "Werte abgerufen und lokal gespeichert.",
+  "Koppeling met Open Food Facts verwijderd.": "Verknüpfung mit Open Food Facts entfernt.",
+  "Ontkoppelen": "Verknüpfung lösen",
+  "gecachet · offline": "zwischengespeichert · offline",
+  "uit lokale cache · offline beschikbaar · geen nieuwe API-call": "aus lokalem Cache · offline verfügbar · kein neuer API-Aufruf",
+  "Voedingswaarden": "Nährwerte",
+  "per 100 g": "pro 100 g",
+  "portie {size}": "Portion {size}",
+  "Energie": "Energie",
+  "Vet": "Fett",
+  "Koolhydraten": "Kohlenhydrate",
+  "Eiwitten": "Eiweiß",
+  "Zout": "Salz",
+  "Geen voedingswaarden bekend bij Open Food Facts.": "Keine Nährwerte bei Open Food Facts bekannt.",
 };
 
 },
@@ -3896,10 +4249,208 @@ const PN = (typeof globalThis !== "undefined" && globalThis.ProductNormalisatie)
 const TT = (typeof globalThis !== "undefined" && globalThis.Timetags) || null;
 // issue #60: gerecht-foto's (lokale IndexedDB image-store)
 const GF = (typeof globalThis !== "undefined" && globalThis.GerechtFotos) || null;
+// issue #48: Open Food Facts productgegevens (EAN/zoek/voedingswaarden/foto's)
+const OFF = (typeof globalThis !== "undefined" && globalThis.OpenFoodFacts) || null;
 
 exports.PN = PN;
 exports.TT = TT;
 exports.GF = GF;
+exports.OFF = OFF;
+},
+"src/ui/components.jsx": function (module, exports, require) {
+// Gedeelde render-helpers (product-kaart, ingrediënt-rijen) + highlightMatch.
+const __imp0 = require("../domain/catalog.js");
+const { UNITS, UNIT_GROUP, ingUnit, matchProducts } = __imp0;
+const __imp1 = require("../i18n/index.js");
+const { t } = __imp1;
+
+// Klein informatieknopje (ℹ️) direct achter het onderwerp; popover met de uitleg verschijnt op aanvraag.
+function makeInfoBtn(infoOpen, setInfoOpen) {
+  return (id, content) => (
+    /*#__PURE__*/React.createElement("span", { "className": "relative inline-flex align-middle" }, /*#__PURE__*/React.createElement("button", { "type": "button", "className": `iconbtn sm${infoOpen === id ? " on" : ""}`, "title": __t("Uitleg"), "onClick": (e) => { e.stopPropagation(); setInfoOpen(infoOpen === id ? null : id); } }, "ℹ️"), infoOpen === id && /*#__PURE__*/React.createElement("div", { "className": "pop" }, content))
+  );
+}
+
+function highlightMatch(name, q) {
+  const i = name.toLowerCase().indexOf(q);
+  if (i < 0) return name;
+  return React.createElement(
+    React.Fragment,
+    null,
+    name.slice(0, i),
+    React.createElement("span", { className: "mark" }, name.slice(i, i + q.length)),
+    name.slice(i + q.length)
+  );
+}
+
+// ---- schalen van hoeveelheden per dag (ADR-012) ----
+// factor = eters die dag / householdSize. Alleen "<getal> <eenheid>..." schaalt mee;
+// vaste verpakkingen (blik/pak/zak/...) en tekst zonder getal blijven gelijk.
+
+function createSharedViews(ctx) {
+  const { activeIngSuggest, addProdTag, allProductTags, commitIngAmount, commitNewIngAmount, deleteProductCatalog, infoOpen, ingDrafts, ingSuggest, marketChip, markets, openOffDetail, openOffLink, openProd, prodById, prodEdit, products, removeProdTag, resolveIng, resolveNewIng, saveProductEdit, selectIngProduct, selectNewIngProduct, setActiveIngSuggest, setIngAmount, setIngDrafts, setIngSuggest, setIngTags, setIngUnit, setInfoOpen, setNewIngAmount, setNewIngUnit, setNewRecipe, setProdEdit, setRecipes, shopCats , usageCount } = ctx;
+  const infoBtn = makeInfoBtn(infoOpen, setInfoOpen);
+
+  const renderProductCard = (rowKey) => {
+    if (openProd !== rowKey || !prodEdit) return null;
+    const p = products.find((x) => x.id === prodEdit.id);
+    if (!p) return null;
+    return (
+      /*#__PURE__*/React.createElement("div", { "className": "px-3 py-3 bg-stone-50 border-t border-stone-100" }, /*#__PURE__*/React.createElement("div", { "className": "grid grid-cols-2 gap-2" }, /*#__PURE__*/React.createElement("label", { "className": "text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Naam")), /*#__PURE__*/React.createElement("input", { "className": "w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm", "value": prodEdit.name, "onChange": (e) => setProdEdit({ ...prodEdit, name: e.target.value }) })), /*#__PURE__*/React.createElement("label", { "className": "text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Categorie")), /*#__PURE__*/React.createElement("select", { "className": "w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm text-stone-600", "value": prodEdit.cat, "onChange": (e) => setProdEdit({ ...prodEdit, cat: e.target.value }) }, shopCats.map((c) => (/*#__PURE__*/React.createElement("option", { "key": c, "value": c }, c))), prodEdit.cat !== "overig" && !shopCats.includes(prodEdit.cat) && /*#__PURE__*/React.createElement("option", { "value": prodEdit.cat }, prodEdit.cat), /*#__PURE__*/React.createElement("option", { "value": "overig" }, __t("overig"))))), /*#__PURE__*/React.createElement("div", { "className": "grid grid-cols-2 gap-2 mt-2" }, /*#__PURE__*/React.createElement("label", { "className": "text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Eenheid (standaard bij dit product)")), /*#__PURE__*/React.createElement("select", { "className": "w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm text-stone-600", "value": prodEdit.unit || "", "onChange": (e) => setProdEdit({ ...prodEdit, unit: e.target.value || null }) }, /*#__PURE__*/React.createElement("option", { "value": "" }, "–"), UNITS.map((u) => (/*#__PURE__*/React.createElement("option", { "key": u, "value": u }, u))))), /*#__PURE__*/React.createElement("div", { "className": "text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Voorkeurssupermarkt")), /*#__PURE__*/React.createElement("div", { "className": "filterrow", "style": { marginTop: ".25rem" } }, /*#__PURE__*/React.createElement("button", { "className": `chip${!prodEdit.market ? " on" : ""}`, "onClick": () => setProdEdit({ ...prodEdit, market: null }) }, __t("geen")), markets.map((m) => (
+                /*#__PURE__*/React.createElement("button", { "key": m.key, "className": `chip${prodEdit.market === m.key ? " on" : ""}`, "onClick": () => setProdEdit({ ...prodEdit, market: m.key }) }, marketChip(m.key))
+              ))))), /*#__PURE__*/React.createElement("div", { "className": "grid grid-cols-2 gap-2 mt-2" }, /*#__PURE__*/React.createElement("label", { "className": "text-xs relative" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Inhoud per verpakking")), infoBtn("pack", t("Per 1 {eenheid} = {inhoud} — de boodschappenlijst toont alleen hele verpakkingen.", { eenheid: prodEdit.unit || "verpakking", inhoud: `${prodEdit.packAmount || "…"} ${prodEdit.packUnit || "…"}` })), /*#__PURE__*/React.createElement("input", { "className": "w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm", "type": "number", "min": "0", "step": "any", "placeholder": __t("bijv. 500"), "value": prodEdit.packAmount || "", "onChange": (e) => setProdEdit({ ...prodEdit, packAmount: e.target.value }) })), /*#__PURE__*/React.createElement("label", { "className": "text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Eenheid van de inhoud")), /*#__PURE__*/React.createElement("select", { "className": "w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm text-stone-600", "value": prodEdit.packUnit || "", "onChange": (e) => setProdEdit({ ...prodEdit, packUnit: e.target.value }) }, /*#__PURE__*/React.createElement("option", { "value": "" }, "–"), UNITS.map((u) => (/*#__PURE__*/React.createElement("option", { "key": u, "value": u }, u)))))), /*#__PURE__*/React.createElement("div", { "className": "mt-2 text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Timetag")), /*#__PURE__*/React.createElement("div", { "className": "flex items-center gap-1 mt-0.5" }, /*#__PURE__*/React.createElement("input", { "className": "w-20 border rounded-lg px-2 py-1.5 text-sm", "type": "number", "min": "0", "max": "365", "step": "1", "value": prodEdit.timetagDraft ?? "0", "title": __t("Minimum aantal dagen tussen twee gebruiken van dit product in het weekmenu (0 = geen timetag, max 365)"), "onChange": (e) => setProdEdit({ ...prodEdit, timetagDraft: e.target.value }) }), /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("dagen")))), /*#__PURE__*/React.createElement("div", { "className": "mt-2 text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Tags")), /*#__PURE__*/React.createElement("div", { "className": "flex flex-wrap gap-1 mt-0.5" }, (prodEdit.tags || []).map((tg) => (
+              /*#__PURE__*/React.createElement("button", { "key": tg, "type": "button", "className": "tag", "title": __t("Tag verwijderen"), "onClick": () => removeProdTag(tg) }, tg)
+            ))), /*#__PURE__*/React.createElement("div", { "className": "tagadd" }, /*#__PURE__*/React.createElement("input", { "value": prodEdit.tagDraft || "", "autoCapitalize": "none", "list": "product-tags-list", "onChange": (e) => setProdEdit({ ...prodEdit, tagDraft: e.target.value }), "onKeyDown": (e) => { if (e.key === "Enter") { e.preventDefault(); addProdTag(); } } }), /*#__PURE__*/React.createElement("datalist", { "id": "product-tags-list" }, allProductTags.map((t) => (/*#__PURE__*/React.createElement("option", { "key": t, "value": t })))), /*#__PURE__*/React.createElement("button", { "onClick": addProdTag }, "+"))), /*#__PURE__*/React.createElement("div", { "className": "mt-2 pt-2 border-t border-stone-100 text-xs" }, p.ean ? (
+            /*#__PURE__*/React.createElement("div", { "className": "flex items-center gap-1.5 flex-wrap" }, /*#__PURE__*/React.createElement("span", { "className": "text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-semibold" }, t("EAN {ean}", { ean: p.ean })), /*#__PURE__*/React.createElement("button", { "type": "button", "className": "bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold px-3 py-1 rounded-full", "onClick": () => openOffDetail(p.id) }, t("Productgegevens")))
+          ) : (
+            /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", { "className": "text-[10px] bg-amber-100 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded-full font-semibold" }, t("geen EAN gekoppeld")), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("button", { "type": "button", "className": "mt-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold px-3 py-1.5 rounded-full", "onClick": () => openOffLink(p.id) }, t("EAN koppelen / zoeken"))), /*#__PURE__*/React.createElement("div", { "className": "text-[10px] text-stone-400 mt-1" }, t("Via Open Food Facts: EAN scannen/invoeren of op naam zoeken.")), /*#__PURE__*/React.createElement("div", { "className": "text-[10px] text-stone-400" }, t("Merkloze basisproducten (bv. bloemkool): zoek op productnaam.")))
+          )), /*#__PURE__*/React.createElement("div", { "className": "text-[10px] text-stone-400 mt-2" }, usageCount(p.id), __t("× gebruikt (recepten, voorraad, extra)")), /*#__PURE__*/React.createElement("div", { "className": "flex gap-2 mt-2" }, /*#__PURE__*/React.createElement("button", { "className": "flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold py-1.5 rounded-lg", "onClick": saveProductEdit }, __t("Opslaan")), /*#__PURE__*/React.createElement("button", { "className": "text-xs text-red-500 px-2", "title": __t("Uit catalogus verwijderen (koppelingen vallen terug op vrije tekst)"), "onClick": () => deleteProductCatalog(p.id) }, __t("Verwijderen"))))
+    );
+  };
+
+  // ingrediënt-rij in een recept (ADR-017, scherm 1A/9): [aantal] [eenheid] [naam + autocomplete] [✕].
+  // De eenheid komt uit het product; alleen bij g/kg/ml/cl/l wijzigbaar (select met de converteerbare eenheden);
+  // bij geen eenheid staat er niets tussen aantal en naam.
+  const renderIngRow = (rid, ing, idx) => {
+    const key = rid + ":" + idx;
+    const p = typeof ing === "object" && ing && ing.pid ? prodById[ing.pid] : null;
+    const draft = ingDrafts[key];
+    const nameVal = draft !== undefined ? draft : p ? p.name : (typeof ing === "object" && ing ? ing.name || "" : String(ing || ""));
+    const q = nameVal.trim().toLowerCase();
+    const sugg = ingSuggest === key && q.length >= 2 ? matchProducts(products, q) : [];
+    const unit = typeof ing === "object" && ing ? ingUnit(ing, p) || null : null;
+    const amountVal = typeof ing === "object" && ing && ing.amount != null ? String(ing.amount).replace(".", ",") : "";
+    return (
+      /*#__PURE__*/React.createElement("div", { "key": idx, "className": "ingrow" }, /*#__PURE__*/React.createElement("input", { "className": "qty", "style": { width: "2.4rem" }, "value": amountVal, "placeholder": "#", "title": __t("Aantal"), "onChange": (e) => setIngAmount(rid, idx, e.target.value), "onBlur": () => commitIngAmount(rid, idx) }), unit ? (
+          UNIT_GROUP[unit] ? (
+            /*#__PURE__*/React.createElement("select", { "className": "border rounded-lg px-1 py-1.5 text-xs text-stone-600 shrink-0", "style": { width: "4.4rem" }, "value": unit, "title": __t("Eenheid (alleen converteerbare eenheden wijzigbaar)"), "onChange": (e) => setIngUnit(rid, idx, e.target.value) }, UNIT_GROUP[unit].map((u) => (/*#__PURE__*/React.createElement("option", { "key": u, "value": u }, u))))
+          ) : (
+            /*#__PURE__*/React.createElement("span", { "className": "text-xs text-stone-500 shrink-0", "title": __t("Eenheid van het product") }, unit)
+          )
+        ) : null, /*#__PURE__*/React.createElement("span", { "className": "grow suggest-wrap" }, /*#__PURE__*/React.createElement("input", { "className": "name", "value": nameVal, "placeholder": __t("Productnaam…"), "onChange": (e) => {
+              setIngDrafts((d) => ({ ...d, [key]: e.target.value }));
+              setIngSuggest(e.target.value.trim().length >= 2 ? key : null);
+              setActiveIngSuggest(0);
+            }, "onBlur": () => resolveIng(rid, idx, nameVal), "onKeyDown": (e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                if (sugg.length && sugg[activeIngSuggest]) selectIngProduct(rid, idx, sugg[activeIngSuggest]);
+                else resolveIng(rid, idx, nameVal);
+              } else if (e.key === "Escape") setIngSuggest(null);
+              else if (e.key === "ArrowDown" && sugg.length) { e.preventDefault(); setActiveIngSuggest((s2) => Math.min(s2 + 1, sugg.length - 1)); }
+              else if (e.key === "ArrowUp" && sugg.length) { e.preventDefault(); setActiveIngSuggest((s2) => Math.max(s2 - 1, 0)); }
+            } }), sugg.length > 0 && (
+            /*#__PURE__*/React.createElement("div", { "className": "suggest-list" }, sugg.map((s2, si) => (
+                /*#__PURE__*/React.createElement("div", { "key": s2.id, "className": `suggest-item${si === activeIngSuggest ? " active" : ""}`, "onMouseDown": (e) => { e.preventDefault(); selectIngProduct(rid, idx, s2); } }, /*#__PURE__*/React.createElement("span", null, highlightMatch(s2.name, q)), /*#__PURE__*/React.createElement("span", { "className": "text-[10px] text-stone-400 shrink-0" }, s2.cat, s2.unit ? ` · ${s2.unit}` : ""))
+              )))
+          )), typeof ing === "object" && ing && Array.isArray(ing.tags) && ing.tags.length > 0 && (
+          /*#__PURE__*/React.createElement("span", { "className": "shrink-0 flex gap-1" }, ing.tags.map((tg) => (
+              /*#__PURE__*/React.createElement("button", { "key": tg, "type": "button", "className": "tag", "title": __t("Per-recept tag (geldt alleen in dit recept) — klik om te verwijderen"), "onClick": () => setIngTags(rid, idx, ing.tags.filter((x) => x !== tg)) }, tg)
+            )))
+        ), /*#__PURE__*/React.createElement("button", { "type": "button", "className": "text-stone-300 hover:text-red-500 text-sm", "title": __t("Ingrediënt verwijderen"), "onClick": () => setRecipes((rs) => rs.map((r) => (r.id !== rid ? r : { ...r, ingredients: (r.ingredients || []).filter((_, j) => j !== idx) }))) }, "✕"))
+    );
+  };
+
+  // ingrediënt-rij in het "Nieuw recept"-sheet (ADR-018): zelfde inline rij + autocomplete als bij bewerken, maar op newRecipe
+  const renderNewIngRow = (ing, idx) => {
+    const key = "new:" + idx;
+    const p = ing && ing.pid ? prodById[ing.pid] : null;
+    const draft = ingDrafts[key];
+    const nameVal = draft !== undefined ? draft : p ? p.name : (ing && ing.name) || "";
+    const q = nameVal.trim().toLowerCase();
+    const sugg = ingSuggest === key && q.length >= 2 ? matchProducts(products, q) : [];
+    const unit = ingUnit(ing, p) || null;
+    const amountVal = ing && ing.amount != null ? String(ing.amount).replace(".", ",") : "";
+    return (
+      /*#__PURE__*/React.createElement("div", { "key": idx, "className": "ingrow" }, /*#__PURE__*/React.createElement("input", { "className": "qty", "style": { width: "2.4rem" }, "value": amountVal, "placeholder": "#", "title": __t("Aantal"), "onChange": (e) => setNewIngAmount(idx, e.target.value), "onBlur": () => commitNewIngAmount(idx) }), unit ? (
+          UNIT_GROUP[unit] ? (
+            /*#__PURE__*/React.createElement("select", { "className": "border rounded-lg px-1 py-1.5 text-xs text-stone-600 shrink-0", "style": { width: "4.4rem" }, "value": unit, "title": __t("Eenheid (alleen converteerbare eenheden wijzigbaar)"), "onChange": (e) => setNewIngUnit(idx, e.target.value) }, UNIT_GROUP[unit].map((u) => (/*#__PURE__*/React.createElement("option", { "key": u, "value": u }, u))))
+          ) : (
+            /*#__PURE__*/React.createElement("span", { "className": "text-xs text-stone-500 shrink-0", "title": __t("Eenheid van het product") }, unit)
+          )
+        ) : null, /*#__PURE__*/React.createElement("span", { "className": "grow suggest-wrap" }, /*#__PURE__*/React.createElement("input", { "className": "name", "value": nameVal, "placeholder": __t("Productnaam…"), "onChange": (e) => {
+              setIngDrafts((d) => ({ ...d, [key]: e.target.value }));
+              setIngSuggest(e.target.value.trim().length >= 2 ? key : null);
+              setActiveIngSuggest(0);
+            }, "onBlur": () => resolveNewIng(idx, nameVal), "onKeyDown": (e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                if (sugg.length && sugg[activeIngSuggest]) selectNewIngProduct(idx, sugg[activeIngSuggest]);
+                else resolveNewIng(idx, nameVal);
+              } else if (e.key === "Escape") setIngSuggest(null);
+              else if (e.key === "ArrowDown" && sugg.length) { e.preventDefault(); setActiveIngSuggest((s2) => Math.min(s2 + 1, sugg.length - 1)); }
+              else if (e.key === "ArrowUp" && sugg.length) { e.preventDefault(); setActiveIngSuggest((s2) => Math.max(s2 - 1, 0)); }
+            } }), sugg.length > 0 && (
+            /*#__PURE__*/React.createElement("div", { "className": "suggest-list" }, sugg.map((s2, si) => (
+                /*#__PURE__*/React.createElement("div", { "key": s2.id, "className": `suggest-item${si === activeIngSuggest ? " active" : ""}`, "onMouseDown": (e) => { e.preventDefault(); selectNewIngProduct(idx, s2); } }, /*#__PURE__*/React.createElement("span", null, highlightMatch(s2.name, q)), /*#__PURE__*/React.createElement("span", { "className": "text-[10px] text-stone-400 shrink-0" }, s2.cat, s2.unit ? ` · ${s2.unit}` : ""))
+              )))
+          )), /*#__PURE__*/React.createElement("button", { "type": "button", "className": "text-stone-300 hover:text-red-500 text-sm", "title": __t("Ingrediënt verwijderen"), "onClick": () => setNewRecipe((nr) => ({ ...nr, ingredients: (nr.ingredients || []).filter((_, j) => j !== idx) })) }, "✕"))
+    );
+  };
+
+
+  return { renderProductCard, renderIngRow, renderNewIngRow };
+}
+
+// ---- issue #48: Open Food Facts-sheets (koppelen/zoeken + productdetail gekoppeld), bestaande bottom-sheet-stijl ----
+const OFF_NUTRI_ROWS = [
+  ["energyKcal", "Energie"],
+  ["fat", "Vet"],
+  ["carbs", "Koolhydraten"],
+  ["protein", "Eiwitten"],
+  ["salt", "Zout"],
+];
+const fmtNutri = (v) => (v == null ? "–" : String(Math.round(v * 100) / 100).replace(".", ","));
+
+function createOffSheets(ctx) {
+  const { offDetailFor, offDraft, offLinkFor, offLookup, offPick, offRefresh, offScan, offScanning, offSearch, offUnlink, prodById, prodImgs, setOffDetailFor, setOffDraft, setOffLinkFor } = ctx;
+  const linkProd = offLinkFor ? prodById[offLinkFor] : null;
+  const detailProd = offDetailFor ? prodById[offDetailFor] : null;
+  const detailImg = detailProd && detailProd.ean ? prodImgs[detailProd.ean] : null;
+
+  const renderOffSheets = () => (
+    /*#__PURE__*/React.createElement("div", null, linkProd && (
+        /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", { "className": "backdrop", "onClick": () => setOffLinkFor(null) }), /*#__PURE__*/React.createElement("div", { "className": "sheet" }, /*#__PURE__*/React.createElement("div", { "className": "handle" }), /*#__PURE__*/React.createElement("div", { "className": "px-4 pb-4" }, /*#__PURE__*/React.createElement("div", { "className": "flex items-center mb-1" }, /*#__PURE__*/React.createElement("span", { "className": "text-lg font-bold" }, t("EAN koppelen / zoeken")), /*#__PURE__*/React.createElement("button", { "type": "button", "className": "ml-auto text-stone-400", "onClick": () => setOffLinkFor(null) }, "✕")), /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-500 mb-3" }, t("voor \"{naam}\" ({cat})", { naam: linkProd.name, cat: linkProd.cat })), /*#__PURE__*/React.createElement("div", { "className": "flex gap-2" }, /*#__PURE__*/React.createElement("input", { "className": "flex-1 min-w-0 border rounded-lg px-2 py-1.5 text-sm", "inputMode": "numeric", "autoCapitalize": "none", "placeholder": t("EAN invoeren…"), "title": t("Enter = opzoeken bij Open Food Facts"), "value": offDraft.ean, "onChange": (e) => setOffDraft((d) => ({ ...d, ean: e.target.value.replace(/[^\d]/g, ""), error: null })), "onKeyDown": (e) => { if (e.key === "Enter") { e.preventDefault(); void offLookup(offDraft.ean); } } }), /*#__PURE__*/React.createElement("button", { "type": "button", "className": "border rounded-lg px-3 text-sm whitespace-nowrap", "onClick": () => void offScan(), "disabled": offScanning }, offScanning ? t("Scannen…") : "📷 " + t("scan"))), /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-500 mt-3 mb-1" }, t("of zoek op productnaam")), /*#__PURE__*/React.createElement("input", { "className": "w-full border rounded-lg px-2 py-1.5 text-sm", "autoCapitalize": "none", "value": offDraft.q, "onChange": (e) => void offSearch(e.target.value) }), offDraft.restricted && (
+                /*#__PURE__*/React.createElement("div", { "className": "rounded-lg bg-amber-50 border border-amber-200 p-2 text-[11px] text-amber-800 mt-2" }, t("EAN-8 (20–29) is niet uniek (restricted circulation, o.a. Lidl): alle matches worden getoond ter desambiguatie."))
+              ), offDraft.loading && /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-400 mt-2" }, t("Zoeken…")), offDraft.error && /*#__PURE__*/React.createElement("div", { "className": "text-xs text-red-600 mt-2" }, offDraft.error), /*#__PURE__*/React.createElement("div", { "className": "flex flex-col gap-1.5 mt-2" }, offDraft.results.map((r) => (
+                  /*#__PURE__*/React.createElement("div", { "key": r.ean, "className": "flex items-center gap-2 bg-stone-50 border border-stone-200 rounded-lg p-2" }, r.imageUrl ? (
+                      /*#__PURE__*/React.createElement("img", { "src": r.imageUrl, "alt": "", "className": "w-10 h-10 rounded-lg object-cover shrink-0" })
+                    ) : (
+                      /*#__PURE__*/React.createElement("span", { "className": "w-10 h-10 rounded-lg bg-stone-200 flex items-center justify-center text-sm shrink-0" }, "📦")
+                    ), /*#__PURE__*/React.createElement("div", { "className": "flex-1 min-w-0" }, /*#__PURE__*/React.createElement("div", { "className": "text-sm font-semibold truncate" }, r.fullName), /*#__PURE__*/React.createElement("div", { "className": "text-[11px] text-stone-500 truncate" }, [r.brand, r.ean ? t("EAN {ean}", { ean: r.ean }) : null].filter(Boolean).join(" · "))), /*#__PURE__*/React.createElement("button", { "type": "button", "className": "chip on", "onClick": () => void offPick(r) }, t("Kies")))
+                ))), /*#__PURE__*/React.createElement("div", { "className": "text-[10px] text-stone-400 mt-3" }, t("Bron: Open Food Facts · data & foto's CC BY-SA 3.0")))))
+      ), detailProd && detailProd.ean && (
+        /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", { "className": "backdrop", "onClick": () => setOffDetailFor(null) }), /*#__PURE__*/React.createElement("div", { "className": "sheet" }, /*#__PURE__*/React.createElement("div", { "className": "handle" }), /*#__PURE__*/React.createElement("div", { "className": "px-4 pb-4" }, /*#__PURE__*/React.createElement("div", { "className": "flex items-center mb-3" }, /*#__PURE__*/React.createElement("button", { "type": "button", "className": "text-stone-500 mr-1", "onClick": () => setOffDetailFor(null) }, "‹"), /*#__PURE__*/React.createElement("span", { "className": "text-lg font-bold" }, t("Productgegevens")), /*#__PURE__*/React.createElement("button", { "type": "button", "className": "ml-auto text-stone-400", "onClick": () => setOffDetailFor(null) }, "✕")), /*#__PURE__*/React.createElement("div", { "className": "relative mb-2" }, detailImg ? (
+                  /*#__PURE__*/React.createElement("img", { "src": detailImg, "alt": "", "className": "w-full h-36 object-cover rounded-xl" })
+                ) : detailProd.offImageUrl ? (
+                  /*#__PURE__*/React.createElement("img", { "src": detailProd.offImageUrl, "alt": "", "className": "w-full h-36 object-cover rounded-xl" })
+                ) : (
+                  /*#__PURE__*/React.createElement("div", { "className": "w-full h-36 rounded-xl bg-stone-100 flex items-center justify-center text-2xl" }, "📦")
+                ), detailImg && (
+                  /*#__PURE__*/React.createElement("span", { "className": "absolute top-2 right-2 text-[10px] bg-black/55 text-white px-1.5 py-0.5 rounded-full" }, "● ", t("gecachet · offline"))
+                )), /*#__PURE__*/React.createElement("div", { "className": "text-base font-bold leading-snug" }, detailProd.fullName || detailProd.name), /*#__PURE__*/React.createElement("div", { "className": "text-xs font-semibold text-emerald-700 mb-3" }, t("EAN {ean}", { ean: detailProd.ean })), detailProd.nutrition ? (
+                /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", { "className": "flex items-baseline mb-1" }, /*#__PURE__*/React.createElement("span", { "className": "text-sm font-bold" }, t("Voedingswaarden")), /*#__PURE__*/React.createElement("span", { "className": "ml-auto text-[11px] text-stone-500" }, t("per 100 g")), detailProd.nutrition.servingSize && (
+                      /*#__PURE__*/React.createElement("span", { "className": "ml-3 text-[11px] text-stone-500" }, t("portie {size}", { size: detailProd.nutrition.servingSize }))
+                    )), /*#__PURE__*/React.createElement("div", { "className": "border-t border-stone-100" }, OFF_NUTRI_ROWS.map(([key, label]) => (
+                      /*#__PURE__*/React.createElement("div", { "key": key, "className": "flex items-center py-1 border-b border-stone-100 text-sm" }, /*#__PURE__*/React.createElement("span", null, t(label)), /*#__PURE__*/React.createElement("span", { "className": "ml-auto" }, fmtNutri(detailProd.nutrition.per100 && detailProd.nutrition.per100[key]), key === "energyKcal" ? " kcal" : " g"), detailProd.nutrition.perServing && detailProd.nutrition.servingSize && (
+                          /*#__PURE__*/React.createElement("span", { "className": "ml-3 w-16 shrink-0 text-right text-stone-600" }, fmtNutri(detailProd.nutrition.perServing[key]), key === "energyKcal" ? " kcal" : " g")
+                        ))
+                    ))))
+              ) : (
+                /*#__PURE__*/React.createElement("div", { "className": "text-xs text-stone-500 mb-1" }, t("Geen voedingswaarden bekend bij Open Food Facts."))
+              ), detailImg && (
+                /*#__PURE__*/React.createElement("div", { "className": "text-[11px] font-semibold text-emerald-700 mt-2" }, "● ", t("uit lokale cache · offline beschikbaar · geen nieuwe API-call"))
+              ), /*#__PURE__*/React.createElement("button", { "type": "button", "className": "w-full bg-stone-800 text-white rounded-xl py-2.5 text-sm font-medium mt-3", "onClick": () => void offRefresh(detailProd.id) }, t("Waarden opnieuw ophalen")), /*#__PURE__*/React.createElement("button", { "type": "button", "className": "w-full text-xs text-red-500 py-2", "onClick": () => void offUnlink(detailProd.id) }, t("Ontkoppelen")), /*#__PURE__*/React.createElement("div", { "className": "text-[10px] text-stone-400 mt-1" }, detailImg ? t("Gegevens & foto's: Open Food Facts (CC BY-SA 3.0) · foto lokaal gecachet") : t("Bron: Open Food Facts · data & foto's CC BY-SA 3.0")))))
+      ))
+  );
+
+  return { renderOffSheets };
+}
+
+exports.makeInfoBtn = makeInfoBtn;
+exports.highlightMatch = highlightMatch;
+exports.createSharedViews = createSharedViews;
+exports.createOffSheets = createOffSheets;
 },
 "src/ui/menuTab.jsx": function (module, exports, require) {
 // Gegenereerd uit de tab-renderfuncties; plain-functie-aanroepen (geen <Component/>),
@@ -4095,141 +4646,6 @@ function createMenuTab(ctx) {
 }
 
 exports.createMenuTab = createMenuTab;
-},
-"src/ui/components.jsx": function (module, exports, require) {
-// Gedeelde render-helpers (product-kaart, ingrediënt-rijen) + highlightMatch.
-const __imp0 = require("../domain/catalog.js");
-const { UNITS, UNIT_GROUP, ingUnit, matchProducts } = __imp0;
-const __imp1 = require("../i18n/index.js");
-const { t } = __imp1;
-
-// Klein informatieknopje (ℹ️) direct achter het onderwerp; popover met de uitleg verschijnt op aanvraag.
-function makeInfoBtn(infoOpen, setInfoOpen) {
-  return (id, content) => (
-    /*#__PURE__*/React.createElement("span", { "className": "relative inline-flex align-middle" }, /*#__PURE__*/React.createElement("button", { "type": "button", "className": `iconbtn sm${infoOpen === id ? " on" : ""}`, "title": __t("Uitleg"), "onClick": (e) => { e.stopPropagation(); setInfoOpen(infoOpen === id ? null : id); } }, "ℹ️"), infoOpen === id && /*#__PURE__*/React.createElement("div", { "className": "pop" }, content))
-  );
-}
-
-function highlightMatch(name, q) {
-  const i = name.toLowerCase().indexOf(q);
-  if (i < 0) return name;
-  return React.createElement(
-    React.Fragment,
-    null,
-    name.slice(0, i),
-    React.createElement("span", { className: "mark" }, name.slice(i, i + q.length)),
-    name.slice(i + q.length)
-  );
-}
-
-// ---- schalen van hoeveelheden per dag (ADR-012) ----
-// factor = eters die dag / householdSize. Alleen "<getal> <eenheid>..." schaalt mee;
-// vaste verpakkingen (blik/pak/zak/...) en tekst zonder getal blijven gelijk.
-
-function createSharedViews(ctx) {
-  const { activeIngSuggest, addProdTag, allProductTags, commitIngAmount, commitNewIngAmount, deleteProductCatalog, infoOpen, ingDrafts, ingSuggest, marketChip, markets, openProd, prodById, prodEdit, products, removeProdTag, resolveIng, resolveNewIng, saveProductEdit, selectIngProduct, selectNewIngProduct, setActiveIngSuggest, setIngAmount, setIngDrafts, setIngSuggest, setIngTags, setIngUnit, setInfoOpen, setNewIngAmount, setNewIngUnit, setNewRecipe, setProdEdit, setRecipes, shopCats , usageCount } = ctx;
-  const infoBtn = makeInfoBtn(infoOpen, setInfoOpen);
-
-  const renderProductCard = (rowKey) => {
-    if (openProd !== rowKey || !prodEdit) return null;
-    const p = products.find((x) => x.id === prodEdit.id);
-    if (!p) return null;
-    return (
-      /*#__PURE__*/React.createElement("div", { "className": "px-3 py-3 bg-stone-50 border-t border-stone-100" }, /*#__PURE__*/React.createElement("div", { "className": "grid grid-cols-2 gap-2" }, /*#__PURE__*/React.createElement("label", { "className": "text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Naam")), /*#__PURE__*/React.createElement("input", { "className": "w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm", "value": prodEdit.name, "onChange": (e) => setProdEdit({ ...prodEdit, name: e.target.value }) })), /*#__PURE__*/React.createElement("label", { "className": "text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Categorie")), /*#__PURE__*/React.createElement("select", { "className": "w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm text-stone-600", "value": prodEdit.cat, "onChange": (e) => setProdEdit({ ...prodEdit, cat: e.target.value }) }, shopCats.map((c) => (/*#__PURE__*/React.createElement("option", { "key": c, "value": c }, c))), prodEdit.cat !== "overig" && !shopCats.includes(prodEdit.cat) && /*#__PURE__*/React.createElement("option", { "value": prodEdit.cat }, prodEdit.cat), /*#__PURE__*/React.createElement("option", { "value": "overig" }, __t("overig"))))), /*#__PURE__*/React.createElement("div", { "className": "grid grid-cols-2 gap-2 mt-2" }, /*#__PURE__*/React.createElement("label", { "className": "text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Eenheid (standaard bij dit product)")), /*#__PURE__*/React.createElement("select", { "className": "w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm text-stone-600", "value": prodEdit.unit || "", "onChange": (e) => setProdEdit({ ...prodEdit, unit: e.target.value || null }) }, /*#__PURE__*/React.createElement("option", { "value": "" }, "–"), UNITS.map((u) => (/*#__PURE__*/React.createElement("option", { "key": u, "value": u }, u))))), /*#__PURE__*/React.createElement("div", { "className": "text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Voorkeurssupermarkt")), /*#__PURE__*/React.createElement("div", { "className": "filterrow", "style": { marginTop: ".25rem" } }, /*#__PURE__*/React.createElement("button", { "className": `chip${!prodEdit.market ? " on" : ""}`, "onClick": () => setProdEdit({ ...prodEdit, market: null }) }, __t("geen")), markets.map((m) => (
-                /*#__PURE__*/React.createElement("button", { "key": m.key, "className": `chip${prodEdit.market === m.key ? " on" : ""}`, "onClick": () => setProdEdit({ ...prodEdit, market: m.key }) }, marketChip(m.key))
-              ))))), /*#__PURE__*/React.createElement("div", { "className": "grid grid-cols-2 gap-2 mt-2" }, /*#__PURE__*/React.createElement("label", { "className": "text-xs relative" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Inhoud per verpakking")), infoBtn("pack", t("Per 1 {eenheid} = {inhoud} — de boodschappenlijst toont alleen hele verpakkingen.", { eenheid: prodEdit.unit || "verpakking", inhoud: `${prodEdit.packAmount || "…"} ${prodEdit.packUnit || "…"}` })), /*#__PURE__*/React.createElement("input", { "className": "w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm", "type": "number", "min": "0", "step": "any", "placeholder": __t("bijv. 500"), "value": prodEdit.packAmount || "", "onChange": (e) => setProdEdit({ ...prodEdit, packAmount: e.target.value }) })), /*#__PURE__*/React.createElement("label", { "className": "text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Eenheid van de inhoud")), /*#__PURE__*/React.createElement("select", { "className": "w-full border rounded-lg px-2 py-1.5 mt-0.5 text-sm text-stone-600", "value": prodEdit.packUnit || "", "onChange": (e) => setProdEdit({ ...prodEdit, packUnit: e.target.value }) }, /*#__PURE__*/React.createElement("option", { "value": "" }, "–"), UNITS.map((u) => (/*#__PURE__*/React.createElement("option", { "key": u, "value": u }, u)))))), /*#__PURE__*/React.createElement("div", { "className": "mt-2 text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Timetag")), /*#__PURE__*/React.createElement("div", { "className": "flex items-center gap-1 mt-0.5" }, /*#__PURE__*/React.createElement("input", { "className": "w-20 border rounded-lg px-2 py-1.5 text-sm", "type": "number", "min": "0", "max": "365", "step": "1", "value": prodEdit.timetagDraft ?? "0", "title": __t("Minimum aantal dagen tussen twee gebruiken van dit product in het weekmenu (0 = geen timetag, max 365)"), "onChange": (e) => setProdEdit({ ...prodEdit, timetagDraft: e.target.value }) }), /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("dagen")))), /*#__PURE__*/React.createElement("div", { "className": "mt-2 text-xs" }, /*#__PURE__*/React.createElement("span", { "className": "text-stone-500" }, __t("Tags")), /*#__PURE__*/React.createElement("div", { "className": "flex flex-wrap gap-1 mt-0.5" }, (prodEdit.tags || []).map((tg) => (
-              /*#__PURE__*/React.createElement("button", { "key": tg, "type": "button", "className": "tag", "title": __t("Tag verwijderen"), "onClick": () => removeProdTag(tg) }, tg)
-            ))), /*#__PURE__*/React.createElement("div", { "className": "tagadd" }, /*#__PURE__*/React.createElement("input", { "value": prodEdit.tagDraft || "", "autoCapitalize": "none", "list": "product-tags-list", "onChange": (e) => setProdEdit({ ...prodEdit, tagDraft: e.target.value }), "onKeyDown": (e) => { if (e.key === "Enter") { e.preventDefault(); addProdTag(); } } }), /*#__PURE__*/React.createElement("datalist", { "id": "product-tags-list" }, allProductTags.map((t) => (/*#__PURE__*/React.createElement("option", { "key": t, "value": t })))), /*#__PURE__*/React.createElement("button", { "onClick": addProdTag }, "+"))), /*#__PURE__*/React.createElement("div", { "className": "text-[10px] text-stone-400 mt-2" }, usageCount(p.id), __t("× gebruikt (recepten, voorraad, extra)")), /*#__PURE__*/React.createElement("div", { "className": "flex gap-2 mt-2" }, /*#__PURE__*/React.createElement("button", { "className": "flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold py-1.5 rounded-lg", "onClick": saveProductEdit }, __t("Opslaan")), /*#__PURE__*/React.createElement("button", { "className": "text-xs text-red-500 px-2", "title": __t("Uit catalogus verwijderen (koppelingen vallen terug op vrije tekst)"), "onClick": () => deleteProductCatalog(p.id) }, __t("Verwijderen"))))
-    );
-  };
-
-  // ingrediënt-rij in een recept (ADR-017, scherm 1A/9): [aantal] [eenheid] [naam + autocomplete] [✕].
-  // De eenheid komt uit het product; alleen bij g/kg/ml/cl/l wijzigbaar (select met de converteerbare eenheden);
-  // bij geen eenheid staat er niets tussen aantal en naam.
-  const renderIngRow = (rid, ing, idx) => {
-    const key = rid + ":" + idx;
-    const p = typeof ing === "object" && ing && ing.pid ? prodById[ing.pid] : null;
-    const draft = ingDrafts[key];
-    const nameVal = draft !== undefined ? draft : p ? p.name : (typeof ing === "object" && ing ? ing.name || "" : String(ing || ""));
-    const q = nameVal.trim().toLowerCase();
-    const sugg = ingSuggest === key && q.length >= 2 ? matchProducts(products, q) : [];
-    const unit = typeof ing === "object" && ing ? ingUnit(ing, p) || null : null;
-    const amountVal = typeof ing === "object" && ing && ing.amount != null ? String(ing.amount).replace(".", ",") : "";
-    return (
-      /*#__PURE__*/React.createElement("div", { "key": idx, "className": "ingrow" }, /*#__PURE__*/React.createElement("input", { "className": "qty", "style": { width: "2.4rem" }, "value": amountVal, "placeholder": "#", "title": __t("Aantal"), "onChange": (e) => setIngAmount(rid, idx, e.target.value), "onBlur": () => commitIngAmount(rid, idx) }), unit ? (
-          UNIT_GROUP[unit] ? (
-            /*#__PURE__*/React.createElement("select", { "className": "border rounded-lg px-1 py-1.5 text-xs text-stone-600 shrink-0", "style": { width: "4.4rem" }, "value": unit, "title": __t("Eenheid (alleen converteerbare eenheden wijzigbaar)"), "onChange": (e) => setIngUnit(rid, idx, e.target.value) }, UNIT_GROUP[unit].map((u) => (/*#__PURE__*/React.createElement("option", { "key": u, "value": u }, u))))
-          ) : (
-            /*#__PURE__*/React.createElement("span", { "className": "text-xs text-stone-500 shrink-0", "title": __t("Eenheid van het product") }, unit)
-          )
-        ) : null, /*#__PURE__*/React.createElement("span", { "className": "grow suggest-wrap" }, /*#__PURE__*/React.createElement("input", { "className": "name", "value": nameVal, "placeholder": __t("Productnaam…"), "onChange": (e) => {
-              setIngDrafts((d) => ({ ...d, [key]: e.target.value }));
-              setIngSuggest(e.target.value.trim().length >= 2 ? key : null);
-              setActiveIngSuggest(0);
-            }, "onBlur": () => resolveIng(rid, idx, nameVal), "onKeyDown": (e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                if (sugg.length && sugg[activeIngSuggest]) selectIngProduct(rid, idx, sugg[activeIngSuggest]);
-                else resolveIng(rid, idx, nameVal);
-              } else if (e.key === "Escape") setIngSuggest(null);
-              else if (e.key === "ArrowDown" && sugg.length) { e.preventDefault(); setActiveIngSuggest((s2) => Math.min(s2 + 1, sugg.length - 1)); }
-              else if (e.key === "ArrowUp" && sugg.length) { e.preventDefault(); setActiveIngSuggest((s2) => Math.max(s2 - 1, 0)); }
-            } }), sugg.length > 0 && (
-            /*#__PURE__*/React.createElement("div", { "className": "suggest-list" }, sugg.map((s2, si) => (
-                /*#__PURE__*/React.createElement("div", { "key": s2.id, "className": `suggest-item${si === activeIngSuggest ? " active" : ""}`, "onMouseDown": (e) => { e.preventDefault(); selectIngProduct(rid, idx, s2); } }, /*#__PURE__*/React.createElement("span", null, highlightMatch(s2.name, q)), /*#__PURE__*/React.createElement("span", { "className": "text-[10px] text-stone-400 shrink-0" }, s2.cat, s2.unit ? ` · ${s2.unit}` : ""))
-              )))
-          )), typeof ing === "object" && ing && Array.isArray(ing.tags) && ing.tags.length > 0 && (
-          /*#__PURE__*/React.createElement("span", { "className": "shrink-0 flex gap-1" }, ing.tags.map((tg) => (
-              /*#__PURE__*/React.createElement("button", { "key": tg, "type": "button", "className": "tag", "title": __t("Per-recept tag (geldt alleen in dit recept) — klik om te verwijderen"), "onClick": () => setIngTags(rid, idx, ing.tags.filter((x) => x !== tg)) }, tg)
-            )))
-        ), /*#__PURE__*/React.createElement("button", { "type": "button", "className": "text-stone-300 hover:text-red-500 text-sm", "title": __t("Ingrediënt verwijderen"), "onClick": () => setRecipes((rs) => rs.map((r) => (r.id !== rid ? r : { ...r, ingredients: (r.ingredients || []).filter((_, j) => j !== idx) }))) }, "✕"))
-    );
-  };
-
-  // ingrediënt-rij in het "Nieuw recept"-sheet (ADR-018): zelfde inline rij + autocomplete als bij bewerken, maar op newRecipe
-  const renderNewIngRow = (ing, idx) => {
-    const key = "new:" + idx;
-    const p = ing && ing.pid ? prodById[ing.pid] : null;
-    const draft = ingDrafts[key];
-    const nameVal = draft !== undefined ? draft : p ? p.name : (ing && ing.name) || "";
-    const q = nameVal.trim().toLowerCase();
-    const sugg = ingSuggest === key && q.length >= 2 ? matchProducts(products, q) : [];
-    const unit = ingUnit(ing, p) || null;
-    const amountVal = ing && ing.amount != null ? String(ing.amount).replace(".", ",") : "";
-    return (
-      /*#__PURE__*/React.createElement("div", { "key": idx, "className": "ingrow" }, /*#__PURE__*/React.createElement("input", { "className": "qty", "style": { width: "2.4rem" }, "value": amountVal, "placeholder": "#", "title": __t("Aantal"), "onChange": (e) => setNewIngAmount(idx, e.target.value), "onBlur": () => commitNewIngAmount(idx) }), unit ? (
-          UNIT_GROUP[unit] ? (
-            /*#__PURE__*/React.createElement("select", { "className": "border rounded-lg px-1 py-1.5 text-xs text-stone-600 shrink-0", "style": { width: "4.4rem" }, "value": unit, "title": __t("Eenheid (alleen converteerbare eenheden wijzigbaar)"), "onChange": (e) => setNewIngUnit(idx, e.target.value) }, UNIT_GROUP[unit].map((u) => (/*#__PURE__*/React.createElement("option", { "key": u, "value": u }, u))))
-          ) : (
-            /*#__PURE__*/React.createElement("span", { "className": "text-xs text-stone-500 shrink-0", "title": __t("Eenheid van het product") }, unit)
-          )
-        ) : null, /*#__PURE__*/React.createElement("span", { "className": "grow suggest-wrap" }, /*#__PURE__*/React.createElement("input", { "className": "name", "value": nameVal, "placeholder": __t("Productnaam…"), "onChange": (e) => {
-              setIngDrafts((d) => ({ ...d, [key]: e.target.value }));
-              setIngSuggest(e.target.value.trim().length >= 2 ? key : null);
-              setActiveIngSuggest(0);
-            }, "onBlur": () => resolveNewIng(idx, nameVal), "onKeyDown": (e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                if (sugg.length && sugg[activeIngSuggest]) selectNewIngProduct(idx, sugg[activeIngSuggest]);
-                else resolveNewIng(idx, nameVal);
-              } else if (e.key === "Escape") setIngSuggest(null);
-              else if (e.key === "ArrowDown" && sugg.length) { e.preventDefault(); setActiveIngSuggest((s2) => Math.min(s2 + 1, sugg.length - 1)); }
-              else if (e.key === "ArrowUp" && sugg.length) { e.preventDefault(); setActiveIngSuggest((s2) => Math.max(s2 - 1, 0)); }
-            } }), sugg.length > 0 && (
-            /*#__PURE__*/React.createElement("div", { "className": "suggest-list" }, sugg.map((s2, si) => (
-                /*#__PURE__*/React.createElement("div", { "key": s2.id, "className": `suggest-item${si === activeIngSuggest ? " active" : ""}`, "onMouseDown": (e) => { e.preventDefault(); selectNewIngProduct(idx, s2); } }, /*#__PURE__*/React.createElement("span", null, highlightMatch(s2.name, q)), /*#__PURE__*/React.createElement("span", { "className": "text-[10px] text-stone-400 shrink-0" }, s2.cat, s2.unit ? ` · ${s2.unit}` : ""))
-              )))
-          )), /*#__PURE__*/React.createElement("button", { "type": "button", "className": "text-stone-300 hover:text-red-500 text-sm", "title": __t("Ingrediënt verwijderen"), "onClick": () => setNewRecipe((nr) => ({ ...nr, ingredients: (nr.ingredients || []).filter((_, j) => j !== idx) })) }, "✕"))
-    );
-  };
-
-
-  return { renderProductCard, renderIngRow, renderNewIngRow };
-}
-
-exports.makeInfoBtn = makeInfoBtn;
-exports.highlightMatch = highlightMatch;
-exports.createSharedViews = createSharedViews;
 },
 "src/ui/labels.js": function (module, exports, require) {
 // Presentatiemaps voor categorie- en tijdlabels (ADR-013/ADR-018).

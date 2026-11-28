@@ -105,6 +105,27 @@ export function shopDisplayAmount(amount, unit, product) {
   }
   return normalizeAmountUnit(a, unit);
 }
+// #48: EAN (8/12/13 cijfers), volledige OFF-naam, gecachete voedingswaarden en OFF-foto-URL valideren.
+const OFF_IMG_PREFIX = "https://images.openfoodfacts.org/images/products/";
+function normalizeEan(ean) {
+  const c = typeof ean === "string" ? ean.replace(/[\s-]/g, "") : "";
+  return /^\d{8}$|^\d{12,13}$/.test(c) ? c : null;
+}
+function normalizeNutrition(n) {
+  if (!n || typeof n !== "object") return null;
+  const num = (v) => (Number.isFinite(Number(v)) && Number(v) >= 0 && Number(v) <= 1e6 ? Math.round(Number(v) * 100) / 100 : null);
+  const pick = (obj) => {
+    if (!obj || typeof obj !== "object") return null;
+    const out = {};
+    ["energyKcal", "fat", "carbs", "protein", "salt"].forEach((k) => { const v = num(obj[k]); if (v != null) out[k] = v; });
+    return Object.keys(out).length ? out : null;
+  };
+  const per100 = pick(n.per100);
+  if (!per100) return null;
+  const perServing = pick(n.perServing);
+  const servingSize = typeof n.servingSize === "string" && n.servingSize.trim() ? n.servingSize.trim().slice(0, 40) : null;
+  return { per100, servingSize, perServing };
+}
 export function normalizeProducts(arr) {
   const out = [];
   const seen = new Set();
@@ -121,6 +142,10 @@ export function normalizeProducts(arr) {
       unit: UNITS.includes(p.unit) ? p.unit : (typeof p.unit === "string" && p.unit.trim() ? p.unit.trim().slice(0, 8) : null),
       tags: Array.isArray(p.tags) ? [...new Set(p.tags.map((t) => String(t || "").trim().toLowerCase()).filter(Boolean))] : [], // #37
       pack: normalizePack(p.pack), // #35: inhoud per verpakking (bijv. { amount: 500, unit: "g" } = 1 pot)
+      ...(normalizeEan(p.ean) ? { ean: normalizeEan(p.ean) } : {}), // #48: EAN-barcode (OFF `code`)
+      ...(typeof p.fullName === "string" && p.fullName.trim() ? { fullName: p.fullName.trim().slice(0, 160) } : {}), // #48: volledige productnaam via OFF
+      ...(normalizeNutrition(p.nutrition) ? { nutrition: normalizeNutrition(p.nutrition) } : {}), // #48: voedingswaarden-cache (per 100 g / portie)
+      ...(typeof p.offImageUrl === "string" && p.offImageUrl.startsWith(OFF_IMG_PREFIX) ? { offImageUrl: p.offImageUrl.slice(0, 300) } : {}), // #48: OFF-foto-URL (allowlist-prefix)
       ...(typeof p.updatedAt === "number" ? { updatedAt: p.updatedAt } : {}),
       ...(p.timetag != null ? { timetag: p.timetag } : {}), // #58: timetag bewaren (raw; genormaliseerd bij gebruik via TT)
     });

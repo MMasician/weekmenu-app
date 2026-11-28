@@ -1,5 +1,6 @@
 import React from "react";
 import { useAppStore } from "./state/store.js";
+import { createOffSheets } from "./ui/components.jsx";
 import { createMenuTab } from "./ui/menuTab.jsx";
 import { createRecipesTab } from "./ui/recipesTab.jsx";
 import { createStockTab } from "./ui/stockTab.jsx";
@@ -28,6 +29,7 @@ export default function App() {
   const stockViews = createStockTab(ctx);
   const shoppingViews = createShoppingTab(ctx);
   const settingsViews = createSettingsTab(ctx);
+  const offViews = createOffSheets(ctx); // #48: Open Food Facts-sheets (koppelen/zoeken + productdetail)
 
   return (
     <div className="min-h-screen bg-stone-50 text-stone-800" data-theme={settings.theme}>
@@ -57,6 +59,7 @@ export default function App() {
 
         <input id="dish-foto-input" type="file" accept="image/*" style={{ display: "none" }} onChange={onDishFotoFile} />
         {mergeGroup && settingsViews.renderMergeSheet()}
+        {offViews.renderOffSheets()}
         {pnToast && (
           <div style={{ position: "fixed", bottom: "1rem", left: "50%", transform: "translateX(-50%)", zIndex: 60, background: "#292524", color: "#fff", borderRadius: "0.75rem", padding: "0.5rem 0.9rem", display: "flex", gap: "0.6rem", alignItems: "center", fontSize: "0.85rem" }}>
             <span>{pnToast.msg}</span>

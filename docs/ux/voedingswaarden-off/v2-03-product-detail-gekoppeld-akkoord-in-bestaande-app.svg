@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844">
+<style>text { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Color Emoji', sans-serif; }</style>
+<defs><linearGradient id="p1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fde68a"/><stop offset="1" stop-color="#d97706"/></linearGradient></defs>
+<rect width="390" height="844" fill="#fafaf9"/>
+<text x="16" y="46" font-size="22" font-weight="700" fill="#292524">Weekmenu &amp; Boodschappen</text>
+<rect x="16" y="64" width="358" height="40" rx="12" fill="#fff" stroke="#f0efed"/>
+<text x="337" y="88" font-size="13" text-anchor="middle">⚙️</text>
+<rect x="0" y="180" width="390" height="664" fill="rgba(0,0,0,.35)"/>
+<rect x="12" y="200" width="366" height="560" rx="16" fill="#fff"/>
+<rect x="165" y="210" width="60" height="5" rx="2.5" fill="#d6d3d1"/>
+<text x="28" y="240" font-size="15" font-weight="700" fill="#292524">‹ Productgegevens</text>
+<rect x="24" y="256" width="342" height="150" rx="12" fill="url(#p1)"/>
+<rect x="292" y="266" width="66" height="20" rx="10" fill="rgba(0,0,0,.55)"/><text x="325" y="280" font-size="9" fill="#fff" text-anchor="middle">● gecachet · offline</text>
+<text x="36" y="392" font-size="15" font-weight="700" fill="#292524">Jumbo Appelstroop 450 g</text>
+<text x="36" y="412" font-size="11" font-weight="600" fill="#047857">EAN 8718452304653</text>
+<text x="24" y="440" font-size="13" font-weight="700" fill="#292524">Voedingswaarden</text>
+<text x="250" y="440" font-size="10" fill="#78716c">per 100 g</text>
+<text x="322" y="440" font-size="10" fill="#78716c">portie 20 g</text>
+<line x1="24" y1="450" x2="366" y2="450" stroke="#f0efed"/>
+<text x="24" y="472" font-size="11" fill="#292524">Energie</text><text x="250" y="472" font-size="11" fill="#292524">295 kcal</text><text x="322" y="472" font-size="11" fill="#292524">59 kcal</text>
+<text x="24" y="494" font-size="11" fill="#292524">Vet</text><text x="250" y="494" font-size="11" fill="#292524">0 g</text><text x="322" y="494" font-size="11" fill="#292524">0 g</text>
+<text x="24" y="516" font-size="11" fill="#292524">Koolhydraten</text><text x="250" y="516" font-size="11" fill="#292524">72 g</text><text x="322" y="516" font-size="11" fill="#292524">14,4 g</text>
+<text x="24" y="538" font-size="11" fill="#292524">Eiwitten</text><text x="250" y="538" font-size="11" fill="#292524">0,3 g</text><text x="322" y="538" font-size="11" fill="#292524">0,1 g</text>
+<text x="24" y="560" font-size="11" fill="#292524">Zout</text><text x="250" y="560" font-size="11" fill="#292524">0,01 g</text><text x="322" y="560" font-size="11" fill="#292524">0 g</text>
+<text x="24" y="590" font-size="10" font-weight="600" fill="#047857">● uit lokale cache · offline beschikbaar · geen nieuwe API-call</text>
+<rect x="24" y="610" width="342" height="34" rx="10" fill="#292524"/><text x="195" y="632" font-size="12" font-weight="600" fill="#fff" text-anchor="middle">Waarden opnieuw ophalen</text>
+<text x="24" y="676" font-size="10" fill="#78716c">Gegevens &amp; foto's: Open Food Facts (CC BY-SA 3.0) · foto lokaal gecachet</text>
+<text x="195" y="828" font-size="9" fill="#d6d3d1" text-anchor="middle">❯ v2 product-detail gekoppeld versie C (akkoord) in bestaande app: gecachete OFF-foto + voedingswaarden per 100 g/portie + CC BY-SA bronvermelding</text>
+</svg>

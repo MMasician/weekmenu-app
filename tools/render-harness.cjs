@@ -47,10 +47,14 @@ function loadApp(file, seed, now, extra) {
   // extra globals (bijv. fake indexedDB/canvas voor src/gerechtFotos.js) gaan de sandbox in
   // én overschrijven de wrapper-parameters (document/URL/...) als ze daar deel van uitmaken
   if (extra) Object.assign(sandbox, extra);
+  // een vm-context heeft geen URL-global (Node-specifiek): module-scripts (src/openFoodFacts.js)
+  // parsen URL's mee via `new URL(...)` — geef ze de echte URL-klasse. De app-wrapper krijgt
+  // env.URL (evt. een fake met createObjectURL) als losse parameter binnen.
+  sandbox.URL = globalThis.URL;
   // net als in de browser (script-tags in index.html): laad de src-modules in dezelfde
   // vm-context, zodat ze globalThis.<Module> zetten (ProductNormalisatie / Timetags / GerechtFotos)
   const dir = path.dirname(file);
-  for (const mod of ["productNormalisatie.js", "timetags.js", "gerechtFotos.js"]) {
+  for (const mod of ["productNormalisatie.js", "timetags.js", "gerechtFotos.js", "openFoodFacts.js"]) {
     const p = path.join(dir, mod);
     if (fs.existsSync(p)) vm.runInNewContext(fs.readFileSync(p, "utf8"), sandbox, { filename: p });
   }
