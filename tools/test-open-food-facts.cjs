@@ -20,6 +20,11 @@ const IMG = 'https://images.openfoodfacts.org/images/products/871/845/230/4653/f
 let fails = 0;
 const check = (name, ok) => { console.log((ok ? 'PASS' : 'FAIL') + ' - ' + name); if (!ok) fails++; };
 const tick = () => new Promise((r) => setTimeout(r, 0));
+// URL-assertions parsen via new URL (geen substring-checks op de hele URL; CodeQL-vriendelijk)
+const urlParts = (u) => {
+  try { const p = new URL(String(u)); return { host: p.hostname, path: p.pathname, q: p.searchParams.get('search_terms') || '' }; }
+  catch (e) { return { host: '', path: '', q: '' }; }
+};
 
 // ---------- fake in-memory IndexedDB (zelfde vorm als test-gerecht-fotos.cjs) ----------
 function makeFakeIDB() {
@@ -83,23 +88,27 @@ function makeFakeFetch(overrides) {
     const u = String(url);
     calls.push({ url: u, ua: opts && opts.headers && opts.headers['User-Agent'] });
     if (overrides.throw) throw new Error(overrides.throw);
-    if (u.indexOf('/api/v2/product/8718452304653.json') !== -1) {
+    const parts = urlParts(u);
+    const host = parts.host;
+    const path = parts.path;
+    const q = parts.q;
+    if (host === 'world.openfoodfacts.org' && path === '/api/v2/product/8718452304653.json') {
       return { ok: true, status: 200, text: async () => JSON.stringify(PRODUCT_JSON), blob: async () => ({ size: 1000, type: 'image/jpeg' }) };
     }
-    if (u.indexOf('/api/v2/product/') !== -1) {
+    if (host === 'world.openfoodfacts.org' && path.indexOf('/api/v2/product/') === 0) {
       return { ok: true, status: 200, text: async () => JSON.stringify({ status: 0 }), blob: async () => null };
     }
-    if (u.indexOf('/api/v2/search') !== -1) {
-      if (u.indexOf('20662929') !== -1) {
+    if (host === 'world.openfoodfacts.org' && path === '/api/v2/search') {
+      if (q === '20662929') {
         return { ok: true, status: 200, text: async () => JSON.stringify({ products: [
           PRODUCT_JSON.product,
           { code: '20662929', product_name: 'Duetti hazelnootpasta (Lidl)', brands: 'Lidl', image_front_url: IMG, nutriments: { fat_100g: 55 } },
         ] }), blob: async () => null };
       }
-      if (u.indexOf('xyzzyplugh') !== -1) return { ok: true, status: 200, text: async () => JSON.stringify({ products: [] }), blob: async () => null };
+      if (q === 'xyzzyplugh') return { ok: true, status: 200, text: async () => JSON.stringify({ products: [] }), blob: async () => null };
       return { ok: true, status: 200, text: async () => JSON.stringify({ products: [PRODUCT_JSON.product, { code: '8710400012345', product_name: 'Appelstroop (huismerk)', brands: 'Huismerk', nutriments: {} }] }), blob: async () => null };
     }
-    if (u.indexOf('images.openfoodfacts.org') !== -1) {
+    if (host === 'images.openfoodfacts.org') {
       return { ok: true, status: 200, text: async () => '', blob: async () => ({ size: 4321, type: 'image/jpeg' }) };
     }
     return { ok: false, status: 404, text: async () => 'not found', blob: async () => null };
@@ -188,7 +197,7 @@ async function main() {
     const ff = makeFakeFetch();
     const prod = await OFF.lookupEan('8718452304653', ff.f);
     check('#48: lookupEan via fake fetch -> geparseerd product', !!prod && prod.ean === '8718452304653' && prod.nutrition.perServing.energyKcal === 59);
-    check('#48: fetchJson stuurt beschrijvende User-Agent + Accept', ff.calls.length === 1 && ff.calls[0].ua === OFF.USER_AGENT && ff.calls[0].url.indexOf('https://world.openfoodfacts.org/api/v2/product/8718452304653.json') === 0);
+    check('#48: fetchJson stuurt beschrijvende User-Agent + Accept', ff.calls.length === 1 && ff.calls[0].ua === OFF.USER_AGENT && (() => { const p = urlParts(ff.calls[0].url); return p.host === 'world.openfoodfacts.org' && p.path === '/api/v2/product/8718452304653.json'; })());
     check('#48: lookupEan ongeldige EAN -> null zónder fetch', (await OFF.lookupEan('123', ff.f)) === null && ff.calls.length === 1);
     let threw = null;
     try { await OFF.fetchJson('https://evil.com/x', ff.f); } catch (e) { threw = e; }
@@ -200,7 +209,7 @@ async function main() {
     check('#48: HTTP-fout (429 rate limit) -> duidelijke fout', !!threw && /HTTP 429/.test(threw.message));
     const sf = makeFakeFetch();
     const res = await OFF.searchProducts('appelstroop', sf.f);
-    check('#48: searchProducts parseert resultatenlijst', res.length === 2 && res[0].ean === '8718452304653' && sf.calls[0].url.indexOf('/api/v2/search') !== -1 && sf.calls[0].url.indexOf('search_terms=appelstroop') !== -1);
+    check('#48: searchProducts parseert resultatenlijst', res.length === 2 && res[0].ean === '8718452304653' && (() => { const p = urlParts(sf.calls[0].url); return p.host === 'world.openfoodfacts.org' && p.path === '/api/v2/search' && p.q === 'appelstroop'; })());
     check('#48: searchProducts < 2 tekens -> [] zonder fetch', (await OFF.searchProducts('a', sf.f)).length === 0 && sf.calls.length === 1);
     const big = await OFF.searchProducts('xy', async () => ({ ok: true, status: 200, text: async () => JSON.stringify({ products: Array.from({ length: 20 }, (_, i) => ({ code: '1234567' + String(i).padStart(5, '0'), product_name: 'P' + i })) }) }));
     check('#48: searchResults begrensd tot page_size (' + OFF.SEARCH_PAGE_SIZE + ')', big.length === OFF.SEARCH_PAGE_SIZE);
@@ -278,7 +287,7 @@ async function main() {
     await tick(); await tick(); await tick();
     h = t.html();
     check('#48 UI: EAN-lookup -> resultaat "Jumbo Appelstroop 450 g" met Kies-knop', h.indexOf('Jumbo Appelstroop 450 g') !== -1 && !!t.btnByText('Kies'));
-    check('#48 UI: lookup alleen naar world.openfoodfacts.org met User-Agent', ff.calls.some((c) => c.url.indexOf('https://world.openfoodfacts.org/api/v2/product/8718452304653.json') === 0 && c.ua === OFF.USER_AGENT));
+    check('#48 UI: lookup alleen naar world.openfoodfacts.org met User-Agent', ff.calls.some((c) => c.ua === OFF.USER_AGENT && (() => { const p = urlParts(c.url); return p.host === 'world.openfoodfacts.org' && p.path === '/api/v2/product/8718452304653.json'; })()));
     check('#48 UI: geen restricted-EAN-8-waarschuwing bij EAN-13', h.indexOf('restricted circulation') === -1);
     check('#48 UI: resultaat-foto alleen via <img src> met OFF-allowlist', t.findAll((n) => n.type === 'img').every((n) => /^https:\/\/images\.openfoodfacts\.org\/images\/products\//.test(n.props.src || '') || /^blob:/.test(n.props.src || '')));
 
