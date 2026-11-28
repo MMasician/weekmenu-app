@@ -1,6 +1,6 @@
 /* Service worker: cache-first app shell zodat de geinstalleerde app volledig offline werkt.
    Bij een nieuwe release CACHE_VERSION ophogen. */
-const CACHE_VERSION = "weekmenu-app-v24"; // redesign: modulaire bron + i18n (ADR-022/023)
+const CACHE_VERSION = "weekmenu-app-v25"; // #48: Open Food Facts-module (src/openFoodFacts.js) in de app shell
 const sw = /** @type {ServiceWorkerGlobalScope} */ (/** @type {unknown} */ (self));
 const APP_SHELL = [
   "./",
@@ -11,6 +11,7 @@ const APP_SHELL = [
   "src/productNormalisatie.js",
   "src/timetags.js",
   "src/gerechtFotos.js",
+  "src/openFoodFacts.js",
   "vendor/react.min.js",
   "vendor/react-dom.min.js",
   "icons/icon-192.png",

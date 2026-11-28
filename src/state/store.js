@@ -10,7 +10,7 @@ import { THEME_META, normalizeSettings } from "../domain/settings.js";
 import { SHARE_BUNDLE, mergeShareBundle, shareStampArray, shareStampObject, shareStrip, shareTombs, shareTombsObject } from "../domain/share.js";
 import { defaultStock, normalizeExtras, normalizeLocations, normalizeStock } from "../domain/stock.js";
 import { loadState, migrateStored, newId, saveState } from "../domain/storage.js";
-import { GF, PN, TT } from "../lib/externals.js";
+import { GF, OFF, PN, TT } from "../lib/externals.js";
 
 export function useAppStore() {
   const stored = useMemo(() => migrateStored(loadState()), []);
@@ -103,6 +103,12 @@ export function useAppStore() {
   const [dishImgs, setDishImgs] = useState({});
   const [fotoFor, setFotoFor] = useState(null); // recept-id waarvoor de file-picker open is
   const [openDay, setOpenDay] = useState(null); // weekmenu: gelockte dag met open ingrediënt/bereiding-blok
+  // ---- issue #48: Open Food Facts-koppeling per product (EAN, fullName, voedingswaarden, foto) ----
+  const [prodImgs, setProdImgs] = useState({}); // ean -> objectURL (OFF-foto uit de gedeelde image-store, #60)
+  const [offLinkFor, setOffLinkFor] = useState(null); // product-id met open koppelen/zoeken-sheet
+  const [offDetailFor, setOffDetailFor] = useState(null); // product-id met open product-detail-sheet (EAN gekoppeld)
+  const [offDraft, setOffDraft] = useState({ ean: "", q: "", results: [], loading: false, error: null, restricted: false }); // werkstate koppelen/zoeken-sheet
+  const [offScanning, setOffScanning] = useState(false); // barcode-scanner actief (indien ondersteund)
 
   // ---- Delen via bestand (ADR-019): extra state ----
   // verwijderingsmarkeringen ("recipe:<id>" -> timestamp) zodat verwijderingen deelbaar zijn
@@ -371,6 +377,156 @@ export function useAppStore() {
     setFotoFor(null);
     if (e && e.target) e.target.value = "";
   }
+  // ---- issue #48: OFF-productgegevens (EAN lookup/zoek, voedingswaarden, foto-cache) ----
+  async function ensureProdFoto(ean) {
+    if (!GF || !ean || prodImgs[ean]) return;
+    try {
+      const rec = await GF.getProductImage(ean);
+      if (rec && rec.blob) setProdImgs((m) => ({ ...m, [ean]: URL.createObjectURL(rec.blob) }));
+    } catch (e) { /* IndexedDB niet beschikbaar -> geen foto's */ }
+  }
+  function openOffLink(pid) {
+    const p = pid && prodById[pid];
+    if (!p) return;
+    setOffDetailFor(null);
+    setOffLinkFor(pid);
+    setOffDraft({ ean: "", q: p.name || "", results: [], loading: false, error: null, restricted: false });
+  }
+  function openOffDetail(pid) {
+    const p = pid && prodById[pid];
+    if (!p || !p.ean) return;
+    setOffLinkFor(null);
+    setOffDetailFor(pid);
+    void ensureProdFoto(p.ean);
+  }
+  async function offLookup(ean) {
+    if (!OFF) return;
+    const code = OFF.cleanEan(ean);
+    if (!OFF.isEan(code)) {
+      setOffDraft((d) => ({ ...d, ean: code, results: [], error: t("Geen geldige EAN (8, 12 of 13 cijfers).") }));
+      return;
+    }
+    setOffDraft((d) => ({ ...d, ean: code, loading: true, error: null }));
+    try {
+      if (OFF.isRestrictedEan8(code)) {
+        // EAN-8 20-29 (restricted circulation, o.a. Lidl) is niet uniek: alle matches tonen ter desambiguatie
+        const results = await OFF.searchProducts(code);
+        setOffDraft((d) => ({ ...d, loading: false, results, restricted: true, error: results.length ? null : t("EAN {ean} niet gevonden bij Open Food Facts.", { ean: code }) }));
+      } else {
+        const prod = await OFF.lookupEan(code);
+        setOffDraft((d) => ({ ...d, loading: false, results: prod ? [prod] : [], restricted: false, error: prod ? null : t("EAN {ean} niet gevonden bij Open Food Facts.", { ean: code }) }));
+      }
+    } catch (err) {
+      setOffDraft((d) => ({ ...d, loading: false, error: t("Ophalen mislukt (offline of rate limit): {fout}", { fout: err && err.message ? err.message : String(err) }) }));
+    }
+  }
+  async function offSearch(q) {
+    if (!OFF) return;
+    const query = String(q || "").trim();
+    setOffDraft((d) => ({ ...d, q: query }));
+    if (query.length < 2) {
+      setOffDraft((d) => ({ ...d, results: [], error: null, loading: false }));
+      return;
+    }
+    setOffDraft((d) => ({ ...d, loading: true, error: null }));
+    try {
+      const results = await OFF.searchProducts(query);
+      setOffDraft((d) => ({ ...d, loading: false, results, error: results.length ? null : t("Geen resultaten — probeer een andere term of voer de EAN in.") }));
+    } catch (err) {
+      setOffDraft((d) => ({ ...d, loading: false, error: t("Ophalen mislukt (offline of rate limit): {fout}", { fout: err && err.message ? err.message : String(err) }) }));
+    }
+  }
+  async function offScan() {
+    // Barcode-scannen alleen als de browser BarcodeDetector + camera ondersteunt; anders handmatige EAN-invoer
+    const BD = typeof globalThis !== "undefined" ? globalThis.BarcodeDetector : null;
+    const media = typeof navigator !== "undefined" && navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === "function" ? navigator.mediaDevices : null;
+    if (!BD || !media || typeof document === "undefined" || !document.createElement) {
+      setOffDraft((d) => ({ ...d, error: t("Scannen wordt niet ondersteund op dit apparaat — voer de EAN handmatig in.") }));
+      return;
+    }
+    setOffScanning(true);
+    let stream = null;
+    try {
+      stream = await media.getUserMedia({ video: { facingMode: "environment" } });
+      const video = document.createElement("video");
+      video.srcObject = stream;
+      if (video.play) await video.play();
+      const det = new BD({ formats: ["ean_13", "ean_8", "code_128"] });
+      for (let i = 0; i < 200; i++) {
+        const codes = await det.detect(video);
+        const raw = codes && codes[0] && codes[0].rawValue;
+        if (raw) {
+          setOffScanning(false);
+          if (stream) stream.getTracks().forEach((tr) => tr.stop());
+          void offLookup(raw);
+          return;
+        }
+        await new Promise((r) => setTimeout(r, 250));
+      }
+      setOffDraft((d) => ({ ...d, error: t("Geen barcode herkend — voer de EAN handmatig in.") }));
+    } catch (err) {
+      setOffDraft((d) => ({ ...d, error: t("Scannen mislukt — voer de EAN handmatig in.") }));
+    } finally {
+      setOffScanning(false);
+      if (stream) stream.getTracks().forEach((tr) => tr.stop());
+    }
+  }
+  async function saveOffImage(ean, imageUrl) {
+    // OFF-foto ophalen (alleen images.openfoodfacts.org) en lokaal cachen in de gedeelde image-store (#60)
+    if (!imageUrl || !GF || !OFF) return;
+    try {
+      const blob = await OFF.downloadImage(imageUrl, null, 400);
+      if (!blob) return;
+      await GF.saveProductImage(ean, blob);
+      setProdImgs((m) => {
+        if (m[ean]) URL.revokeObjectURL(m[ean]);
+        return { ...m, [ean]: URL.createObjectURL(blob) };
+      });
+    } catch (e) { /* foto niet beschikbaar -> alleen de URL bewaren */ }
+  }
+  async function offPick(prod) {
+    const pid = offLinkFor;
+    const p = pid && prodById[pid];
+    if (!p || !prod || !prod.ean || !OFF) return;
+    const imageUrl = prod.imageUrl || p.offImageUrl || null;
+    await saveOffImage(prod.ean, imageUrl);
+    setProducts((ps) => ps.map((x) => (x.id === pid ? { ...x, ean: prod.ean, fullName: prod.fullName || x.fullName || null, nutrition: prod.nutrition || x.nutrition || null, offImageUrl: imageUrl } : x)));
+    setOffLinkFor(null);
+    setOffDraft({ ean: "", q: "", results: [], loading: false, error: null, restricted: false });
+    setPnToast({ msg: t("Product gekoppeld aan Open Food Facts: {naam}", { naam: prod.fullName || p.name }), canUndo: false });
+  }
+  async function offRefresh(pid) {
+    const p = pid && prodById[pid];
+    if (!p || !p.ean || !OFF) return;
+    setPnToast({ msg: t("Waarden opnieuw ophalen…"), canUndo: false });
+    try {
+      const prod = await OFF.lookupEan(p.ean);
+      if (!prod) {
+        setPnToast({ msg: t("EAN {ean} niet gevonden bij Open Food Facts.", { ean: p.ean }), canUndo: false });
+        return;
+      }
+      const imageUrl = prod.imageUrl || p.offImageUrl || null;
+      await saveOffImage(p.ean, imageUrl);
+      setProducts((ps) => ps.map((x) => (x.id === pid ? { ...x, fullName: prod.fullName || x.fullName || null, nutrition: prod.nutrition || x.nutrition || null, offImageUrl: imageUrl } : x)));
+      setPnToast({ msg: t("Waarden opgehaald en lokaal opgeslagen."), canUndo: false });
+    } catch (err) {
+      setPnToast({ msg: t("Ophalen mislukt (offline of rate limit): {fout}", { fout: err && err.message ? err.message : String(err) }), canUndo: false });
+    }
+  }
+  async function offUnlink(pid) {
+    const p = pid && prodById[pid];
+    if (!p) return;
+    if (p.ean && GF) { try { await GF.deleteProductImage(p.ean); } catch (e) { /* ignore */ } }
+    setProdImgs((m) => {
+      if (p.ean && m[p.ean]) URL.revokeObjectURL(m[p.ean]);
+      const n = { ...m };
+      if (p.ean) delete n[p.ean];
+      return n;
+    });
+    setProducts((ps) => ps.map((x) => (x.id === pid ? { ...x, ean: null, fullName: null, nutrition: null, offImageUrl: null } : x)));
+    setOffDetailFor(null);
+    setPnToast({ msg: t("Koppeling met Open Food Facts verwijderd."), canUndo: false });
+  }
   async function removeDishFoto(rid) {
     if (GF) { try { await GF.deleteDishImage(rid); } catch (e) { /* ignore */ } }
     setDishImgs((m) => {
@@ -383,6 +539,7 @@ export function useAppStore() {
   function openProdCard(rowKey, pid) {
     const p = prodById[pid];
     if (!p) return;
+    if (p.ean) void ensureProdFoto(p.ean); // #48: OFF-foto uit de lokale cache laden
     setOpenProd(openProd === rowKey ? null : rowKey);
     setProdEdit({ id: p.id, name: p.name, cat: p.cat, market: p.market, unit: p.unit, tags: p.tags || [], tagDraft: "", packAmount: p.pack ? String(p.pack.amount).replace(".", ",") : "", packUnit: p.pack ? p.pack.unit : "", timetagDraft: p.timetag && p.timetag.days ? String(p.timetag.days) : "0" }); // #37/#35/#58
   }
@@ -1414,6 +1571,6 @@ export function useAppStore() {
 
 
   return {
-    activeIngSuggest, activeMenuIds, activeSuggest, addCat, addExtraRowFn, addLocOpen, addLocation, addNewTag, addProdRow, addProdTag, addProductRow, addRecipe, addRecipeTag, addRecipeToWeek, addSheetOpen, addTagRule, allProductTags, allRuleTags, allTags, anyScaled, applyDeviation, applyImportReview, blockedByRules, buildShareName, bumpDeleted, bumpHave, bumpWant, byId, byLastEaten, calAnchor, calWeeks, catFilters, catMap, catOf, catOpen, catRank, catalog0, catsOpen, checked, checkedAt, clearRecipeFilters, commitDay, commitIngAmount, commitNewIngAmount, curWeekEnd, curWeekKeys, curWeekLabel, curWeekStart, dateSheetOpen, daySheetRecipe, dayTimetagMarks, days, deelChips, deelRapportLines, delenOpen, deleteLocation, deleteProduct, deleteProductCatalog, deleteRecipe, deleted, devPick, devTab, deviationKey, dishImgs, doMerge, doneItems, drafts, eatersOpen, editLoc, editRecipe, ensureDishFoto, ensureProduct, exportRecipes, exportShare, extraItems, extraSuggest, filterSheetOpen, filteredProducts, filteredRecipes, fishDays, fotoFor, generateMenu, goTab, hasRecipeFilters, haveOfProd, hiddenChecked, importRecipes, importReview, importShareFile, ingDrafts, ingFilter, ingQ, ingSuggest, infoOpen, instantProducts, isRowChecked, lastEaten, listRows, marketChip, marketOf, markets, maxShopDays, mealOk, mealStatus, mealWarn, menuByDate, mergeGroup, mergeKanjerId, moveCat, newCat, newExtra, newLocName, newProdRow, newRecipe, onDishFotoFile, openDay, openLocs, openMergeGroup, openProd, openProdCard, openRecipe, openSuggest, otherDays, pickDishFoto, pnBadgeMap, pnDupGroups, pnRecipesToMain, pnToast, pq, prepareImport, processChecked, prodById, prodByKey, prodEdit, prodOfLabel, prodQuery, prodRowSuggest, products, productsOf, recipeInfoOpen, recipeQuery, recipeSort, recipes, removeCat, removeDishFoto, removeProdTag, removeRecipeTag, removeTagRule, resetRecipes, resolveIng, resolveNewIng, reviewImport, rowVisible, rq, ruleDraft, rulesSheetOpen, safeExternalUrl, saveProductEdit, scaledFactors, scopeKeys, selectIngProduct, selectNewIngProduct, selectRecipe, setActiveIngSuggest, setActiveSuggest, setAddLocOpen, setAddProdRow, setAddSheetOpen, setCatFilters, setCatOpen, setCatsOpen, setChecked, setCheckedAtRaw, setCheckedRaw, setDateSheetOpen, setDay, setDaySheetRecipe, setDeelChips, setDelenOpen, setDeletedRaw, setDevPick, setDevTab, setDeviationKey, setDishImgs, setDrafts, setEaters, setEatersOpen, setEditLoc, setEditRecipe, setExtraItems, setExtraItemsRaw, setExtraSuggest, setFilterSheetOpen, setFotoFor, setHiddenChecked, setImportReview, setIngAmount, setIngDrafts, setIngFilter, setIngSuggest, setIngTags, setIngUnit, setInfoOpen, setMenuByDate, setMenuByDateRaw, setMergeGroup, setMergeKanjerId, setNewCat, setNewExtra, setNewIngAmount, setNewIngUnit, setNewLocName, setNewProdRow, setNewRecipe, setOpenDay, setOpenLocs, setOpenProd, setOpenRecipe, setOpenSuggest, setPnToast, setProdEdit, setProdQuery, setProdRowSuggest, setProducts, setProductsRaw, setRecipeInfoOpen, setRecipeQuery, setRecipeSort, setRecipes, setRecipesRaw, setRuleDraft, setRulesSheetOpen, setSettings, setSettingsRaw, setShareToast, setShopDays, setShopDone, setShopInfoOpen, setShopMarkets, setShowChecked, setSortMenuOpen, setStock, setStockInfoOpen, setStockLocations, setStockLocationsRaw, setStockRaw, setTab, setTagDraft, setTagFilters, setTagRuleDays, setTimeFilter, setUndoStack, setWeekOffset, setWeekToast, settings, shareToast, shopCats, shopDays, shopDaysEff, shopDone, shopInfoOpen, shopMarkets, shopMarketsEff, shoppingRows, showChecked, showFlatList, sortLast, sortMenuOpen, sortRowsByCat, stock, stockInfoOpen, stockLocations, stockShort, stored, tab, tagCounts, tagDraft, tagFilters, timeFilter, todayDayIdx, todayKey, todayLabel, toggleLoc, toggleTagFilter, topTags, totalItems, ttCtx, undoMerge, undoStack, unfilteredCount, updateMarket, updateRecipe, updateSettings, updateTakeawayLink, usageCount, vegaCount, visibleRows, weekEnd, weekEntries, weekKeys, weekLabel, weekOffset, weekStart, weekToast
+    activeIngSuggest, activeMenuIds, activeSuggest, addCat, addExtraRowFn, addLocOpen, addLocation, addNewTag, addProdRow, addProdTag, addProductRow, addRecipe, addRecipeTag, addRecipeToWeek, addSheetOpen, addTagRule, allProductTags, allRuleTags, allTags, anyScaled, applyDeviation, applyImportReview, blockedByRules, buildShareName, bumpDeleted, bumpHave, bumpWant, byId, byLastEaten, calAnchor, calWeeks, catFilters, catMap, catOf, catOpen, catRank, catalog0, catsOpen, checked, checkedAt, clearRecipeFilters, commitDay, commitIngAmount, commitNewIngAmount, curWeekEnd, curWeekKeys, curWeekLabel, curWeekStart, dateSheetOpen, daySheetRecipe, dayTimetagMarks, days, deelChips, deelRapportLines, delenOpen, deleteLocation, deleteProduct, deleteProductCatalog, deleteRecipe, deleted, devPick, devTab, deviationKey, dishImgs, doMerge, doneItems, drafts, eatersOpen, editLoc, editRecipe, ensureDishFoto, ensureProdFoto, ensureProduct, exportRecipes, exportShare, extraItems, extraSuggest, filterSheetOpen, filteredProducts, filteredRecipes, fishDays, fotoFor, generateMenu, goTab, hasRecipeFilters, haveOfProd, hiddenChecked, importRecipes, importReview, importShareFile, ingDrafts, ingFilter, ingQ, ingSuggest, infoOpen, instantProducts, isRowChecked, lastEaten, listRows, marketChip, marketOf, markets, maxShopDays, mealOk, mealStatus, mealWarn, menuByDate, mergeGroup, mergeKanjerId, moveCat, newCat, newExtra, newLocName, newProdRow, newRecipe, offDetailFor, offDraft, offLinkFor, offLookup, offPick, offRefresh, offScan, offScanning, offSearch, offUnlink, onDishFotoFile, openDay, openLocs, openMergeGroup, openOffDetail, openOffLink, openProd, openProdCard, openRecipe, openSuggest, otherDays, pickDishFoto, pnBadgeMap, pnDupGroups, pnRecipesToMain, pnToast, pq, prepareImport, processChecked, prodById, prodByKey, prodEdit, prodImgs, prodOfLabel, prodQuery, prodRowSuggest, products, productsOf, recipeInfoOpen, recipeQuery, recipeSort, recipes, removeCat, removeDishFoto, removeProdTag, removeRecipeTag, removeTagRule, resetRecipes, resolveIng, resolveNewIng, reviewImport, rowVisible, rq, ruleDraft, rulesSheetOpen, safeExternalUrl, saveProductEdit, scaledFactors, scopeKeys, selectIngProduct, selectNewIngProduct, selectRecipe, setActiveIngSuggest, setActiveSuggest, setAddLocOpen, setAddProdRow, setAddSheetOpen, setCatFilters, setCatOpen, setCatsOpen, setChecked, setCheckedAtRaw, setCheckedRaw, setDateSheetOpen, setDay, setDaySheetRecipe, setDeelChips, setDelenOpen, setDeletedRaw, setDevPick, setDevTab, setDeviationKey, setDishImgs, setDrafts, setEaters, setEatersOpen, setEditLoc, setEditRecipe, setExtraItems, setExtraItemsRaw, setExtraSuggest, setFilterSheetOpen, setFotoFor, setHiddenChecked, setImportReview, setIngAmount, setIngDrafts, setIngFilter, setIngSuggest, setIngTags, setIngUnit, setInfoOpen, setMenuByDate, setMenuByDateRaw, setMergeGroup, setMergeKanjerId, setNewCat, setNewExtra, setNewIngAmount, setNewIngUnit, setNewLocName, setNewProdRow, setNewRecipe, setOffDetailFor, setOffDraft, setOffLinkFor, setOffScanning, setOpenDay, setOpenLocs, setOpenProd, setOpenRecipe, setOpenSuggest, setPnToast, setProdEdit, setProdQuery, setProdRowSuggest, setProducts, setProductsRaw, setRecipeInfoOpen, setRecipeQuery, setRecipeSort, setRecipes, setRecipesRaw, setRuleDraft, setRulesSheetOpen, setSettings, setSettingsRaw, setShareToast, setShopDays, setShopDone, setShopInfoOpen, setShopMarkets, setShowChecked, setSortMenuOpen, setStock, setStockInfoOpen, setStockLocations, setStockLocationsRaw, setStockRaw, setTab, setTagDraft, setTagFilters, setTagRuleDays, setTimeFilter, setUndoStack, setWeekOffset, setWeekToast, settings, shareToast, shopCats, shopDays, shopDaysEff, shopDone, shopInfoOpen, shopMarkets, shopMarketsEff, shoppingRows, showChecked, showFlatList, sortLast, sortMenuOpen, sortRowsByCat, stock, stockInfoOpen, stockLocations, stockShort, stored, tab, tagCounts, tagDraft, tagFilters, timeFilter, todayDayIdx, todayKey, todayLabel, toggleLoc, toggleTagFilter, topTags, totalItems, ttCtx, undoMerge, undoStack, unfilteredCount, updateMarket, updateRecipe, updateSettings, updateTakeawayLink, usageCount, vegaCount, visibleRows, weekEnd, weekEntries, weekKeys, weekLabel, weekOffset, weekStart, weekToast
   };
 }
