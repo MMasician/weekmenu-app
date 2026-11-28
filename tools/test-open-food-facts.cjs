@@ -86,7 +86,7 @@ function makeFakeFetch(overrides) {
   const calls = [];
   const f = async (url, opts) => {
     const u = String(url);
-    calls.push({ url: u, ua: opts && opts.headers && opts.headers['User-Agent'] });
+    calls.push({ url: u, ua: opts && opts.headers && opts.headers['User-Agent'], cache: opts && opts.cache });
     if (overrides.throw) throw new Error(overrides.throw);
     const parts = urlParts(u);
     const host = parts.host;
@@ -106,6 +106,14 @@ function makeFakeFetch(overrides) {
         ] }), blob: async () => null };
       }
       if (q === 'xyzzyplugh') return { ok: true, status: 200, text: async () => JSON.stringify({ products: [] }), blob: async () => null };
+      if (q === 'appel') {
+        // gemengde lijst: alleen de appelstroop-treffer mag door het naamfilter heen
+        return { ok: true, status: 200, text: async () => JSON.stringify({ products: [PRODUCT_JSON.product, { code: '3017620422003', product_name: 'Cristaline water 1,5 L', brands: 'Cristaline', nutriments: {} }] }), blob: async () => null };
+      }
+      if (q === 'app') {
+        await new Promise((r) => setTimeout(r, 30)); // traag antwoord -> test voor verouderde responses
+        return { ok: true, status: 200, text: async () => JSON.stringify({ products: [{ code: '3017620422003', product_name: 'Cristaline water 1,5 L', brands: 'Cristaline', nutriments: {} }] }), blob: async () => null };
+      }
       return { ok: true, status: 200, text: async () => JSON.stringify({ products: [PRODUCT_JSON.product, { code: '8710400012345', product_name: 'Appelstroop (huismerk)', brands: 'Huismerk', nutriments: {} }] }), blob: async () => null };
     }
     if (host === 'images.openfoodfacts.org') {
@@ -198,6 +206,7 @@ async function main() {
     const prod = await OFF.lookupEan('8718452304653', ff.f);
     check('#48: lookupEan via fake fetch -> geparseerd product', !!prod && prod.ean === '8718452304653' && prod.nutrition.perServing.energyKcal === 59);
     check('#48: fetchJson stuurt beschrijvende User-Agent + Accept', ff.calls.length === 1 && ff.calls[0].ua === OFF.USER_AGENT && (() => { const p = urlParts(ff.calls[0].url); return p.host === 'world.openfoodfacts.org' && p.path === '/api/v2/product/8718452304653.json'; })());
+    check('#48: fetchJson gebruikt cache no-store (zoekopdrachten via query-params nooit uit HTTP-cache)', ff.calls[0].cache === 'no-store');
     check('#48: lookupEan ongeldige EAN -> null zónder fetch', (await OFF.lookupEan('123', ff.f)) === null && ff.calls.length === 1);
     let threw = null;
     try { await OFF.fetchJson('https://evil.com/x', ff.f); } catch (e) { threw = e; }
@@ -260,11 +269,15 @@ async function main() {
     check('#48 UI: zonder EAN: badge "geen EAN gekoppeld" + knop "EAN koppelen / zoeken"', h.indexOf('geen EAN gekoppeld') !== -1 && !!t.btnByText('EAN koppelen / zoeken'));
     check('#48 UI: bron/info-tekst in de kaart (Open Food Facts)', h.indexOf('Via Open Food Facts') !== -1);
 
-    // koppelen/zoeken-sheet openen
+    // koppelen/zoeken-sheet openen (zoekveld vooringevuld met productnaam -> direct auto-zoek)
     t.btnByText('EAN koppelen / zoeken').props.onClick();
+    await tick(); await tick(); await tick();
     h = t.html();
     check('#48 UI: sheet EAN koppelen / zoeken met productnaam + categorie', h.indexOf('EAN koppelen / zoeken') !== -1 && h.indexOf('appelstroop') !== -1 && h.indexOf('broodbeleg') !== -1);
     check('#48 UI: EAN-invoerveld + scan-knop + zoekveld + bronvermelding onderaan', !!t.inputByPlaceholder('EAN invoeren') && !!t.btnByText('scan') && h.indexOf('of zoek op productnaam') !== -1 && h.indexOf('Bron: Open Food Facts') !== -1 && h.indexOf('CC BY-SA 3.0') !== -1);
+    check('#48 UI: bij openen direct automatische zoekopdracht op de productnaam (resultaten direct zichtbaar)', h.indexOf('Jumbo Appelstroop 450 g') !== -1 && t.btnsByText('Kies').length === 2);
+    const callsAtOpen = ff.calls.length;
+    check('#48 UI: auto-zoek gaat naar /api/v2/search met search_terms=appelstroop (per query, no-store)', callsAtOpen >= 1 && (() => { const p = urlParts(ff.calls[callsAtOpen - 1].url); return p.host === 'world.openfoodfacts.org' && p.path === '/api/v2/search' && p.q === 'appelstroop' && ff.calls[callsAtOpen - 1].cache === 'no-store'; })());
 
     // scan zonder BarcodeDetector -> fallback-melding (handmatige invoer)
     t.btnByText('scan').props.onClick();
@@ -277,7 +290,7 @@ async function main() {
     eanInput = t.inputByPlaceholder('EAN invoeren');
     eanInput.props.onKeyDown({ key: 'Enter', preventDefault() {} });
     await tick(); await tick();
-    check('#48 UI: ongeldige EAN -> "Geen geldige EAN (8, 12 of 13 cijfers)."', t.html().indexOf('Geen geldige EAN') !== -1 && ff.calls.length === 0);
+    check('#48 UI: ongeldige EAN -> "Geen geldige EAN (8, 12 of 13 cijfers)." (geen extra fetch-call)', t.html().indexOf('Geen geldige EAN') !== -1 && ff.calls.length === callsAtOpen);
 
     // geldige EAN -> lookup -> 1 resultaat met Kies
     eanInput = t.inputByPlaceholder('EAN invoeren');
@@ -326,6 +339,7 @@ async function main() {
     // restricted EAN-8 (20-29) op p2 -> multi-match warning + alle matches
     check('#48 UI: tweede product (bloemkool) openen', openProductCard(t, 'bloemkool'));
     t.btnByText('EAN koppelen / zoeken').props.onClick();
+    await tick(); await tick(); await tick(); // auto-zoek op 'bloemkool' eerst laten afronden
     eanInput = t.inputByPlaceholder('EAN invoeren');
     eanInput.props.onChange({ target: { value: '20662929' } });
     eanInput = t.inputByPlaceholder('EAN invoeren');
@@ -351,6 +365,23 @@ async function main() {
     qInput2.props.onChange({ target: { value: 'appelstroop' } });
     await tick(); await tick(); await tick();
     check('#48 UI: zoeken op naam -> OFF-resultaten met Kies (merkloos basisproduct: generieke entries)', t.btnsByText('Kies').length === 2 && t.html().indexOf('Appelstroop (huismerk)') !== -1);
+
+    // de naam werkt als filter: 'appel' -> alleen treffers met 'appel' in naam/merk (Cristaline valt af)
+    const qInput3 = t.findAll((n) => n.type === 'input' && !n.props.placeholder && n.props.autoCapitalize === 'none')[0];
+    qInput3.props.onChange({ target: { value: 'appel' } });
+    await tick(); await tick(); await tick();
+    h = t.html();
+    check('#48 UI: zoekterm filtert op naam/merk ("appel" -> Jumbo Appelstroop, géén Cristaline)', h.indexOf('Jumbo Appelstroop 450 g') !== -1 && h.indexOf('Cristaline') === -1 && t.btnsByText('Kies').length === 1);
+
+    // verouderd antwoord (traag 'app'-request) wordt niet toegepast als de query inmiddels is gewijzigd
+    const qInput4 = t.findAll((n) => n.type === 'input' && !n.props.placeholder && n.props.autoCapitalize === 'none')[0];
+    qInput4.props.onChange({ target: { value: 'app' } });
+    await tick();
+    const qInput5 = t.findAll((n) => n.type === 'input' && !n.props.placeholder && n.props.autoCapitalize === 'none')[0];
+    qInput5.props.onChange({ target: { value: 'appelstroop' } });
+    await new Promise((r) => setTimeout(r, 60)); // trage 'app'-response is inmiddels binnen
+    h = t.html();
+    check('#48 UI: verouderd zoekantwoord van een andere query wordt genegeerd (geen Cristaline)', h.indexOf('Jumbo Appelstroop 450 g') !== -1 && h.indexOf('Cristaline') === -1);
   }
 
   // ================= 10. offline/geen fetch: duidelijke fout, geen crash =================
@@ -358,6 +389,7 @@ async function main() {
     const t = makeApp(SEED, { indexedDB: makeFakeIDB(), URL: { createObjectURL: () => 'blob:x', revokeObjectURL() {} } }); // géén fetch in sandbox
     openProductCard(t, 'appelstroop');
     t.btnByText('EAN koppelen / zoeken').props.onClick();
+    await tick(); await tick(); await tick(); // auto-zoek zonder fetch -> offline-melding
     const eanInput = t.inputByPlaceholder('EAN invoeren');
     eanInput.props.onChange({ target: { value: '8718452304653' } });
     const eanInput2 = t.inputByPlaceholder('EAN invoeren');
@@ -398,6 +430,14 @@ async function main() {
       .replace(/\/\*[\s\S]*?\*\//g, '') // comments weg, dan alleen echte code controleren
       .replace(/\/\/[^\n]*/g, '');
     check('#48 security: geen innerHTML / dangerouslySetInnerHTML / eval / new Function in UI-store-OFF-code', !/innerHTML|dangerouslySetInnerHTML|\beval\s*\(|new\s+Function/.test(src));
+  }
+
+  // ================= 13. service worker: cross-origin API-calls (OFF) nooit uit de app-shell-cache =================
+  {
+    const swSrc = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
+    const guardIdx = swSrc.indexOf('origin !== self.location.origin');
+    const respondIdx = swSrc.indexOf('respondWith');
+    check('#48 sw.js: cross-origin requests (bv. OFF search met query-params) gaan áltijd naar het netwerk, vóór de cache-match', guardIdx !== -1 && respondIdx !== -1 && guardIdx < respondIdx && /caches\.match\(event\.request, \{ ignoreSearch: true \}\)/.test(swSrc));
   }
 
   console.log(fails === 0 ? '\nALLE OPEN-FOOD-FACTS-TESTS GESLAAGD' : `\n${fails} TEST(S) GEFAALD`);

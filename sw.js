@@ -1,6 +1,6 @@
 /* Service worker: cache-first app shell zodat de geinstalleerde app volledig offline werkt.
    Bij een nieuwe release CACHE_VERSION ophogen. */
-const CACHE_VERSION = "weekmenu-app-v26"; // #60 v2 foto-weergave + #48: Open Food Facts-module (src/openFoodFacts.js) in de app shell
+const CACHE_VERSION = "weekmenu-app-v27"; // #48-fix: cross-origin API-calls (Open Food Facts) niet meer uit de app-shell-cache bedienen
 const sw = /** @type {ServiceWorkerGlobalScope} */ (/** @type {unknown} */ (self));
 const APP_SHELL = [
   "./",
@@ -35,6 +35,11 @@ sw.addEventListener("activate", (event) => {
 
 sw.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+  // Alleen same-origin (app shell) wordt uit de cache bediend. Cross-origin requests
+  // (bv. Open Food Facts API met query-parameters) gaan áltijd naar het netwerk:
+  // met ignoreSearch zou de eerste search-response voor élke query worden hergebruikt.
+  const reqUrl = new URL(event.request.url);
+  if (reqUrl.origin !== self.location.origin) return;
   event.respondWith(
     caches.match(event.request, { ignoreSearch: true }).then((cached) => {
       if (cached) return cached;

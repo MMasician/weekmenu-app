@@ -46,8 +46,18 @@ wordt genuanceerd: publieke, keyless data ophalen is toegestaan; privé-data bli
 5. **Foutafhandeling**: ongeldige EAN, onbekend product (status 0), lege zoekresultaten,
    netwerkfout/rate-limit (HTTP-fout) → duidelijke melding in de sheet met mogelijkheid tot
    handmatige invoer/andere zoekterm; offline zonder cache → melding, geen crash.
-6. **Cache-bumps**: `CACHE_VERSION` → `weekmenu-app-v26` in `sw.js` (incl. `src/openFoodFacts.js`
-   in APP_SHELL) en `?v=26` in `index.html`.
+6. **Cache-bumps**: `CACHE_VERSION` → `weekmenu-app-v27` in `sw.js` (incl. `src/openFoodFacts.js`
+   in APP_SHELL) en `?v=27` in `index.html`.
+7. **Service worker**: bedient alleen same-origin requests uit de app-shell-cache. Cross-origin
+   OFF-calls (API mét query-parameters) gaan altijd naar het netwerk; de client stuurt
+   `cache: "no-store"`. Reden: met `ignoreSearch: true` zou de SW de eerste search-response
+   voor élke zoekopdracht hergebruiken (gemeld als bug: "altijd dezelfde lijst"). De
+   offline-cache van productgegevens (ean/fullName/nutrition in localStorage, foto in
+   IndexedDB) zit bewust niet in de SW.
+8. **Eén bron, geen kiezer**: gegevens komen álleen van Open Food Facts — ook voor
+   winkel-/huismerken (Jumbo/Lidl-producten staan in OFF; er zijn geen publieke
+   per-winkel-API's). Per product één snelle call; daarna lokaal gecachet en offline
+   beschikbaar. Een bronkiezer is daarom niet zinnig.
 
 ## Gevolgen
 + Per productkoppeling is éénmalig een publieke lookup nodig; daarna lokaal (localStorage +

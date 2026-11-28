@@ -124,7 +124,9 @@
     if (!safe) throw new Error('URL niet toegestaan: ' + String(url).slice(0, 80));
     const f = fetchImpl || (typeof fetch !== 'undefined' ? fetch.bind(globalThis) : null);
     if (!f) throw new Error('offline: geen fetch beschikbaar');
-    const res = await f(safe, { headers: { 'User-Agent': USER_AGENT, 'Accept': 'application/json' } });
+    // cache: 'no-store' — zoekopdrachten hebben query-parameters; de HTTP-cache mag
+    // nooit een oudere search-response voor een andere query teruggeven (#48-fix)
+    const res = await f(safe, { headers: { 'User-Agent': USER_AGENT, 'Accept': 'application/json' }, cache: 'no-store' });
     if (!res || !res.ok) throw new Error('HTTP ' + (res && res.status));
     const text = await res.text();
     return JSON.parse(text);

@@ -463,6 +463,7 @@ function useAppStore() {
     setOffDetailFor(null);
     setOffLinkFor(pid);
     setOffDraft({ ean: "", q: p.name || "", results: [], loading: false, error: null, restricted: false });
+    void offSearch(p.name); // zoekveld is vooringevuld met de productnaam -> direct resultaten tonen
   }
   function openOffDetail(pid) {
     const p = pid && prodById[pid];
@@ -483,13 +484,13 @@ function useAppStore() {
       if (OFF.isRestrictedEan8(code)) {
         // EAN-8 20-29 (restricted circulation, o.a. Lidl) is niet uniek: alle matches tonen ter desambiguatie
         const results = await OFF.searchProducts(code);
-        setOffDraft((d) => ({ ...d, loading: false, results, restricted: true, error: results.length ? null : t("EAN {ean} niet gevonden bij Open Food Facts.", { ean: code }) }));
+        setOffDraft((d) => (d.ean === code ? { ...d, loading: false, results, restricted: true, error: results.length ? null : t("EAN {ean} niet gevonden bij Open Food Facts.", { ean: code }) } : d)); // verouderd antwoord negeren
       } else {
         const prod = await OFF.lookupEan(code);
-        setOffDraft((d) => ({ ...d, loading: false, results: prod ? [prod] : [], restricted: false, error: prod ? null : t("EAN {ean} niet gevonden bij Open Food Facts.", { ean: code }) }));
+        setOffDraft((d) => (d.ean === code ? { ...d, loading: false, results: prod ? [prod] : [], restricted: false, error: prod ? null : t("EAN {ean} niet gevonden bij Open Food Facts.", { ean: code }) } : d));
       }
     } catch (err) {
-      setOffDraft((d) => ({ ...d, loading: false, error: t("Ophalen mislukt (offline of rate limit): {fout}", { fout: err && err.message ? err.message : String(err) }) }));
+      setOffDraft((d) => (d.ean === code ? { ...d, loading: false, error: t("Ophalen mislukt (offline of rate limit): {fout}", { fout: err && err.message ? err.message : String(err) }) } : d));
     }
   }
   async function offSearch(q) {
@@ -503,9 +504,16 @@ function useAppStore() {
     setOffDraft((d) => ({ ...d, loading: true, error: null }));
     try {
       const results = await OFF.searchProducts(query);
-      setOffDraft((d) => ({ ...d, loading: false, results, error: results.length ? null : t("Geen resultaten — probeer een andere term of voer de EAN in.") }));
+      setOffDraft((d) => {
+        if (d.q !== query) return d; // bij elke letter een request: alleen het nieuwste query-antwoord toepassen
+        // de naam werkt als filter: alleen treffers met de zoekterm in naam/merk; bij geen treffer de OFF-lijst tonen
+        const ql = query.toLowerCase();
+        const gefilterd = results.filter((r) => `${r.fullName || ""} ${r.brand || ""}`.toLowerCase().includes(ql));
+        const shown = gefilterd.length ? gefilterd : results;
+        return { ...d, loading: false, results: shown, error: results.length ? null : t("Geen resultaten — probeer een andere term of voer de EAN in.") };
+      });
     } catch (err) {
-      setOffDraft((d) => ({ ...d, loading: false, error: t("Ophalen mislukt (offline of rate limit): {fout}", { fout: err && err.message ? err.message : String(err) }) }));
+      setOffDraft((d) => (d.q === query ? { ...d, loading: false, error: t("Ophalen mislukt (offline of rate limit): {fout}", { fout: err && err.message ? err.message : String(err) }) } : d));
     }
   }
   async function offScan() {
