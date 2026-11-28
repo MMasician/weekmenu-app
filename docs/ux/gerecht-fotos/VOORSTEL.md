@@ -19,4 +19,4 @@ Owner-feedback: de v1-mocks hielden geen rekening met de huidige app (andere hui
 - `v2-03-gerecht-detail-edit-akkoord-in-bestaande-app.svg` — gerechtdetail edit versie B (akkoord, foto-wijziging): compacte foto met overlay-knop ín de foto ("📷 Vervangen"); de overige edit-layout (naam, categorie, bereidingstijd, tags, ingrediënten, bereiding) blijft ongewijzigd; edit-mode alleen vanuit de receptentab.
 - `v2-04-camera-akkoord-in-bestaande-app.svg` — camera versie A (akkoord): foto maken/kiezen, resize max 1024px JPEG q0,8 ≤2MB naar de lokale IndexedDB image-store.
 
-Na owner-akkoord op deze v2-mocks volgt implementatie (aanpassen van de huidige gerecht-foto-weergave hierop) in een aparte PR.
+Na owner-akkoord op deze v2-mocks is de implementatie doorgevoerd in deze PR: dagkaart-thumbnail 44px (foto of 📷-placeholder), readonly compacte 96px foto zonder knoppen, edit-mode compacte foto met overlay-knop "📷 Vervangen" ín de foto (+ ✕ verwijderen op de foto).

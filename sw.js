@@ -1,6 +1,6 @@
 /* Service worker: cache-first app shell zodat de geinstalleerde app volledig offline werkt.
    Bij een nieuwe release CACHE_VERSION ophogen. */
-const CACHE_VERSION = "weekmenu-app-v24"; // redesign: modulaire bron + i18n (ADR-022/023)
+const CACHE_VERSION = "weekmenu-app-v25"; // #60 v2: dagkaart-thumbnails, readonly/edit foto-weergave volgens akkoord
 const sw = /** @type {ServiceWorkerGlobalScope} */ (/** @type {unknown} */ (self));
 const APP_SHELL = [
   "./",
